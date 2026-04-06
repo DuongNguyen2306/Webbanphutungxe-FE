@@ -14,7 +14,8 @@ export const PART_TYPES = [
 
 export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 
-export const PRICE_SLIDER_MIN = 50_000
+/** Tối thiểu 0 để SP giá thấp / 0đ (mặc định biến thể) không bị lọc mất */
+export const PRICE_SLIDER_MIN = 0
 export const PRICE_SLIDER_MAX = 5_000_000
 
 export function createDefaultFilterState() {

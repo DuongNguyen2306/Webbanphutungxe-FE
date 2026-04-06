@@ -20,11 +20,14 @@ export const BRANDS = {
 /**
  * @typedef {Object} ProductVariant
  * @property {string} id
- * @property {string} label
+ * @property {string} label — ghép typeName, color, size
  * @property {number} salePrice
  * @property {number|null} originalPrice
  * @property {boolean} available
- * @property {string} [image]
+ * @property {string[]|undefined} [images] — gallery riêng biến thể (API)
+ * @property {string} [typeName]
+ * @property {string} [color]
+ * @property {string} [size]
  */
 
 /**

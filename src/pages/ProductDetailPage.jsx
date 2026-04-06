@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ChevronLeft,
@@ -10,11 +10,13 @@ import {
   Check,
   MessageCircle,
 } from 'lucide-react'
-import { getProductById, SHOP_ZALO_URL } from '../data/products'
+import { SHOP_ZALO_URL } from '../data/products'
 import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
 import { formatVnd } from '../utils/format'
 import { useCart } from '../context/CartContext'
+import { useProductDetail } from '../hooks/useProductDetail'
+import { ProductReviewsSection } from '../components/ProductReviewsSection'
 
 function StarRow({ value = 0 }) {
   const full = Math.floor(value)
@@ -27,7 +29,7 @@ function StarRow({ value = 0 }) {
   )
 }
 
-function ProductDetailBody({ product, addItem, navigate }) {
+function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
   const [variantId, setVariantId] = useState(() => {
     const first = product.variants.find((v) => v.available)
     return (first ?? product.variants[0]).id
@@ -42,8 +44,23 @@ function ProductDetailBody({ product, addItem, navigate }) {
     )
   }, [product, variantId])
 
-  const images = product.images?.length ? product.images : [product.image]
-  const mainSrc = variant?.image ?? images[Math.min(imgIdx, images.length - 1)]
+  /** Gallery: variant.images nếu có; không thì product.images (fallback) */
+  const galleryImages = useMemo(() => {
+    const vImgs = (variant?.images ?? []).filter(Boolean)
+    if (vImgs.length > 0) return vImgs
+    const pImgs = (product.images ?? []).filter(Boolean)
+    if (pImgs.length > 0) return pImgs
+    return product.image ? [product.image] : []
+  }, [variant, product])
+
+  useEffect(() => {
+    setImgIdx(0)
+  }, [variantId])
+
+  const mainSrc =
+    galleryImages.length > 0
+      ? galleryImages[Math.min(imgIdx, galleryImages.length - 1)]
+      : ''
 
   const original = variant?.originalPrice ?? product.originalPrice
   const sale = variant?.salePrice ?? product.salePrice
@@ -67,9 +84,15 @@ function ProductDetailBody({ product, addItem, navigate }) {
       productId: product.id,
       variantId: variant.id,
       quantity: qty,
-      name: `${product.name} — ${variant.label}`,
+      name: product.name,
+      variantLabel: variant.label,
       salePrice: variant.salePrice,
-      image: product.image,
+      image:
+        variant.images?.[0] ??
+        product.images?.[0] ??
+        product.image ??
+        '',
+      mongoOk,
     })
   }
 
@@ -79,6 +102,7 @@ function ProductDetailBody({ product, addItem, navigate }) {
   }
 
   return (
+    <>
     <main className="mx-auto max-w-[1200px] px-3 py-4 sm:px-4 lg:py-8">
       <nav className="mb-4 flex flex-wrap gap-1 text-[11px] text-gray-400 sm:text-xs">
         <Link to="/" className="hover:text-brand">
@@ -93,11 +117,17 @@ function ProductDetailBody({ product, addItem, navigate }) {
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
         <div>
           <div className="relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50">
-            <img
-              src={mainSrc}
-              alt=""
-              className={`h-full w-full object-cover ${!available ? 'opacity-50 grayscale' : ''}`}
-            />
+            {mainSrc ? (
+              <img
+                src={mainSrc}
+                alt=""
+                className={`h-full w-full object-cover ${!available ? 'opacity-50 grayscale' : ''}`}
+              />
+            ) : (
+              <div className="flex h-full min-h-[200px] items-center justify-center px-4 text-center text-sm text-gray-400">
+                Chưa có ảnh
+              </div>
+            )}
           </div>
           <div className="relative mt-3">
             <button
@@ -120,7 +150,7 @@ function ProductDetailBody({ product, addItem, navigate }) {
               id="pdp-thumbs"
               className="flex gap-2 overflow-x-auto scroll-smooth px-0 sm:px-8 [scrollbar-width:thin]"
             >
-              {images.map((src, i) => (
+              {galleryImages.map((src, i) => (
                 <button
                   key={`${src}-${i}`}
                   type="button"
@@ -306,6 +336,12 @@ function ProductDetailBody({ product, addItem, navigate }) {
         </div>
       </div>
     </main>
+    <ProductReviewsSection
+      productId={product.id}
+      variantId={variant?.id}
+      variantLabel={variant?.label ?? ''}
+    />
+    </>
   )
 }
 
@@ -313,11 +349,25 @@ export function ProductDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addItem } = useCart()
-
-  const product = useMemo(() => getProductById(id ?? ''), [id])
+  const { product, loading, fromApi, error: productError } = useProductDetail(id)
 
   const [search, setSearch] = useState('')
   const [brandFilter, setBrandFilter] = useState('all')
+
+  if (loading) {
+    return (
+      <div className="min-h-svh bg-page font-sans text-ink">
+        <Header
+          searchQuery={search}
+          onSearchQueryChange={setSearch}
+          brandFilter={brandFilter}
+          onBrandFilterChange={setBrandFilter}
+        />
+        <p className="py-20 text-center text-gray-600">Đang tải sản phẩm...</p>
+        <SiteFooter />
+      </div>
+    )
+  }
 
   if (!product) {
     return (
@@ -329,7 +379,9 @@ export function ProductDetailPage() {
           onBrandFilterChange={setBrandFilter}
         />
         <div className="mx-auto max-w-[1400px] px-4 py-20 text-center">
-          <p className="text-lg font-semibold">Không tìm thấy sản phẩm.</p>
+          <p className="text-lg font-semibold">
+            {productError || 'Không tìm thấy sản phẩm.'}
+          </p>
           <Link to="/" className="mt-4 inline-block font-bold text-brand">
             Về trang chủ
           </Link>
@@ -353,6 +405,7 @@ export function ProductDetailPage() {
         product={product}
         addItem={addItem}
         navigate={navigate}
+        mongoOk={fromApi === true}
       />
 
       <SiteFooter />

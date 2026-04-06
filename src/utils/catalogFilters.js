@@ -37,12 +37,17 @@ export function filterCatalog(list, f) {
 
 /** Giá hiển thị trên danh sách: thấp nhất trong biến thể */
 export function listPrice(p) {
-  if (!p.variants?.length) return p.salePrice
-  return Math.min(...p.variants.map((v) => v.salePrice))
+  if (!p.variants?.length) return Number(p.salePrice ?? 0)
+  return Math.min(
+    ...p.variants.map((v) => Number(v.salePrice ?? v.price ?? 0)),
+  )
 }
 
 export function inStock(p) {
-  if (!p.isAvailable) return false
-  if (!p.variants?.length) return true
-  return p.variants.some((v) => v.available)
+  if (p.isAvailable === false) return false
+  if (!p.variants?.length) return p.isAvailable !== false
+  return p.variants.some((v) => {
+    const a = v.available ?? v.isAvailable
+    return a !== false
+  })
 }

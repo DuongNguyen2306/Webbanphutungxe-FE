@@ -46,7 +46,7 @@ export function PriceRangeSlider({ min, max, onChange }) {
           type="range"
           min={PRICE_SLIDER_MIN}
           max={PRICE_SLIDER_MAX}
-          step={50_000}
+          step={10_000}
           value={min}
           onChange={onMinInput}
           className="price-range-input absolute inset-x-0 top-0 z-10 h-8 w-full cursor-pointer appearance-none bg-transparent"
@@ -56,7 +56,7 @@ export function PriceRangeSlider({ min, max, onChange }) {
           type="range"
           min={PRICE_SLIDER_MIN}
           max={PRICE_SLIDER_MAX}
-          step={50_000}
+          step={10_000}
           value={max}
           onChange={onMaxInput}
           className="price-range-input absolute inset-x-0 top-0 z-20 h-8 w-full cursor-pointer appearance-none bg-transparent"

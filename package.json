@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api": "npm run dev --prefix server",
+    "seed": "npm run seed --prefix server"
   },
   "dependencies": {
     "axios": "^1.14.0",

@@ -8,8 +8,8 @@ import { CatalogFeatureSection } from '../components/CatalogFeatureSection'
 import { FilterPanelSidebar, FilterPanelContent } from '../components/FilterPanel'
 import { createDefaultFilterState } from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
-import { products } from '../data/products'
 import { filterCatalog } from '../utils/catalogFilters'
+import { useShopCatalog } from '../hooks/useShopCatalog'
 
 const BRAND_SECTION_LABEL = {
   vespa: 'VESPA',
@@ -21,6 +21,8 @@ const BRAND_SECTION_LABEL = {
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
 
 export function HomePage() {
+  const { products, loading: catalogLoading, error: catalogError } =
+    useShopCatalog()
   const [searchQuery, setSearchQuery] = useState('')
   const [adv, setAdv] = useState(() => createDefaultFilterState())
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
@@ -36,8 +38,11 @@ export function HomePage() {
 
   const filtered = useMemo(
     () => filterCatalog(products, { ...adv, search: searchQuery }),
-    [adv, searchQuery],
+    [products, adv, searchQuery],
   )
+
+  const brandMatches = (p, b) =>
+    (p.brand || '').toLowerCase() === (b || '').toLowerCase()
 
   const sections = useMemo(() => {
     if (adv.brands.length === 1) {
@@ -45,11 +50,19 @@ export function HomePage() {
       const label = BRAND_SECTION_LABEL[key] ?? key.toUpperCase()
       return [{ key, label, items: filtered }]
     }
-    return BRAND_ORDER.map((b) => ({
+    const main = BRAND_ORDER.map((b) => ({
       key: b,
       label: BRAND_SECTION_LABEL[b],
-      items: filtered.filter((p) => p.brand === b),
-    })).filter((s) => s.items.length > 0)
+      items: filtered.filter((p) => brandMatches(p, b)),
+    }))
+    const otherItems = filtered.filter(
+      (p) => !BRAND_ORDER.some((b) => brandMatches(p, b)),
+    )
+    const out = main.filter((s) => s.items.length > 0)
+    if (otherItems.length > 0) {
+      out.push({ key: 'other', label: 'Hãng khác', items: otherItems })
+    }
+    return out
   }, [filtered, adv.brands])
 
   const replacementProducts = useMemo(
@@ -70,6 +83,18 @@ export function HomePage() {
     setAdv({ ...createDefaultFilterState(), brands: [brandKey] })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+
+  const handleViewMoreSection = useCallback(
+    (sectionKey) => {
+      if (sectionKey === 'other') {
+        setAdv(createDefaultFilterState())
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+      handleViewMoreBrand(sectionKey)
+    },
+    [handleViewMoreBrand],
+  )
 
   const applyReplacementFilter = useCallback(() => {
     setAdv({
@@ -98,6 +123,26 @@ export function HomePage() {
 
       <Hero />
 
+      {catalogError ? (
+        <div className="mx-auto max-w-[1400px] px-3 pt-2 sm:px-4 lg:px-6">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-900">
+            {catalogError}{' '}
+            <span className="font-normal text-red-800">
+              (API: <code className="rounded bg-red-100 px-1">/api/products</code> qua
+              proxy → <code className="rounded bg-red-100 px-1">localhost:5000</code>)
+            </span>
+          </p>
+        </div>
+      ) : null}
+
+      {catalogLoading ? (
+        <div className="mx-auto max-w-[1400px] px-3 py-8 text-center text-sm text-gray-500 sm:px-4 lg:px-6">
+          Đang tải danh mục sản phẩm...
+        </div>
+      ) : null}
+
+      {!catalogLoading ? (
+        <>
       <div className="mx-auto max-w-[1400px] space-y-4 px-3 py-4 sm:px-4 lg:px-6">
         <BrandScroller />
 
@@ -144,7 +189,7 @@ export function HomePage() {
                 key={s.key}
                 brandDisplayName={s.label}
                 products={s.items}
-                onViewMore={() => handleViewMoreBrand(s.key)}
+                onViewMore={() => handleViewMoreSection(s.key)}
                 showViewMore={adv.brands.length !== 1}
               />
             ))
@@ -214,6 +259,8 @@ export function HomePage() {
           </div>
         </div>
       )}
+        </>
+      ) : null}
 
       <SiteFooter />
     </div>

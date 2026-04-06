@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { BRANDS } from '../data/products'
 import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
 
 const BRAND_OPTIONS = [
   BRANDS.all,
@@ -26,6 +27,7 @@ export function Header({
   onBrandFilterChange,
 }) {
   const { totalQuantity } = useCart()
+  const { user, isAdmin } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -157,15 +159,23 @@ export function Header({
               <ClipboardList className="size-4 opacity-90" />
               <span className="whitespace-nowrap">Tra cứu đơn hàng</span>
             </Link>
-            <button
-              type="button"
+            <Link
+              to={user ? '/profile' : '/login'}
               className="rounded-full p-2 text-white transition hover:bg-white/10"
-              aria-label="Tài khoản"
+              aria-label={user ? 'Tài khoản' : 'Đăng nhập'}
             >
               <User className="size-6" strokeWidth={2} />
-            </button>
-            <button
-              type="button"
+            </Link>
+            {isAdmin ? (
+              <Link
+                to="/admin"
+                className="hidden rounded-md border border-white/40 px-2 py-1 text-[10px] font-extrabold uppercase text-white sm:inline"
+              >
+                Admin
+              </Link>
+            ) : null}
+            <Link
+              to="/cart"
               className="relative rounded-full p-2 text-white transition hover:bg-white/10"
               aria-label={`Giỏ hàng${cartCount ? `, ${cartCount} sản phẩm` : ''}`}
             >
@@ -175,7 +185,7 @@ export function Header({
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
-            </button>
+            </Link>
           </div>
         </div>
 
