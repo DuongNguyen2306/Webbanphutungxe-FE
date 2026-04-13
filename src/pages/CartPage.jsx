@@ -106,7 +106,7 @@ export function CartPage() {
         onBrandFilterChange={setBrandFilter}
       />
 
-      <main className="mx-auto max-w-[900px] px-3 py-6 sm:px-4">
+      <main className="mx-auto max-w-[900px] px-4 py-6">
         <h1 className="text-xl font-extrabold text-ink">Giỏ hàng</h1>
         <p className="mt-1 text-sm text-gray-600">
           Chọn sản phẩm cần thanh toán. Tổng tiền chỉ tính các dòng được tick.
@@ -251,9 +251,14 @@ export function CartPage() {
                 {error ? (
                   <p className="text-sm font-semibold text-brand">{error}</p>
                 ) : null}
+                {user?.role === 'admin' ? (
+                  <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+                    Tài khoản Admin không có chức năng mua hàng
+                  </p>
+                ) : null}
                 <button
                   type="submit"
-                  disabled={submitting || !selectedItems.length}
+                  disabled={submitting || !selectedItems.length || user?.role === 'admin'}
                   className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-white disabled:opacity-50"
                 >
                   {submitting ? 'Đang gửi...' : 'Thanh toán'}

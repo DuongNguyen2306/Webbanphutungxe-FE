@@ -106,8 +106,8 @@ export function SiteFooter() {
       </div>
 
       <div className="bg-footer-blue text-white">
-        <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:gap-6 lg:px-8">
-          <div>
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:gap-6 lg:px-8">
+          <div className="w-full lg:w-1/3">
             <h3 className="text-sm font-extrabold uppercase tracking-wide">
               Thông tin liên hệ
             </h3>
@@ -154,7 +154,7 @@ export function SiteFooter() {
             </div>
           </div>
 
-          <div>
+          <div className="w-full lg:w-1/3">
             <h3 className="text-sm font-extrabold uppercase tracking-wide">
               Bản đồ
             </h3>
@@ -169,7 +169,7 @@ export function SiteFooter() {
             </div>
           </div>
 
-          <div>
+          <div className="w-full lg:w-1/3">
             <h3 className="text-sm font-extrabold uppercase tracking-wide">
               Fanpage Facebook
             </h3>

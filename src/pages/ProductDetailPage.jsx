@@ -17,6 +17,7 @@ import { formatVnd } from '../utils/format'
 import { useCart } from '../context/CartContext'
 import { useProductDetail } from '../hooks/useProductDetail'
 import { ProductReviewsSection } from '../components/ProductReviewsSection'
+import { useAuth } from '../context/AuthContext'
 
 function StarRow({ value = 0 }) {
   const full = Math.floor(value)
@@ -29,7 +30,7 @@ function StarRow({ value = 0 }) {
   )
 }
 
-function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
+function ProductDetailBody({ product, addItem, navigate, mongoOk, isAdmin }) {
   const [variantId, setVariantId] = useState(() => {
     const first = product.variants.find((v) => v.available)
     return (first ?? product.variants[0]).id
@@ -64,7 +65,9 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
 
   const original = variant?.originalPrice ?? product.originalPrice
   const sale = variant?.salePrice ?? product.salePrice
-  const available = variant?.available ?? product.isAvailable
+  const available =
+    (variant?.available ?? product.isAvailable) &&
+    (variant?.stockQuantity == null || variant.stockQuantity > 0)
 
   const pctOff =
     original && original > sale
@@ -103,7 +106,7 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
 
   return (
     <>
-    <main className="mx-auto max-w-[1200px] px-3 py-4 sm:px-4 lg:py-8">
+    <main className="mx-auto max-w-[1200px] px-4 py-4 lg:py-8">
       <nav className="mb-4 flex flex-wrap gap-1 text-[11px] text-gray-400 sm:text-xs">
         <Link to="/" className="hover:text-brand">
           Trang chủ
@@ -277,6 +280,24 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
             </div>
           </div>
 
+          {product.compatibleVehicles?.length ? (
+            <div className="mt-5 rounded-lg border border-gray-200 bg-white p-3">
+              <p className="text-sm font-semibold text-gray-700">
+                Dòng xe tương thích
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.compatibleVehicles.map((v) => (
+                  <span
+                    key={v}
+                    className="rounded-full border border-gray-300 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700"
+                  >
+                    {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <span className="text-sm font-semibold text-gray-600">Số lượng</span>
             <div className="inline-flex items-stretch overflow-hidden rounded border border-gray-300">
@@ -304,25 +325,31 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk }) {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={handleAddCart}
-              disabled={!available}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded border-2 border-brand bg-white py-3 text-sm font-extrabold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ShoppingCart className="size-5" />
-              Thêm vào giỏ hàng
-            </button>
-            <button
-              type="button"
-              onClick={handleBuyNow}
-              disabled={!available}
-              className="inline-flex flex-1 items-center justify-center rounded bg-cta-buy py-3 text-sm font-extrabold uppercase text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Mua ngay
-            </button>
-          </div>
+          {isAdmin ? (
+            <div className="mt-8 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-800">
+              Tài khoản Admin không có chức năng mua hàng
+            </div>
+          ) : (
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={handleAddCart}
+                disabled={!available}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded border-2 border-brand bg-white py-3 text-sm font-extrabold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ShoppingCart className="size-5" />
+                Thêm vào giỏ hàng
+              </button>
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                disabled={!available}
+                className="inline-flex flex-1 items-center justify-center rounded bg-cta-buy py-3 text-sm font-extrabold uppercase text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {available ? 'Mua ngay' : 'Hết hàng'}
+              </button>
+            </div>
+          )}
 
           <a
             href={zaloHref}
@@ -349,6 +376,7 @@ export function ProductDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addItem } = useCart()
+  const { user } = useAuth()
   const { product, loading, fromApi, error: productError } = useProductDetail(id)
 
   const [search, setSearch] = useState('')
@@ -406,6 +434,7 @@ export function ProductDetailPage() {
         addItem={addItem}
         navigate={navigate}
         mongoOk={fromApi === true}
+        isAdmin={user?.role === 'admin'}
       />
 
       <SiteFooter />

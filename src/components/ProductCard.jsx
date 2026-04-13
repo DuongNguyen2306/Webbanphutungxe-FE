@@ -34,7 +34,7 @@ export function ProductCard({
         {!isAvailable && (
           <div className="absolute inset-0 flex items-center justify-center p-2">
             <span className="rounded-full bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-ink shadow-md">
-              Hết hàng
+              Tạm hết hàng
             </span>
           </div>
         )}

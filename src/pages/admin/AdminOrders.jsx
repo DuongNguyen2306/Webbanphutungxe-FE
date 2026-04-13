@@ -5,20 +5,36 @@ import { formatVnd } from '../../utils/format'
 const statusLabel = {
   pending: 'Chờ xử lý',
   confirmed: 'Đã xác nhận',
+  shipping: 'Đang giao',
+  completed: 'Hoàn thành',
   cancelled: 'Đã huỷ',
+}
+
+const statusBadgeClass = {
+  pending: 'bg-orange-100 text-orange-700',
+  confirmed: 'bg-blue-100 text-blue-700',
+  shipping: 'bg-yellow-100 text-yellow-700',
+  completed: 'bg-green-100 text-green-700',
+  cancelled: 'bg-gray-200 text-gray-700',
 }
 
 export function AdminOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   async function load() {
     setLoading(true)
+    setError('')
     try {
       const { data } = await api.get('/api/admin/orders')
       setOrders(data)
-    } catch {
+    } catch (err) {
       setOrders([])
+      setError(
+        err.response?.data?.message ||
+          'Không tải được đơn hàng từ API /api/admin/orders.',
+      )
     } finally {
       setLoading(false)
     }
@@ -47,11 +63,31 @@ export function AdminOrders() {
       <p className="mt-1 text-sm text-gray-600">
         Thông tin khách và đúng các dòng đã chọn khi thanh toán.
       </p>
+      {error ? (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+          <button
+            type="button"
+            onClick={load}
+            className="ml-2 font-bold underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      ) : null}
       <ul className="mt-6 space-y-4">
         {orders.map((o) => (
+          (() => {
+            const ageMs = Date.now() - new Date(o.createdAt).getTime()
+            const urgent = o.status === 'pending' && ageMs > 30 * 60 * 1000
+            return (
           <li
             key={o._id}
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            className={`rounded-xl border p-5 shadow-sm ${
+              urgent
+                ? 'animate-pulse border-red-200 bg-red-50/70'
+                : 'border-gray-200 bg-white'
+            }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -73,6 +109,11 @@ export function AdminOrders() {
                 ) : (
                   <p className="mt-1 text-xs text-gray-500">Khách vãng lai</p>
                 )}
+                {urgent ? (
+                  <p className="mt-2 text-xs font-bold text-red-700">
+                    ⚠️ Cần xử lý gấp
+                  </p>
+                ) : null}
               </div>
               <div className="shrink-0">
                 <label className="sr-only" htmlFor={`status-${o._id}`}>
@@ -86,8 +127,17 @@ export function AdminOrders() {
                 >
                   <option value="pending">{statusLabel.pending}</option>
                   <option value="confirmed">{statusLabel.confirmed}</option>
+                  <option value="shipping">{statusLabel.shipping}</option>
+                  <option value="completed">{statusLabel.completed}</option>
                   <option value="cancelled">{statusLabel.cancelled}</option>
                 </select>
+                <span
+                  className={`mt-2 inline-block rounded-full px-2 py-1 text-xs font-bold ${
+                    statusBadgeClass[o.status] || 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {(statusLabel[o.status] || o.status).toUpperCase()}
+                </span>
               </div>
             </div>
             <ul className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm text-gray-700">
@@ -106,6 +156,8 @@ export function AdminOrders() {
               {new Date(o.createdAt).toLocaleString('vi-VN')}
             </p>
           </li>
+            )
+          })()
         ))}
       </ul>
       {orders.length === 0 ? (

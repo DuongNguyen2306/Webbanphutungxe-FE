@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { Star, StarHalf, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
@@ -67,6 +67,7 @@ export function ProductReviewsSection({
   const [listErr, setListErr] = useState(null)
 
   const [rating, setRating] = useState(5)
+  const [hoverRating, setHoverRating] = useState(0)
   const [comment, setComment] = useState('')
   const [qualityNote, setQualityNote] = useState('')
   const [matchNote, setMatchNote] = useState('')
@@ -245,68 +246,60 @@ export function ProductReviewsSection({
         </div>
       ) : null}
 
-      {token && user ? (
+      {token && user && !isAdmin ? (
         <form
           onSubmit={handleSubmitReview}
-          className="mt-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+          className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
         >
-          <p className="text-sm font-bold text-ink">Viết đánh giá</p>
+          <p className="text-base font-extrabold text-ink">Viết đánh giá</p>
           {variantLabel ? (
             <p className="mt-1 text-xs text-gray-500">
               Phân loại: {variantLabel}
             </p>
           ) : null}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-600">Số sao:</span>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setRating(n)}
-                className={`rounded px-2 py-1 text-sm font-bold ${
-                  rating === n
-                    ? 'bg-brand text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
+          <div className="mt-4">
+            <label className="text-sm font-semibold text-gray-700">Đánh giá sao</label>
+            <HalfStarInput
+              value={rating}
+              hoverValue={hoverRating}
+              onHover={setHoverRating}
+              onChange={setRating}
+            />
+            <p className="mt-1 text-xs text-gray-500">Đã chọn: {rating.toFixed(1)} sao</p>
           </div>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Nội dung đánh giá (tuỳ chọn)"
-            rows={3}
+            placeholder="Comment"
+            rows={4}
             className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <input
               value={qualityNote}
               onChange={(e) => setQualityNote(e.target.value)}
-              placeholder="Chất lượng sản phẩm (tuỳ chọn)"
+              placeholder="Product Quality"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
             <input
               value={matchNote}
               onChange={(e) => setMatchNote(e.target.value)}
-              placeholder="Đúng mô tả (tuỳ chọn)"
+              placeholder="Description Accuracy"
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <textarea
             value={formImages}
             onChange={(e) => setFormImages(e.target.value)}
-            placeholder="URL ảnh (mỗi dòng một link, tối đa 20)"
+            placeholder="Image URLs (mỗi dòng một URL)"
             rows={2}
             className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs"
           />
-          <textarea
+          <input
             value={formVideos}
             onChange={(e) => setFormVideos(e.target.value)}
-            placeholder="URL video (mỗi dòng một link)"
-            rows={2}
-            className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs"
+            placeholder="Video URL"
+            className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
           {formErr ? (
             <p className="mt-2 text-sm font-semibold text-red-600">{formErr}</p>
@@ -319,11 +312,16 @@ export function ProductReviewsSection({
           <button
             type="submit"
             disabled={submitting}
-            className="mt-3 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            className="mt-4 rounded-lg px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            style={{ backgroundColor: '#BC1F26' }}
           >
             {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
           </button>
         </form>
+      ) : isAdmin ? (
+        <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Chế độ Quản trị viên - Không thể đánh giá sản phẩm.
+        </div>
       ) : (
         <p className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           <Link to="/login" className="font-bold text-brand underline">
@@ -459,6 +457,52 @@ export function ProductReviewsSection({
         </div>
       ) : null}
     </section>
+  )
+}
+
+function HalfStarInput({ value, hoverValue, onHover, onChange }) {
+  const active = hoverValue || value
+  return (
+    <div
+      className="mt-2 flex items-center gap-1"
+      onMouseLeave={() => onHover(0)}
+      role="radiogroup"
+      aria-label="Đánh giá sao"
+    >
+      {Array.from({ length: 5 }, (_, idx) => {
+        const star = idx + 1
+        const half = star - 0.5
+        let Icon = Star
+        if (active >= star) Icon = Star
+        else if (active >= half) Icon = StarHalf
+
+        const activeColor = active >= half
+        return (
+          <div key={star} className="relative inline-flex size-8 items-center justify-center">
+            <button
+              type="button"
+              className="absolute left-0 top-0 h-full w-1/2"
+              onMouseEnter={() => onHover(half)}
+              onClick={() => onChange(half)}
+              aria-label={`${half} sao`}
+            />
+            <button
+              type="button"
+              className="absolute right-0 top-0 h-full w-1/2"
+              onMouseEnter={() => onHover(star)}
+              onClick={() => onChange(star)}
+              aria-label={`${star} sao`}
+            />
+            <Icon
+              className={`size-6 ${activeColor ? 'text-amber-500' : 'text-gray-300'}`}
+              fill={activeColor ? 'currentColor' : 'none'}
+              strokeWidth={1.8}
+              aria-hidden
+            />
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

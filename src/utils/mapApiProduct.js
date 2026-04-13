@@ -7,6 +7,7 @@
  * @property {number} price
  * @property {number} [originalPrice]
  * @property {boolean} [isAvailable]
+ * @property {number} [stockQuantity]
  * @property {string[]} [images]
  */
 
@@ -83,6 +84,7 @@ export function mapApiProduct(p) {
       salePrice: Number(v.price),
       originalPrice: v.originalPrice != null ? Number(v.originalPrice) : null,
       available: v.isAvailable !== false,
+      stockQuantity: Number(v.stockQuantity ?? 0),
       images: imgs,
     }
   })
@@ -118,6 +120,10 @@ export function mapApiProduct(p) {
     rating: p.rating ?? 4.5,
     reviewCount: p.reviewCount ?? 0,
     soldCount: p.soldCount ?? 0,
+    tags: Array.isArray(p.tags) ? p.tags.map((x) => String(x)) : [],
+    compatibleVehicles: Array.isArray(p.compatibleVehicles)
+      ? p.compatibleVehicles.map((x) => String(x))
+      : [],
     categoryId: p.category?._id ? String(p.category._id) : null,
     categoryName: p.category?.name ?? '',
     variants,

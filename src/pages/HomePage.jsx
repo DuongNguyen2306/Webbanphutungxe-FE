@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
@@ -124,7 +125,7 @@ export function HomePage() {
       <Hero />
 
       {catalogError ? (
-        <div className="mx-auto max-w-[1400px] px-3 pt-2 sm:px-4 lg:px-6">
+        <div className="mx-auto max-w-[1280px] px-4 pt-3">
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-900">
             {catalogError}{' '}
             <span className="font-normal text-red-800">
@@ -136,14 +137,14 @@ export function HomePage() {
       ) : null}
 
       {catalogLoading ? (
-        <div className="mx-auto max-w-[1400px] px-3 py-8 text-center text-sm text-gray-500 sm:px-4 lg:px-6">
+        <div className="mx-auto max-w-[1280px] px-4 py-8 text-center text-sm text-gray-500">
           Đang tải danh mục sản phẩm...
         </div>
       ) : null}
 
       {!catalogLoading ? (
         <>
-      <div className="mx-auto max-w-[1400px] space-y-4 px-3 py-4 sm:px-4 lg:px-6">
+      <div className="mx-auto max-w-[1280px] space-y-4 px-4 py-5">
         <BrandScroller />
 
         <button
@@ -155,7 +156,7 @@ export function HomePage() {
         </button>
       </div>
 
-      <div className="mx-auto flex max-w-[1400px] gap-6 px-3 pb-12 sm:px-4 lg:px-6">
+      <div className="mx-auto flex max-w-[1280px] gap-6 px-4 pb-12">
         <div className="hidden w-72 shrink-0 lg:block">
           <div className="sticky top-28">
             <FilterPanelSidebar
@@ -195,7 +196,7 @@ export function HomePage() {
             ))
           )}
 
-          <div className="mx-auto mt-6 max-w-[1400px]">
+          <div className="mt-6">
             <CatalogFeatureSection
               title="Phụ tùng thay thế"
               products={replacementProducts}
@@ -212,12 +213,18 @@ export function HomePage() {
 
           <section
             id="tra-cuu-don"
-            className="mx-auto mt-8 max-w-[1400px] rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-600"
+            className="mt-8 rounded-lg border border-gray-200 bg-white px-6 py-9 text-center text-sm text-gray-600"
           >
             <p className="font-semibold text-ink">Tra cứu đơn hàng</p>
             <p className="mt-1">
-              Nhập mã đơn / SĐT đặt hàng — kết nối API backend khi sẵn sàng.
+              Xem lịch sử đơn hàng đã đặt trong tài khoản của bạn.
             </p>
+            <Link
+              to="/profile"
+              className="mt-4 inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark"
+            >
+              Xem lịch sử đơn hàng
+            </Link>
           </section>
         </div>
       </div>
