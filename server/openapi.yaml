@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: Thai Vu API
+  version: 1.0.0
+paths:
+  /api/orders:
+    post:
+      summary: Tạo đơn hàng
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contact
+                - items
+                - totalAmount
+                - shippingAddress
+              properties:
+                contact:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                    phone:
+                      type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                      variantId:
+                        type: string
+                      name:
+                        type: string
+                      variantLabel:
+                        type: string
+                      quantity:
+                        type: integer
+                      price:
+                        type: number
+                totalAmount:
+                  type: number
+                shippingAddress:
+                  type: object
+                  required:
+                    - province
+                    - district
+                    - ward
+                    - detail
+                  properties:
+                    province:
+                      type: string
+                    district:
+                      type: string
+                    ward:
+                      type: string
+                    detail:
+                      type: string
+                    note:
+                      type: string
+                      description: Ghi chú giao hàng (tùy chọn)
+      responses:
+        '201':
+          description: Tạo đơn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  message:
+                    type: string
+                  shippingAddressText:
+                    type: string
+        '400':
+          description: Dữ liệu không hợp lệ
+  /api/admin/orders:
+    get:
+      summary: Lấy danh sách đơn hàng cho admin
+      responses:
+        '200':
+          description: Danh sách đơn hàng
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    _id:
+                      type: string
+                    shippingAddress:
+                      type: object
+                      properties:
+                        province:
+                          type: string
+                        district:
+                          type: string
+                        ward:
+                          type: string
+                        detail:
+                          type: string
+                        note:
+                          type: string
+                    shippingAddressText:
+                      type: string
+                      description: Chuỗi gọn "detail, ward, district, province"

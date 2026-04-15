@@ -8,6 +8,19 @@ import { resolveCategory } from '../lib/categories.js'
 
 const router = express.Router()
 
+function formatAddressText(shippingAddress) {
+  if (!shippingAddress) return ''
+  const parts = [
+    shippingAddress.detail,
+    shippingAddress.ward,
+    shippingAddress.district,
+    shippingAddress.province,
+  ]
+    .map((x) => String(x || '').trim())
+    .filter(Boolean)
+  return parts.join(', ')
+}
+
 function normalizeVariants(body) {
   let variants = body.variants
   if (!Array.isArray(variants)) variants = []
@@ -166,16 +179,31 @@ router.get('/orders', async (_req, res) => {
     .populate('user', 'email phone')
     .sort({ createdAt: -1 })
     .lean()
-  res.json(list)
+  res.json(
+    list.map((o) => ({
+      ...o,
+      shippingAddressText: formatAddressText(o.shippingAddress),
+    })),
+  )
 })
 
 router.patch('/orders/:id/status', async (req, res) => {
   const { status } = req.body
-  if (!['pending', 'confirmed', 'cancelled'].includes(status))
+  if (!['contacting', 'confirmed', 'cancelled'].includes(status))
     return res.status(400).json({ message: 'Trạng thái không hợp lệ.' })
+
+  const note = String(req.body.note || '').trim()
+  if (status === 'cancelled' && !note)
+    return res.status(400).json({ message: 'Vui lòng nhập lý do hủy (note).' })
+
+  const update = {
+    status,
+    cancelNote: status === 'cancelled' ? note : '',
+  }
+
   const o = await Order.findByIdAndUpdate(
     req.params.id,
-    { status },
+    update,
     { new: true },
   ).lean()
   if (!o) return res.status(404).json({ message: 'Không tìm thấy đơn.' })

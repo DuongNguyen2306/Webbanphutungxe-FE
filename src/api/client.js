@@ -13,5 +13,10 @@ api.interceptors.request.use((config) => {
   if (t) {
     config.headers.Authorization = `Bearer ${t}`
   }
+  const isFormData =
+    typeof FormData !== 'undefined' && config.data instanceof FormData
+  if (!isFormData && !config.headers['Content-Type']) {
+    config.headers['Content-Type'] = 'application/json'
+  }
   return config
 })

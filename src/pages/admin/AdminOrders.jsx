@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
+import {
+  FALLBACK_STATUS_OPTIONS,
+  ORDER_STATUS,
+  ORDER_STATUS_LABELS,
+  isOrderStatusCode,
+  normalizeOrderStatus,
+} from '../../constants/orderStatus'
+import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { formatVnd } from '../../utils/format'
-
-const statusLabel = {
-  pending: 'Chờ xử lý',
-  confirmed: 'Đã xác nhận',
-  shipping: 'Đang giao',
-  completed: 'Hoàn thành',
-  cancelled: 'Đã huỷ',
-}
-
-const statusBadgeClass = {
-  pending: 'bg-orange-100 text-orange-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  shipping: 'bg-yellow-100 text-yellow-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-200 text-gray-700',
-}
 
 export function AdminOrders() {
   const [orders, setOrders] = useState([])
+  const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [updatingId, setUpdatingId] = useState('')
+  const [cancelModal, setCancelModal] = useState({
+    open: false,
+    orderId: '',
+    reason: '',
+  })
+  const [cancelModalError, setCancelModalError] = useState('')
 
   async function load() {
     setLoading(true)
@@ -40,13 +41,114 @@ export function AdminOrders() {
     }
   }
 
+  async function loadStatusOptions() {
+    try {
+      const { data } = await api.get('/api/admin/orders/status-options')
+      const statuses = Array.isArray(data?.statuses) ? data.statuses : []
+      const normalized = statuses
+        .map((item) => ({
+          code: String(item?.code || '').toUpperCase(),
+          label: String(item?.label || '').trim(),
+        }))
+        .filter((item) => isOrderStatusCode(item.code))
+      if (!normalized.length) {
+        setStatusOptions(FALLBACK_STATUS_OPTIONS)
+        return
+      }
+      setStatusOptions(
+        normalized.map((item) => ({
+          code: item.code,
+          label: item.label || ORDER_STATUS_LABELS[item.code] || item.code,
+        })),
+      )
+    } catch {
+      setStatusOptions(FALLBACK_STATUS_OPTIONS)
+    }
+  }
+
   useEffect(() => {
     load()
+    loadStatusOptions()
   }, [])
 
-  async function updateStatus(id, status) {
-    await api.patch(`/api/admin/orders/${id}/status`, { status })
-    load()
+  async function commitStatusChange(id, normalizedStatus, note = '') {
+    const previous = orders.find((order) => order._id === id)
+    if (!previous) return
+    const previousStatus = normalizeOrderStatus(previous.status)
+    const previousCancelNote = previous.cancelNote || ''
+    if (previousStatus === normalizedStatus) return
+
+    const payload = { status: normalizedStatus }
+    if (normalizedStatus === ORDER_STATUS.CANCELLED) {
+      payload.note = note
+    }
+
+    setUpdatingId(id)
+    setError('')
+    setOrders((prev) =>
+      prev.map((order) =>
+        order._id === id
+          ? {
+              ...order,
+              status: normalizedStatus,
+              cancelNote:
+                normalizedStatus === ORDER_STATUS.CANCELLED
+                  ? payload.note
+                  : order.cancelNote,
+            }
+          : order,
+      ),
+    )
+    try {
+      const { data } = await api.patch(`/api/admin/orders/${id}/status`, payload)
+      setOrders((prev) =>
+        prev.map((order) =>
+          order._id === id
+            ? {
+                ...order,
+                status: normalizeOrderStatus(data.status || normalizedStatus),
+                cancelNote: data.cancelNote || '',
+              }
+            : order,
+        ),
+      )
+    } catch (err) {
+      setOrders((prev) =>
+        prev.map((order) =>
+          order._id === id
+            ? { ...order, status: previousStatus, cancelNote: previousCancelNote }
+            : order,
+        ),
+      )
+      setError(
+        err.response?.status === 400 || err.response?.status === 404
+          ? err.response?.data?.message || 'Cập nhật trạng thái thất bại.'
+          : 'Cập nhật trạng thái thất bại.',
+      )
+    } finally {
+      setUpdatingId('')
+    }
+  }
+
+  function updateStatus(id, status) {
+    const normalizedStatus = normalizeOrderStatus(status)
+    if (normalizedStatus === ORDER_STATUS.CANCELLED) {
+      setCancelModal({ open: true, orderId: id, reason: '' })
+      setCancelModalError('')
+      return
+    }
+    commitStatusChange(id, normalizedStatus)
+  }
+
+  async function submitCancelReason() {
+    const reason = cancelModal.reason.trim()
+    if (!reason) {
+      setCancelModalError('Vui lòng nhập lý do hủy đơn.')
+      return
+    }
+    await commitStatusChange(cancelModal.orderId, ORDER_STATUS.CANCELLED, reason)
+    setCancelModal({ open: false, orderId: '', reason: '' })
+    setCancelModalError('')
   }
 
   if (loading) {
@@ -78,8 +180,9 @@ export function AdminOrders() {
       <ul className="mt-6 space-y-4">
         {orders.map((o) => (
           (() => {
+            const currentStatus = normalizeOrderStatus(o.status)
             const ageMs = Date.now() - new Date(o.createdAt).getTime()
-            const urgent = o.status === 'pending' && ageMs > 30 * 60 * 1000
+            const urgent = currentStatus === ORDER_STATUS.PENDING && ageMs > 30 * 60 * 1000
             return (
           <li
             key={o._id}
@@ -121,23 +224,26 @@ export function AdminOrders() {
                 </label>
                 <select
                   id={`status-${o._id}`}
-                  value={o.status}
+                  value={currentStatus}
                   onChange={(e) => updateStatus(o._id, e.target.value)}
+                  disabled={updatingId === o._id}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
-                  <option value="pending">{statusLabel.pending}</option>
-                  <option value="confirmed">{statusLabel.confirmed}</option>
-                  <option value="shipping">{statusLabel.shipping}</option>
-                  <option value="completed">{statusLabel.completed}</option>
-                  <option value="cancelled">{statusLabel.cancelled}</option>
+                  {statusOptions.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.label || ORDER_STATUS_LABELS[opt.code] || opt.code}
+                    </option>
+                  ))}
                 </select>
-                <span
-                  className={`mt-2 inline-block rounded-full px-2 py-1 text-xs font-bold ${
-                    statusBadgeClass[o.status] || 'bg-gray-100 text-gray-700'
-                  }`}
+                {updatingId === o._id ? (
+                  <p className="mt-1 text-xs text-gray-500">Đang cập nhật...</p>
+                ) : null}
+                <Link
+                  to={`/admin/orders/${o._id}`}
+                  className="mt-2 inline-block text-xs font-bold text-brand hover:underline"
                 >
-                  {(statusLabel[o.status] || o.status).toUpperCase()}
-                </span>
+                  Xem chi tiết
+                </Link>
               </div>
             </div>
             <ul className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm text-gray-700">
@@ -165,6 +271,25 @@ export function AdminOrders() {
           Chưa có đơn nào.
         </p>
       ) : null}
+      <ReasonInputModal
+        open={cancelModal.open}
+        title="Nhập lý do hủy đơn"
+        description="Lý do là bắt buộc khi chuyển trạng thái sang Đã hủy."
+        value={cancelModal.reason}
+        onChange={(value) => {
+          setCancelModal((prev) => ({ ...prev, reason: value }))
+          if (cancelModalError) setCancelModalError('')
+        }}
+        onCancel={() => {
+          if (updatingId) return
+          setCancelModal({ open: false, orderId: '', reason: '' })
+          setCancelModalError('')
+        }}
+        onConfirm={submitCancelReason}
+        confirmLabel="Xác nhận hủy"
+        loading={Boolean(updatingId)}
+        error={cancelModalError}
+      />
     </div>
   )
 }

@@ -122,9 +122,7 @@ function ProductDetailBody({
 
   const original = variant?.originalPrice ?? product.originalPrice
   const sale = variant?.salePrice ?? product.salePrice
-  const available =
-    (variant?.available ?? product.isAvailable) &&
-    (variant?.stockQuantity == null || variant.stockQuantity > 0)
+  const available = Boolean(variant?.available ?? product.isAvailable)
 
   const pctOff =
     original && original > sale
@@ -157,8 +155,9 @@ function ProductDetailBody({
   }
 
   function handleBuyNow() {
+    if (!variant || !available) return
     handleAddCart()
-    navigate('/')
+    navigate('/cart')
   }
 
   function handleBack() {

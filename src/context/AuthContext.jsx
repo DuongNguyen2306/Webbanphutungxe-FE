@@ -51,16 +51,21 @@ export function AuthProvider({ children }) {
     setUser(u)
   }, [])
 
+  const updateUser = useCallback((patch) => {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev))
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
       token,
       loading,
       loginWithToken,
+      updateUser,
       logout,
       isAdmin: user?.role === 'admin',
     }),
-    [user, token, loading, loginWithToken, logout],
+    [user, token, loading, loginWithToken, updateUser, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

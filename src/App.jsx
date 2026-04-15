@@ -8,8 +8,10 @@ import { CartPage } from './pages/CartPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { OrderDetailPage } from './pages/OrderDetailPage'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminOrders } from './pages/admin/AdminOrders'
+import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminProducts } from './pages/admin/AdminProducts'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
@@ -37,10 +39,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/don-mua/:id" element={<OrderDetailPage />} />
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="orders" replace />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="orders/:id" element={<AdminOrderDetailPage />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />

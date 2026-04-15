@@ -25,20 +25,17 @@ const emptyVariant = () => ({
   typeName: '',
   color: '',
   size: '',
+  sku: '',
   price: '',
   originalPrice: '',
   isAvailable: true,
-  /** mỗi dòng một URL → gửi API variants[].images */
   variantImages: '',
 })
 
-/** Giá trị gửi API: preset hoặc chuỗi nhập khi chọn Khác */
 function resolveOther(selectVal, otherVal, label) {
   if (selectVal === OTHER) {
     const t = otherVal.trim()
-    if (!t) {
-      throw new Error(`Vui lòng nhập ${label} khi chọn "Khác".`)
-    }
+    if (!t) throw new Error(`Vui lòng nhập ${label} khi chọn "Khác".`)
     return t
   }
   return selectVal
@@ -65,8 +62,15 @@ export function AdminProductForm() {
   const [variants, setVariants] = useState([emptyVariant()])
   const [basePrice, setBasePrice] = useState('')
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
   const [bootstrapping, setBootstrapping] = useState(isEdit)
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const t = setTimeout(() => setToast(''), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   useEffect(() => {
     api
@@ -74,6 +78,43 @@ export function AdminProductForm() {
       .then((r) => setCategories(r.data))
       .catch(() => setCategories([]))
   }, [])
+
+  function applyProductData(data) {
+    setName(data.name ?? '')
+    setCategoryInput(data.category?.name ?? '')
+    setDescription(data.description ?? '')
+    setImages(Array.isArray(data.images) ? data.images.join('\n') : '')
+    const [b, bo] = splitPreset(data.brand, BRAND_PRESET)
+    setBrand(b)
+    setBrandOther(bo)
+    const [vt, vto] = splitPreset(data.vehicleType, VEHICLE_PRESET)
+    setVehicleType(vt)
+    setVehicleTypeOther(vto)
+    const [pc, pco] = splitPreset(data.partCategory, PART_PRESET)
+    setPartCategory(pc)
+    setPartCategoryOther(pco)
+    setHomeFeature(data.homeFeature ?? '')
+    setShowOnStorefront(data.showOnStorefront !== false)
+    setBasePrice('')
+    setVariants(
+      data.variants?.length
+        ? data.variants.map((v) => ({
+            _id: v._id ? String(v._id) : '',
+            typeName: v.typeName ?? '',
+            color: v.color ?? '',
+            size: v.size ?? '',
+            sku: v.sku ?? '',
+            price: String(v.price ?? ''),
+            originalPrice:
+              v.originalPrice != null && v.originalPrice !== ''
+                ? String(v.originalPrice)
+                : '',
+            isAvailable: v.isAvailable !== false,
+            variantImages: Array.isArray(v.images) ? v.images.join('\n') : '',
+          }))
+        : [emptyVariant()],
+    )
+  }
 
   useEffect(() => {
     if (!editId) return
@@ -84,41 +125,7 @@ export function AdminProductForm() {
       .get(`/api/admin/products/${editId}`)
       .then(({ data }) => {
         if (cancel) return
-        setName(data.name ?? '')
-        setCategoryInput(data.category?.name ?? '')
-        setDescription(data.description ?? '')
-        setImages(Array.isArray(data.images) ? data.images.join('\n') : '')
-        const [b, bo] = splitPreset(data.brand, BRAND_PRESET)
-        setBrand(b)
-        setBrandOther(bo)
-        const [vt, vto] = splitPreset(data.vehicleType, VEHICLE_PRESET)
-        setVehicleType(vt)
-        setVehicleTypeOther(vto)
-        const [pc, pco] = splitPreset(data.partCategory, PART_PRESET)
-        setPartCategory(pc)
-        setPartCategoryOther(pco)
-        setHomeFeature(data.homeFeature ?? '')
-        setShowOnStorefront(data.showOnStorefront !== false)
-        setBasePrice('')
-        setVariants(
-          data.variants?.length
-            ? data.variants.map((v) => ({
-                _id: v._id ? String(v._id) : '',
-                typeName: v.typeName ?? '',
-                color: v.color ?? '',
-                size: v.size ?? '',
-                price: String(v.price ?? ''),
-                originalPrice:
-                  v.originalPrice != null && v.originalPrice !== ''
-                    ? String(v.originalPrice)
-                    : '',
-                isAvailable: v.isAvailable !== false,
-                variantImages: Array.isArray(v.images)
-                  ? v.images.join('\n')
-                  : '',
-              }))
-            : [emptyVariant()],
-        )
+        applyProductData(data)
         setBootstrapping(false)
       })
       .catch(() => {
@@ -155,72 +162,90 @@ export function AdminProductForm() {
       setError('Chọn hoặc nhập danh mục.')
       return
     }
+
     let brandFinal
     let vehicleTypeFinal
     let partCategoryFinal
     try {
       brandFinal = resolveOther(brand, brandOther, 'hãng xe')
-      vehicleTypeFinal = resolveOther(
-        vehicleType,
-        vehicleTypeOther,
-        'loại xe',
-      )
-      partCategoryFinal = resolveOther(
-        partCategory,
-        partCategoryOther,
-        'nhóm phụ tùng',
-      )
+      vehicleTypeFinal = resolveOther(vehicleType, vehicleTypeOther, 'loại xe')
+      partCategoryFinal = resolveOther(partCategory, partCategoryOther, 'nhóm phụ tùng')
     } catch (err) {
       setError(err.message)
       return
     }
+
+    const variantPayload = []
+    for (let idx = 0; idx < variants.length; idx += 1) {
+      const row = variants[idx]
+      const rowNo = idx + 1
+      const hasAnyField =
+        String(row.typeName || '').trim() ||
+        String(row.color || '').trim() ||
+        String(row.size || '').trim() ||
+        String(row.sku || '').trim() ||
+        String(row.price || '').trim() ||
+        String(row.originalPrice || '').trim() ||
+        String(row.variantImages || '').trim()
+      if (!hasAnyField) continue
+
+      if (row.price === '' || Number.isNaN(Number(row.price)) || Number(row.price) < 0) {
+        setError(`Biến thể #${rowNo}: giá không hợp lệ.`)
+        return
+      }
+      if (
+        row.originalPrice !== '' &&
+        (Number.isNaN(Number(row.originalPrice)) || Number(row.originalPrice) < 0)
+      ) {
+        setError(`Biến thể #${rowNo}: giá gốc không hợp lệ.`)
+        return
+      }
+
+      const variant = {
+        typeName: row.typeName,
+        color: row.color,
+        size: row.size,
+        sku: String(row.sku || '').trim(),
+        price: Number(row.price),
+        originalPrice: row.originalPrice === '' ? undefined : Number(row.originalPrice),
+        isAvailable: Boolean(row.isAvailable),
+        images: String(row.variantImages || '')
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }
+      if (row._id) variant._id = row._id
+      variantPayload.push(variant)
+    }
+
     setSaving(true)
     try {
-      const imgList = images
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean)
       const payload = {
         name: name.trim(),
         category: cat,
         description,
-        images: imgList,
+        images: images
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean),
         brand: brandFinal,
         vehicleType: vehicleTypeFinal,
         partCategory: partCategoryFinal,
         homeFeature: homeFeature || null,
         showOnStorefront,
         basePrice: basePrice ? Number(basePrice) : undefined,
-        variants: variants
-          .filter((row) => row.price !== '' && Number(row.price) >= 0)
-          .map((row) => {
-            const o = {
-              typeName: row.typeName,
-              color: row.color,
-              size: row.size,
-              price: Number(row.price),
-              originalPrice:
-                row.originalPrice === ''
-                  ? undefined
-                  : Number(row.originalPrice),
-              isAvailable: row.isAvailable,
-              images: String(row.variantImages ?? '')
-                .split('\n')
-                .map((s) => s.trim())
-                .filter(Boolean),
-            }
-            if (row._id) o._id = row._id
-            return o
-          }),
+        variants: variantPayload,
       }
+
       if (isEdit) {
         await api.put(`/api/admin/products/${editId}`, payload)
+        navigate('/admin/products')
       } else {
         await api.post('/api/admin/products', payload)
+        navigate('/admin/products')
       }
-      navigate('/admin/products')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không lưu được.')
+      setError(err.response?.data?.message || 'Cập nhật thất bại')
     } finally {
       setSaving(false)
     }
@@ -232,10 +257,7 @@ export function AdminProductForm() {
   if (bootstrapping) {
     return (
       <div>
-        <Link
-          to="/admin/products"
-          className="text-sm font-semibold text-brand hover:underline"
-        >
+        <Link to="/admin/products" className="text-sm font-semibold text-brand hover:underline">
           ← Danh sách
         </Link>
         <p className="mt-8 text-sm text-gray-600">Đang tải sản phẩm...</p>
@@ -246,10 +268,7 @@ export function AdminProductForm() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
-        <Link
-          to="/admin/products"
-          className="text-sm font-semibold text-brand hover:underline"
-        >
+        <Link to="/admin/products" className="text-sm font-semibold text-brand hover:underline">
           ← Danh sách
         </Link>
       </div>
@@ -257,10 +276,9 @@ export function AdminProductForm() {
         {isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
       </h1>
       <p className="mt-1 max-w-2xl text-sm text-gray-600">
-        Chỉ tên là bắt buộc. Bật &quot;Hiện trên cửa hàng&quot; để SP xuất hiện ở
-        trang chủ / API công khai. Section <strong>Phụ tùng thay thế / Vỏ</strong>{' '}
-        chỉ lấy SP có gắn đúng loại ở ô &quot;Section đặc biệt&quot; — không bắt buộc
-        để hiện trong danh mục chính.
+        Chỉ tên là bắt buộc. Bật &quot;Hiện trên cửa hàng&quot; để SP xuất hiện ở trang
+        chủ / API công khai. Section <strong>Phụ tùng thay thế / Vỏ</strong> chỉ lấy SP
+        có gắn đúng loại ở ô &quot;Section đặc biệt&quot;.
       </p>
 
       <form
@@ -304,8 +322,7 @@ export function AdminProductForm() {
           <span>
             <span className="font-semibold">Hiện trên cửa hàng</span>
             <span className="mt-0.5 block text-xs text-gray-600">
-              Tắt nếu muốn ẩn khỏi trang chủ và danh sách sản phẩm công khai (vẫn
-              quản trị trong admin).
+              Tắt nếu muốn ẩn khỏi trang chủ và danh sách sản phẩm công khai.
             </span>
           </span>
         </label>
@@ -329,19 +346,10 @@ export function AdminProductForm() {
           <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
             Hãng · Loại xe · Nhóm phụ tùng
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Chọn có sẵn hoặc{' '}
-            <span className="font-semibold text-gray-700">Khác — nhập mới</span> bên
-            dưới ô tương ứng.
-          </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-700">Hãng</label>
-              <select
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                className={field}
-              >
+              <select value={brand} onChange={(e) => setBrand(e.target.value)} className={field}>
                 <option value="honda">Honda</option>
                 <option value="vespa">Vespa</option>
                 <option value="yamaha">Yamaha</option>
@@ -379,9 +387,7 @@ export function AdminProductForm() {
               ) : null}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-700">
-                Nhóm phụ tùng
-              </label>
+              <label className="text-xs font-medium text-gray-700">Nhóm phụ tùng</label>
               <select
                 value={partCategory}
                 onChange={(e) => setPartCategory(e.target.value)}
@@ -406,11 +412,7 @@ export function AdminProductForm() {
           </div>
         </div>
 
-        <select
-          value={homeFeature}
-          onChange={(e) => setHomeFeature(e.target.value)}
-          className={field}
-        >
+        <select value={homeFeature} onChange={(e) => setHomeFeature(e.target.value)} className={field}>
           <option value="">Không gắn section đặc biệt</option>
           <option value="replacement">Phụ tùng thay thế</option>
           <option value="tires">Vỏ / lốp</option>
@@ -418,9 +420,7 @@ export function AdminProductForm() {
 
         <div className="border-t border-gray-200 pt-5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-900">
-              Biến thể (tuỳ chọn)
-            </span>
+            <span className="text-sm font-bold text-gray-900">Biến thể (tuỳ chọn)</span>
             <button
               type="button"
               onClick={addRow}
@@ -429,60 +429,55 @@ export function AdminProductForm() {
               + Dòng
             </button>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Để trống tất cả dòng giá: dùng giá gốc bên dưới.
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Để trống tất cả dòng giá: dùng giá gốc bên dưới.</p>
           <div className="mt-3 space-y-3">
             {variants.map((row, i) => (
-              <div
-                key={row._id || `row-${i}`}
-                className="rounded-lg border border-gray-200 bg-gray-50/80 p-3"
-              >
-                <div className="grid gap-2 sm:grid-cols-6">
+              <div key={row._id || `row-${i}`} className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+                <div className="grid gap-2 sm:grid-cols-7">
                   <input
                     placeholder="Tên kiểu"
                     value={row.typeName}
-                    onChange={(e) =>
-                      updateRow(i, { typeName: e.target.value })
-                    }
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm sm:col-span-1"
+                    onChange={(e) => updateRow(i, { typeName: e.target.value })}
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                   />
                   <input
                     placeholder="Màu"
                     value={row.color}
                     onChange={(e) => updateRow(i, { color: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm sm:col-span-1"
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                   />
                   <input
                     placeholder="Size"
                     value={row.size}
                     onChange={(e) => updateRow(i, { size: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm sm:col-span-1"
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                  />
+                  <input
+                    placeholder="SKU"
+                    value={row.sku}
+                    onChange={(e) => updateRow(i, { sku: e.target.value })}
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                   />
                   <input
                     type="number"
                     placeholder="Giá *"
                     value={row.price}
                     onChange={(e) => updateRow(i, { price: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm sm:col-span-1"
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                   />
                   <input
                     type="number"
                     placeholder="Giá gốc"
                     value={row.originalPrice}
-                    onChange={(e) =>
-                      updateRow(i, { originalPrice: e.target.value })
-                    }
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm sm:col-span-1"
+                    onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
+                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                   />
-                  <div className="flex items-center gap-2 sm:col-span-1">
+                  <div className="flex items-center gap-2">
                     <label className="flex items-center gap-1 text-xs text-gray-700">
                       <input
                         type="checkbox"
                         checked={row.isAvailable}
-                        onChange={(e) =>
-                          updateRow(i, { isAvailable: e.target.checked })
-                        }
+                        onChange={(e) => updateRow(i, { isAvailable: e.target.checked })}
                       />
                       Còn hàng
                     </label>
@@ -497,14 +492,10 @@ export function AdminProductForm() {
                     ) : null}
                   </div>
                 </div>
-                <label className="mt-2 block text-xs font-medium text-gray-600">
-                  Ảnh riêng biến thể (mỗi dòng một URL)
-                </label>
+                <label className="mt-2 block text-xs font-medium text-gray-600">Ảnh riêng biến thể (mỗi dòng một URL)</label>
                 <textarea
                   value={row.variantImages}
-                  onChange={(e) =>
-                    updateRow(i, { variantImages: e.target.value })
-                  }
+                  onChange={(e) => updateRow(i, { variantImages: e.target.value })}
                   rows={2}
                   placeholder="https://..."
                   className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder:text-gray-400"
@@ -513,9 +504,7 @@ export function AdminProductForm() {
             ))}
           </div>
           <div className="mt-3">
-            <label className="text-xs font-medium text-gray-600">
-              Giá mặc định (khi không có dòng biến thể hợp lệ)
-            </label>
+            <label className="text-xs font-medium text-gray-600">Giá mặc định (khi không có dòng biến thể hợp lệ)</label>
             <input
               type="number"
               value={basePrice}
@@ -527,19 +516,23 @@ export function AdminProductForm() {
         </div>
 
         {error ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-            {error}
-          </p>
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p>
         ) : null}
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-xl bg-brand py-3.5 text-sm font-extrabold uppercase text-white shadow-sm transition hover:bg-brand-dark disabled:opacity-50"
+          className="w-full rounded-xl bg-brand py-3.5 text-sm font-extrabold uppercase text-white shadow-sm transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? 'Đang lưu...' : isEdit ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm'}
         </button>
       </form>
+
+      {toast ? (
+        <div className="fixed right-4 top-4 z-[120] rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
     </div>
   )
 }

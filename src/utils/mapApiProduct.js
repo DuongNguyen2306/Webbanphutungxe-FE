@@ -7,7 +7,6 @@
  * @property {number} price
  * @property {number} [originalPrice]
  * @property {boolean} [isAvailable]
- * @property {number} [stockQuantity]
  * @property {string[]} [images]
  */
 
@@ -89,7 +88,6 @@ export function mapApiProduct(p) {
       salePrice: Number(v.price),
       originalPrice: v.originalPrice != null ? Number(v.originalPrice) : null,
       available: v.isAvailable !== false,
-      stockQuantity: Number(v.stockQuantity ?? 0),
       images: imgs,
     }
   })
