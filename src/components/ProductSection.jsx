@@ -11,10 +11,10 @@ export function ProductSection({
   if (!products.length) return null
 
   return (
-    <section className="mx-auto max-w-[1400px] px-3 sm:px-4 lg:px-6">
+    <section className="w-full">
       <SectionDivider brandName={brandDisplayName} />
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
         {products.map((p) => (
           <ProductCard
             key={p.id}

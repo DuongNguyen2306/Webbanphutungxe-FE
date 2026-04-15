@@ -8,7 +8,7 @@ export function Hero() {
           className="h-full w-full object-cover opacity-90"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-        <div className="absolute inset-0 flex max-w-[1400px] flex-col justify-center px-4 sm:px-8 lg:px-10">
+        <div className="absolute inset-0 mx-auto flex w-full max-w-[1600px] flex-col justify-center px-4 sm:px-8 xl:px-10">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/80 sm:text-sm">
             Thai Vũ · Phụ kiện & phụ tùng xe máy
           </p>

@@ -68,6 +68,11 @@ function pickListImage(p) {
   return ''
 }
 
+function toSafeNumber(v, fallback = 0) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
 /** Chuẩn hóa document Product từ API MongoDB cho storefront */
 export function mapApiProduct(p) {
   const rawVariants = p.variants || []
@@ -100,6 +105,13 @@ export function mapApiProduct(p) {
   const isAvailable = variants.some((v) => v.available)
 
   const productImages = Array.isArray(p.images) ? p.images.filter(Boolean) : []
+  const wishlistCountRaw =
+    p.wishlistCount ??
+    p.favoriteCount ??
+    p.likesCount ??
+    p.likeCount ??
+    p.wishlist?.count ??
+    0
 
   return {
     id: String(p._id),
@@ -120,6 +132,7 @@ export function mapApiProduct(p) {
     rating: p.rating ?? 4.5,
     reviewCount: p.reviewCount ?? 0,
     soldCount: p.soldCount ?? 0,
+    wishlistCount: Math.max(0, toSafeNumber(wishlistCountRaw, 0)),
     tags: Array.isArray(p.tags) ? p.tags.map((x) => String(x)) : [],
     compatibleVehicles: Array.isArray(p.compatibleVehicles)
       ? p.compatibleVehicles.map((x) => String(x))

@@ -112,8 +112,8 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-50 shadow-md">
-      <div className="bg-brand px-4 py-1 text-[11px] font-medium text-white/90">
-        <div className="mx-auto max-w-[1280px] text-center sm:text-left">
+      <div className="bg-brand px-4 py-1 text-[11px] font-medium text-white/90 xl:px-10">
+        <div className="mx-auto w-full max-w-[1600px] text-center sm:text-left">
           <span className="hidden sm:inline">
             Miễn phí vận chuyển đơn từ 500k · Hàng chính hãng · Hỗ trợ Zalo 24/7
           </span>
@@ -121,8 +121,8 @@ export function Header({
         </div>
       </div>
 
-      <div className="bg-brand px-4 py-3">
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+      <div className="bg-brand px-4 py-3 xl:px-10">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
           <div className="flex shrink-0 items-center gap-3">
             <Link to="/" className="flex items-center gap-2.5 no-underline">
               <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-2xl font-extrabold tracking-tight text-brand">

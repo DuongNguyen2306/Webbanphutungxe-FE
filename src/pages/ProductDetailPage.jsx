@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import { SHOP_ZALO_URL } from '../data/products'
 import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
 import { formatVnd } from '../utils/format'
+import { api } from '../api/client'
 import { useCart } from '../context/CartContext'
 import { useProductDetail } from '../hooks/useProductDetail'
 import { ProductReviewsSection } from '../components/ProductReviewsSection'
@@ -30,13 +32,27 @@ function StarRow({ value = 0 }) {
   )
 }
 
-function ProductDetailBody({ product, addItem, navigate, mongoOk, isAdmin }) {
+function ProductDetailBody({
+  product,
+  addItem,
+  navigate,
+  mongoOk,
+  isAdmin,
+  user,
+}) {
   const [variantId, setVariantId] = useState(() => {
     const first = product.variants.find((v) => v.available)
     return (first ?? product.variants[0]).id
   })
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
+  const [wishlistCount, setWishlistCount] = useState(() =>
+    Math.max(0, Number(product.wishlistCount) || 0),
+  )
+  const [isLiked, setIsLiked] = useState(false)
+  const [wishlistBusy, setWishlistBusy] = useState(false)
+  const [heartPulseKey, setHeartPulseKey] = useState(0)
+  const [wishlistError, setWishlistError] = useState('')
 
   const variant = useMemo(() => {
     if (!product.variants?.length) return null
@@ -57,6 +73,47 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk, isAdmin }) {
   useEffect(() => {
     setImgIdx(0)
   }, [variantId])
+
+  useEffect(() => {
+    setWishlistCount(Math.max(0, Number(product.wishlistCount) || 0))
+    setWishlistError('')
+  }, [product.id, product.wishlistCount])
+
+  useEffect(() => {
+    if (!product.id || !user || isAdmin) {
+      setIsLiked(false)
+      return
+    }
+
+    let cancel = false
+    ;(async () => {
+      try {
+        const { data } = await api.get(`/api/wishlist/status/${product.id}`)
+        if (cancel) return
+        const likedFromApi =
+          data?.isLiked ??
+          data?.liked ??
+          data?.isInWishlist ??
+          data?.inWishlist ??
+          data?.data?.isLiked
+        const countFromApi =
+          data?.wishlistCount ??
+          data?.count ??
+          data?.likes ??
+          data?.data?.wishlistCount
+        if (typeof likedFromApi === 'boolean') setIsLiked(likedFromApi)
+        if (Number.isFinite(Number(countFromApi))) {
+          setWishlistCount(Math.max(0, Number(countFromApi)))
+        }
+      } catch {
+        if (cancel) return
+      }
+    })().catch(() => {})
+
+    return () => {
+      cancel = true
+    }
+  }, [product.id, user, isAdmin])
 
   const mainSrc =
     galleryImages.length > 0
@@ -104,9 +161,72 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk, isAdmin }) {
     navigate('/')
   }
 
+  function handleBack() {
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+    navigate('/')
+  }
+
+  async function handleToggleWishlist() {
+    if (!user) {
+      window.alert('Bạn cần đăng nhập để lưu sản phẩm yêu thích')
+      navigate('/login')
+      return
+    }
+    if (isAdmin || wishlistBusy) return
+
+    setWishlistError('')
+    const optimisticLiked = !isLiked
+    const optimisticCount = Math.max(
+      0,
+      wishlistCount + (optimisticLiked ? 1 : -1),
+    )
+    setIsLiked(optimisticLiked)
+    setWishlistCount(optimisticCount)
+    setHeartPulseKey((k) => k + 1)
+    setWishlistBusy(true)
+
+    try {
+      const { data } = await api.post(`/api/wishlist/toggle`, {
+        productId: product.id,
+      })
+      const likedFromApi =
+        data?.isLiked ??
+        data?.liked ??
+        data?.isInWishlist ??
+        data?.inWishlist ??
+        data?.data?.isLiked
+      const countFromApi =
+        data?.wishlistCount ?? data?.count ?? data?.likes ?? data?.data?.wishlistCount
+      if (typeof likedFromApi === 'boolean') setIsLiked(likedFromApi)
+      if (Number.isFinite(Number(countFromApi))) {
+        setWishlistCount(Math.max(0, Number(countFromApi)))
+      }
+    } catch (err) {
+      setIsLiked(!optimisticLiked)
+      setWishlistCount(wishlistCount)
+      const message =
+        err?.response?.data?.message ||
+        'Không thể cập nhật yêu thích. Vui lòng thử lại.'
+      setWishlistError(message)
+    } finally {
+      setWishlistBusy(false)
+    }
+  }
+
   return (
     <>
     <main className="mx-auto max-w-[1200px] px-4 py-4 lg:py-8">
+      <button
+        type="button"
+        onClick={handleBack}
+        className="mb-3 inline-flex size-9 items-center justify-center rounded-full border border-gray-200 text-gray-700 transition hover:border-brand/40 hover:text-brand"
+        aria-label="Quay lại trang trước"
+      >
+        <ChevronLeft className="size-4.5" />
+      </button>
       <nav className="mb-4 flex flex-wrap gap-1 text-[11px] text-gray-400 sm:text-xs">
         <Link to="/" className="hover:text-brand">
           Trang chủ
@@ -171,11 +291,28 @@ function ProductDetailBody({ product, addItem, navigate, mongoOk, isAdmin }) {
             <span className="text-xs">Facebook · Zalo · Copy link</span>
             <button
               type="button"
-              className="ml-auto inline-flex items-center gap-1 text-brand"
+              onClick={handleToggleWishlist}
+              disabled={wishlistBusy || isAdmin}
+              className="ml-auto inline-flex items-center gap-1 text-brand disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Heart className="size-4" />
-              Đã thích (105)
+              <motion.span
+                key={heartPulseKey}
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.28, 1] }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+                className="inline-flex"
+              >
+                <Heart
+                  className={`size-4 ${isLiked ? 'fill-brand text-brand' : ''}`}
+                />
+              </motion.span>
+              Đã thích ({wishlistCount})
             </button>
+            {wishlistError ? (
+              <span className="basis-full text-xs font-semibold text-red-600">
+                {wishlistError}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -435,6 +572,7 @@ export function ProductDetailPage() {
         navigate={navigate}
         mongoOk={fromApi === true}
         isAdmin={user?.role === 'admin'}
+        user={user}
       />
 
       <SiteFooter />
