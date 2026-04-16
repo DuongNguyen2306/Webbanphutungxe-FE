@@ -21,6 +21,13 @@ export function CartPage() {
     setLineQuantity,
     removeLine,
     removeSelectedLines,
+    lineLoadingMap,
+    cartSyncing,
+    cartReady,
+    cartError,
+    mergeError,
+    needsMergeRetry,
+    retryMergeGuestCart,
   } = useCart()
 
   const { user } = useAuth()
@@ -196,8 +203,8 @@ export function CartPage() {
           wardCode: address.wardCode,
           wardName: address.wardName,
           detail: address.detail.trim(),
+          note: address.note.trim(),
         },
-        note: address.note.trim(),
         totalAmount: selectedTotal,
         items: selectedItems.map((x) => ({
           productId: x.productId,
@@ -208,7 +215,7 @@ export function CartPage() {
           price: x.salePrice,
         })),
       })
-      removeSelectedLines()
+      await removeSelectedLines()
       setSuccessOpen(true)
       setCheckoutOpen(false)
     } catch (err) {
@@ -235,6 +242,26 @@ export function CartPage() {
         <p className="mt-1 text-sm text-gray-600">
           Chọn sản phẩm cần thanh toán. Tổng tiền chỉ tính các dòng được tick.
         </p>
+        {!cartReady || cartSyncing ? (
+          <p className="mt-2 text-sm text-gray-500">Đang đồng bộ giỏ hàng...</p>
+        ) : null}
+        {cartError ? (
+          <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {cartError}
+          </p>
+        ) : null}
+        {needsMergeRetry ? (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p>{mergeError || 'Giỏ hàng chưa đồng bộ sau đăng nhập.'}</p>
+            <button
+              type="button"
+              onClick={() => retryMergeGuestCart()}
+              className="mt-1 font-semibold underline"
+            >
+              Thử đồng bộ lại
+            </button>
+          </div>
+        ) : null}
 
         {items.length === 0 ? (
           <p className="mt-8 text-center text-gray-600">
@@ -261,6 +288,9 @@ export function CartPage() {
                 <ul className="divide-y divide-gray-100">
                   {items.map((line) => (
                     <li key={line.lineId} className="px-4 py-3">
+                      {Boolean(lineLoadingMap[line.lineId]) ? (
+                        <p className="mb-2 text-xs font-medium text-gray-500">Đang cập nhật...</p>
+                      ) : null}
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                           <input
@@ -302,6 +332,7 @@ export function CartPage() {
                               type="button"
                               className="px-3 py-1.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                               onClick={() => setLineQuantity(line.lineId, line.quantity - 1)}
+                              disabled={Boolean(lineLoadingMap[line.lineId])}
                             >
                               −
                             </button>
@@ -312,6 +343,7 @@ export function CartPage() {
                               type="button"
                               className="px-3 py-1.5 text-sm font-bold text-gray-700 hover:bg-gray-50"
                               onClick={() => setLineQuantity(line.lineId, line.quantity + 1)}
+                              disabled={Boolean(lineLoadingMap[line.lineId])}
                             >
                               +
                             </button>
@@ -324,7 +356,8 @@ export function CartPage() {
                           <button
                             type="button"
                             onClick={() => removeLine(line.lineId)}
-                            className="text-gray-400 hover:text-brand"
+                            disabled={Boolean(lineLoadingMap[line.lineId])}
+                            className="text-gray-400 hover:text-brand disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label="Xóa"
                           >
                             <Trash2 className="size-5" />

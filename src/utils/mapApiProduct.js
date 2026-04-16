@@ -41,6 +41,50 @@ function variantLabel(v) {
   return parts.length ? parts.join(' · ') : 'Mặc định'
 }
 
+function slugifyText(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function normalizeAttributes(rawAttributes = [], rawVariants = []) {
+  if (Array.isArray(rawAttributes) && rawAttributes.length) {
+    return rawAttributes.map((attr, index) => ({
+      name: String(attr?.name || `Thuộc tính ${index + 1}`),
+      key: String(attr?.name || `Thuộc tính ${index + 1}`),
+      values: Array.isArray(attr?.values)
+        ? Array.from(new Set(attr.values.map((v) => String(v || '').trim()).filter(Boolean)))
+        : [],
+    }))
+  }
+
+  const legacyFields = [
+    { name: 'Loại', key: 'typeName' },
+    { name: 'Màu sắc', key: 'color' },
+    { name: 'Kích thước', key: 'size' },
+  ]
+  return legacyFields
+    .map((field, index) => {
+      const values = Array.from(
+        new Set(
+          rawVariants
+            .map((variant) => String(variant?.[field.key] || '').trim())
+            .filter(Boolean),
+        ),
+      )
+      if (!values.length) return null
+      return {
+        name: field.name,
+        key: field.name,
+        values,
+      }
+    })
+    .filter(Boolean)
+}
+
 function computeDiscountTag(rawVariants) {
   for (const v of rawVariants || []) {
     const o = v.originalPrice
@@ -75,19 +119,53 @@ function toSafeNumber(v, fallback = 0) {
 /** Chuẩn hóa document Product từ API MongoDB cho storefront */
 export function mapApiProduct(p) {
   const rawVariants = p.variants || []
+  const attributes = normalizeAttributes(p.attributes || [], rawVariants)
   const variants = rawVariants.map((v) => {
-    const imgs = Array.isArray(v.images)
-      ? v.images.map((u) => String(u).trim()).filter(Boolean)
-      : []
+    const imgs = [
+      ...(Array.isArray(v.images) ? v.images : []),
+      v.image,
+    ]
+      .map((u) => String(u || '').trim())
+      .filter(Boolean)
+    const apiAttributeValues =
+      v.attributeValues && typeof v.attributeValues === 'object' ? v.attributeValues : {}
+    const legacyAttributeValues = {}
+    if (v.typeName && attributes[0]) legacyAttributeValues[attributes[0].key] = String(v.typeName)
+    if (v.color && attributes[1]) legacyAttributeValues[attributes[1].key] = String(v.color)
+    if (v.size && attributes[2]) legacyAttributeValues[attributes[2].key] = String(v.size)
+    const normalizedAttributeValues = {}
+    Object.entries({ ...legacyAttributeValues, ...apiAttributeValues }).forEach(([k, value]) => {
+      const key = String(k || '').trim()
+      normalizedAttributeValues[key] = String(value || '')
+    })
+    const key =
+      String(v.key || '').trim() ||
+      Object.values(normalizedAttributeValues)
+        .map((value) => slugifyText(value))
+        .filter(Boolean)
+        .join('-') ||
+      String(v._id || '')
+    const labelFromAttributes = Object.values(normalizedAttributeValues).filter(Boolean).join(' · ')
+    const variantId = String(v._id ?? v.id ?? key)
     return {
-      id: String(v._id),
-      label: variantLabel(v),
+      id: variantId,
+      key,
+      label: labelFromAttributes || variantLabel(v),
       typeName: v.typeName ?? '',
       color: v.color ?? '',
       size: v.size ?? '',
+      attributeValues: normalizedAttributeValues,
       salePrice: Number(v.price),
       originalPrice: v.originalPrice != null ? Number(v.originalPrice) : null,
       available: v.isAvailable !== false,
+      stock:
+        v.stock != null
+          ? Number(v.stock)
+          : v.stockQuantity != null
+            ? Number(v.stockQuantity)
+            : null,
+      sku: v.sku ?? '',
+      image: imgs[0] || '',
       images: imgs,
     }
   })
@@ -137,6 +215,7 @@ export function mapApiProduct(p) {
       : [],
     categoryId: p.category?._id ? String(p.category._id) : null,
     categoryName: p.category?.name ?? '',
+    attributes,
     variants,
     _fromApi: true,
   }

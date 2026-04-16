@@ -24,6 +24,10 @@ const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
 export function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [adv, setAdv] = useState(() => createDefaultFilterState())
+  const [priceDraft, setPriceDraft] = useState(() => ({
+    priceMin: 0,
+    priceMax: PRICE_SLIDER_MAX,
+  }))
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const { products, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
     useShopCatalog({
@@ -44,6 +48,14 @@ export function HomePage() {
             ? absoluteMaxPrice
             : prev.priceMax
 
+      if (nextPriceMax === prev.priceMax) return prev
+      return { ...prev, priceMax: nextPriceMax }
+    })
+    setPriceDraft((prev) => {
+      const nextPriceMax =
+        prev.priceMax == null || prev.priceMax > absoluteMaxPrice
+          ? absoluteMaxPrice
+          : prev.priceMax
       if (nextPriceMax === prev.priceMax) return prev
       return { ...prev, priceMax: nextPriceMax }
     })
@@ -97,18 +109,32 @@ export function HomePage() {
   )
 
   const resetAdv = useCallback(() => {
-    setAdv(createDefaultFilterState(absoluteMaxPrice))
+    const next = createDefaultFilterState(absoluteMaxPrice)
+    setAdv(next)
+    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
   }, [absoluteMaxPrice])
 
+  const applyPriceFilter = useCallback(() => {
+    setAdv((prev) => ({
+      ...prev,
+      priceMin: priceDraft.priceMin,
+      priceMax: priceDraft.priceMax,
+    }))
+  }, [priceDraft])
+
   const handleViewMoreBrand = useCallback((brandKey) => {
-    setAdv({ ...createDefaultFilterState(absoluteMaxPrice), brands: [brandKey] })
+    const next = { ...createDefaultFilterState(absoluteMaxPrice), brands: [brandKey] }
+    setAdv(next)
+    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [absoluteMaxPrice])
 
   const handleViewMoreSection = useCallback(
     (sectionKey) => {
       if (sectionKey === 'other') {
-        setAdv(createDefaultFilterState(absoluteMaxPrice))
+        const next = createDefaultFilterState(absoluteMaxPrice)
+        setAdv(next)
+        setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
@@ -118,20 +144,29 @@ export function HomePage() {
   )
 
   const applyReplacementFilter = useCallback(() => {
-    setAdv({
+    const next = {
       ...createDefaultFilterState(absoluteMaxPrice),
       parts: ['shock', 'lighting', 'engine'],
-    })
+    }
+    setAdv(next)
+    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [absoluteMaxPrice])
 
   const applyTiresFilter = useCallback(() => {
-    setAdv({
+    const next = {
       ...createDefaultFilterState(absoluteMaxPrice),
       parts: ['tires_wheels'],
-    })
+    }
+    setAdv(next)
+    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [absoluteMaxPrice])
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [searchQuery])
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
@@ -181,8 +216,11 @@ export function HomePage() {
               <div className="sticky top-28">
                 <FilterPanelSidebar
                   filters={adv}
+                  priceDraft={priceDraft}
                   absoluteMaxPrice={absoluteMaxPrice}
                   onChange={setAdv}
+                  onPriceChange={(priceMin, priceMax) => setPriceDraft({ priceMin, priceMax })}
+                  onApplyPrice={applyPriceFilter}
                   onReset={resetAdv}
                 />
               </div>
@@ -270,20 +308,19 @@ export function HomePage() {
                 </div>
                 <FilterPanelContent
                   filters={adv}
+                  priceDraft={priceDraft}
                   absoluteMaxPrice={absoluteMaxPrice}
                   onChange={setAdv}
+                  onPriceChange={(priceMin, priceMax) => setPriceDraft({ priceMin, priceMax })}
                   onReset={() => {
                     resetAdv()
                     setMobileFilterOpen(false)
                   }}
+                  onApplyPrice={() => {
+                    applyPriceFilter()
+                    setMobileFilterOpen(false)
+                  }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setMobileFilterOpen(false)}
-                  className="mt-6 w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-white"
-                >
-                  Áp dụng
-                </button>
               </div>
             </div>
           )}

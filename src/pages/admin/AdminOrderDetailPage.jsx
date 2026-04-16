@@ -1,17 +1,33 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getAdminOrderDetail } from '../../api/orderDetailApi'
 import { formatVnd } from '../../utils/format'
-import { ORDER_STATUS, ORDER_STATUS_LABELS, normalizeOrderStatus } from '../../constants/orderStatus'
+import {
+  FALLBACK_STATUS_OPTIONS,
+  ORDER_STATUS,
+  ORDER_STATUS_LABELS,
+  isOrderStatusCode,
+  normalizeOrderStatus,
+} from '../../constants/orderStatus'
 import { api } from '../../api/client'
 import { mapOrderDetail } from '../../utils/orderDetailMapper'
 import { ReasonInputModal } from '../../components/ReasonInputModal'
+import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
 
-const STATUS_OPTIONS = [
-  ORDER_STATUS.CONTACTING,
-  ORDER_STATUS.CONFIRMED,
-  ORDER_STATUS.CANCELLED,
-]
+const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
+  'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
+
+function getStatusUpdateErrorMessage(err) {
+  const status = err?.response?.status
+  if (status === 400) return err?.response?.data?.message || 'Cập nhật trạng thái thất bại.'
+  if (status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
+  }
+  if (status === 403) {
+    return err?.response?.data?.message || 'Bạn không có quyền quản trị để thực hiện thao tác này.'
+  }
+  return 'Có lỗi hệ thống. Vui lòng thử lại.'
+}
 
 function SkeletonBlock() {
   return (
@@ -38,12 +54,51 @@ function ItemThumb({ src, alt }) {
 
 export function AdminOrderDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
+  const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [cancelModal, setCancelModal] = useState({ open: false, reason: '' })
   const [cancelError, setCancelError] = useState('')
+  const [completeModal, setCompleteModal] = useState({ step: 0, token: '' })
+  const [completeError, setCompleteError] = useState('')
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const t = setTimeout(() => setToast(''), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  async function loadStatusOptions() {
+    try {
+      const { data } = await api.get('/api/admin/orders/status-options')
+      const statuses = Array.isArray(data?.statuses) ? data.statuses : []
+      const normalized = statuses
+        .map((item) => ({
+          code: String(item?.code || '').toUpperCase(),
+          label: String(item?.label || '').trim(),
+        }))
+        .filter((item) => isOrderStatusCode(item.code))
+
+      if (!normalized.length) {
+        setStatusOptions(FALLBACK_STATUS_OPTIONS)
+        return
+      }
+
+      setStatusOptions(
+        normalized.map((item) => ({
+          code: item.code,
+          label: item.label || ORDER_STATUS_LABELS[item.code] || item.code,
+        })),
+      )
+    } catch {
+      setStatusOptions(FALLBACK_STATUS_OPTIONS)
+    }
+  }
 
   async function load() {
     if (!id) return
@@ -69,10 +124,11 @@ export function AdminOrderDetailPage() {
 
   useEffect(() => {
     load()
+    loadStatusOptions()
   }, [id])
 
   async function commitStatus(status, note = '') {
-    if (!order) return
+    if (!order) return false
     setUpdating(true)
     setError('')
     try {
@@ -85,20 +141,72 @@ export function AdminOrderDetailPage() {
               ...prev,
               status: normalizeOrderStatus(data.status || status),
               cancelNote: data.cancelNote || '',
+              cancelReason: data.note || data.cancelNote || note || prev.cancelReason || '',
             }
           : prev,
       )
+      setToast('Cập nhật trạng thái thành công')
+      return true
     } catch (err) {
-      setError(err.response?.data?.message || 'Cập nhật trạng thái thất bại.')
+      const statusCode = err?.response?.status
+      if (statusCode === 401) {
+        navigate('/login', { replace: true })
+      }
+      setError(getStatusUpdateErrorMessage(err))
+      if (!statusCode || statusCode >= 500) {
+        setToast('Không thể cập nhật trạng thái. Vui lòng thử lại.')
+      }
+      return false
     } finally {
       setUpdating(false)
     }
   }
 
+  function openCompleteFlow() {
+    if (!order) return
+    const currentStatus = normalizeOrderStatus(order.status)
+    if (currentStatus !== ORDER_STATUS.SHIPPING) {
+      setError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
+      return
+    }
+    setCompleteModal({ step: 1, token: '' })
+    setCompleteError('')
+  }
+
+  function closeCompleteFlow() {
+    if (updating) return
+    setCompleteModal({ step: 0, token: '' })
+    setCompleteError('')
+  }
+
+  async function submitCompleteOrder() {
+    const token = completeModal.token.trim().toUpperCase()
+    if (token !== COMPLETE_CONFIRM_TEXT) {
+      setCompleteError(`Vui lòng nhập chính xác ${COMPLETE_CONFIRM_TEXT}.`)
+      return
+    }
+    if (!order) return
+    const currentStatus = normalizeOrderStatus(order.status)
+    if (currentStatus !== ORDER_STATUS.SHIPPING) {
+      setCompleteError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
+      return
+    }
+    const ok = await commitStatus(ORDER_STATUS.COMPLETED)
+    if (ok) {
+      setCompleteModal({ step: 0, token: '' })
+      setCompleteError('')
+    }
+  }
+
   async function onStatusChange(nextStatus) {
     if (!order) return
+    const currentStatus = normalizeOrderStatus(order.status)
     const normalized = normalizeOrderStatus(nextStatus)
-    if (normalized === normalizeOrderStatus(order.status)) return
+    if (normalized === currentStatus) return
+    if (normalized === ORDER_STATUS.COMPLETED) {
+      openCompleteFlow()
+      return
+    }
     if (normalized === ORDER_STATUS.CANCELLED) {
       setCancelModal({ open: true, reason: '' })
       setCancelError('')
@@ -116,6 +224,51 @@ export function AdminOrderDetailPage() {
     await commitStatus(ORDER_STATUS.CANCELLED, reason)
     setCancelModal({ open: false, reason: '' })
     setCancelError('')
+  }
+
+  function buildOrderShareText(targetOrder) {
+    const orderCode = `#${String(targetOrder._id).slice(-8)}`
+    const statusLabel =
+      ORDER_STATUS_LABELS[normalizeOrderStatus(targetOrder.status)] ||
+      normalizeOrderStatus(targetOrder.status)
+    const createdAt = new Date(targetOrder.createdAt).toLocaleString('vi-VN')
+    const itemLines = (targetOrder.items || []).map(
+      (it, index) =>
+        `${index + 1}. ${it.displayName}${it.variantLabel ? ` (${it.variantLabel})` : ''} - ${formatVnd(it.price)} x ${it.quantity} = ${formatVnd(it.lineTotal)}`,
+    )
+
+    return [
+      'THÔNG TIN ĐƠN HÀNG',
+      `Mã đơn: ${orderCode}`,
+      `Ngày đặt: ${createdAt}`,
+      `Trạng thái: ${statusLabel}`,
+      '',
+      'Thông tin liên hệ:',
+      `- Tên: ${targetOrder.contact?.name || '—'}`,
+      `- SDT: ${targetOrder.contact?.phone || '—'}`,
+      `- Email: ${targetOrder.contact?.email || '—'}`,
+      '',
+      `Địa chỉ giao hàng: ${targetOrder.shippingAddressText || 'Chưa có địa chỉ'}`,
+      '',
+      'Sản phẩm:',
+      ...(itemLines.length ? itemLines : ['- Không có sản phẩm']),
+      '',
+      `Tổng thanh toán: ${formatVnd(targetOrder.totalAmount)}`,
+    ].join('\n')
+  }
+
+  async function copyOrderInfo() {
+    if (!order || copying) return
+    setCopying(true)
+    try {
+      const text = buildOrderShareText(order)
+      await navigator.clipboard.writeText(text)
+      setToast('Đã copy thông tin đơn hàng')
+    } catch {
+      setError('Không thể copy thông tin đơn hàng. Vui lòng thử lại.')
+    } finally {
+      setCopying(false)
+    }
   }
 
   return (
@@ -143,23 +296,53 @@ export function AdminOrderDetailPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-mono text-xs text-gray-500">Mã đơn: #{String(order._id).slice(-8)}</p>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={copyOrderInfo}
+                  disabled={copying}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {copying ? 'Đang copy...' : 'Copy thông tin đơn'}
+                </button>
                 <select
                   value={normalizeOrderStatus(order.status)}
                   onChange={(e) => onStatusChange(e.target.value)}
                   disabled={updating}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
                 >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {ORDER_STATUS_LABELS[s] || s}
+                  {statusOptions
+                    .filter(
+                      (opt) =>
+                        opt.code !== ORDER_STATUS.COMPLETED ||
+                        normalizeOrderStatus(order.status) === ORDER_STATUS.COMPLETED,
+                    )
+                    .map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.label || ORDER_STATUS_LABELS[opt.code] || opt.code}
                     </option>
-                  ))}
+                    ))}
                 </select>
+                {normalizeOrderStatus(order.status) === ORDER_STATUS.SHIPPING ? (
+                  <button
+                    type="button"
+                    onClick={openCompleteFlow}
+                    disabled={updating}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Hoàn thành
+                  </button>
+                ) : null}
               </div>
             </div>
             <p className="mt-2 text-sm text-gray-600">
               Ngày đặt: {new Date(order.createdAt).toLocaleString('vi-VN')}
             </p>
+            {normalizeOrderStatus(order.status) === ORDER_STATUS.CANCELLED ? (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
+                <p className="font-semibold text-rose-800">Lý do hủy</p>
+                <p className="mt-1 text-rose-700">{order.cancelReason || '—'}</p>
+              </div>
+            ) : null}
             <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                 <p className="font-semibold text-gray-800">Thông tin tài khoản mua</p>
@@ -177,6 +360,8 @@ export function AdminOrderDetailPage() {
             <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
               <p className="font-semibold text-gray-800">Địa chỉ giao hàng</p>
               <p className="mt-1 text-gray-700">{order.shippingAddressText || 'Chưa có địa chỉ'}</p>
+              <p className="mt-2 text-gray-500">Ghi chú giao hàng</p>
+              <p className="text-gray-700">{order.shippingNote || '—'}</p>
             </div>
           </div>
 
@@ -226,6 +411,24 @@ export function AdminOrderDetailPage() {
         loading={updating}
         error={cancelError}
       />
+      <CompleteOrderConfirmModal
+        step={completeModal.step}
+        inputValue={completeModal.token}
+        onInputChange={(value) => {
+          setCompleteModal((prev) => ({ ...prev, token: value }))
+          if (completeError) setCompleteError('')
+        }}
+        onClose={closeCompleteFlow}
+        onContinue={() => setCompleteModal((prev) => ({ ...prev, step: 2 }))}
+        onConfirm={submitCompleteOrder}
+        loading={updating}
+        error={completeError}
+      />
+      {toast ? (
+        <div className="fixed right-4 top-4 z-[120] rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
     </div>
   )
 }

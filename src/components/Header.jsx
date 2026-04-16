@@ -34,6 +34,7 @@ export function Header({
   const { totalQuantity } = useCart()
   const { user, isAdmin, logout } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
@@ -42,6 +43,7 @@ export function Header({
   const [searchError, setSearchError] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const dropdownRef = useRef(null)
+  const desktopMenuRef = useRef(null)
   const profileRef = useRef(null)
   const searchTimerRef = useRef(null)
 
@@ -49,6 +51,9 @@ export function Header({
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false)
+      }
+      if (desktopMenuRef.current && !desktopMenuRef.current.contains(e.target)) {
+        setDesktopMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -162,14 +167,46 @@ export function Header({
           </div>
 
           <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
-            <button
-              type="button"
-              className="hidden shrink-0 items-center gap-1.5 rounded-md border border-white/30 px-3 py-2.5 text-xs font-bold uppercase text-white lg:flex"
-              aria-label="Danh mục"
-            >
-              <Menu className="size-5" strokeWidth={2.5} />
-              Menu
-            </button>
+            <div className="relative hidden lg:block" ref={desktopMenuRef}>
+              <button
+                type="button"
+                onClick={() => setDesktopMenuOpen((v) => !v)}
+                className="hidden shrink-0 items-center gap-1.5 rounded-md border border-white/30 px-3 py-2.5 text-xs font-bold uppercase text-white lg:flex"
+                aria-label="Danh mục"
+                aria-expanded={desktopMenuOpen}
+              >
+                <Menu className="size-5" strokeWidth={2.5} />
+                Menu
+              </button>
+              {desktopMenuOpen ? (
+                <div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
+                  <p className="px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                    Chọn nhanh hãng xe
+                  </p>
+                  {BRAND_OPTIONS.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        onBrandFilterChange(b.id)
+                        setDesktopMenuOpen(false)
+                      }}
+                      className="block w-full rounded-lg px-2 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-gray-100" />
+                  <Link
+                    to={user ? '/profile#orders' : '/login'}
+                    onClick={() => setDesktopMenuOpen(false)}
+                    className="block rounded-lg px-2 py-2 text-sm font-semibold text-brand hover:bg-red-50"
+                  >
+                    Tra cứu đơn hàng
+                  </Link>
+                </div>
+              ) : null}
+            </div>
 
             <div className="relative flex min-w-0 flex-1">
               <div className="relative z-10 flex w-full items-stretch rounded-full bg-white shadow-sm ring-1 ring-black/5">
@@ -231,7 +268,7 @@ export function Header({
 
           <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
             <Link
-              to={user ? '/profile' : '/login'}
+              to={user ? '/profile#orders' : '/login'}
               className="hidden items-center gap-2 rounded-full bg-brand-dark px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black/20 sm:flex sm:px-4"
             >
               <span aria-hidden>📝</span>
@@ -373,7 +410,7 @@ export function Header({
         ) : null}
 
         <Link
-          to={user ? '/profile' : '/login'}
+          to={user ? '/profile#orders' : '/login'}
           className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-brand-dark py-2.5 text-xs font-bold text-white sm:hidden"
         >
           <span aria-hidden>📝</span>

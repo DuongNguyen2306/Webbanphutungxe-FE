@@ -21,10 +21,14 @@ function buildShippingAddressText(order) {
 
 export function mapOrderDetail(raw) {
   const items = Array.isArray(raw?.items) ? raw.items : []
+  const shippingNote = raw?.shippingAddress?.note || ''
+  const cancelReason = raw?.note || ''
   return {
     ...raw,
     status: normalizeOrderStatus(raw?.status),
     shippingAddressText: buildShippingAddressText(raw),
+    shippingNote,
+    cancelReason,
     items: items.map((item) => ({
       ...item,
       image: pickItemImage(item),

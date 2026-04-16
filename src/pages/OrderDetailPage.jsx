@@ -332,6 +332,12 @@ export function OrderDetailPage() {
               <p className="mt-2 text-sm text-gray-600">
                 Ngày đặt: {new Date(order.createdAt).toLocaleString('vi-VN')}
               </p>
+              {order.status === ORDER_STATUS.CANCELLED ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
+                  <p className="font-semibold text-rose-800">Lý do hủy</p>
+                  <p className="mt-1 text-rose-700">{order.cancelReason || '—'}</p>
+                </div>
+              ) : null}
               <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
                 <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                   <p className="font-semibold text-gray-800">Thông tin liên hệ</p>
@@ -342,6 +348,8 @@ export function OrderDetailPage() {
                 <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                   <p className="font-semibold text-gray-800">Địa chỉ giao hàng</p>
                   <p className="mt-1 text-gray-700">{order.shippingAddressText || 'Chưa có địa chỉ'}</p>
+                  <p className="mt-2 text-gray-500">Ghi chú giao hàng</p>
+                  <p className="text-gray-700">{order.shippingNote || '—'}</p>
                 </div>
               </div>
             </div>

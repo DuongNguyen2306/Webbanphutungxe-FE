@@ -68,7 +68,7 @@ export function ImagePickerField({
   hint = '',
   items,
   onChange,
-  emptyText = 'Kéo thả ảnh vào đây hoặc chọn từ máy',
+  emptyText = '',
 }) {
   const inputRef = useRef(null)
 
@@ -115,7 +115,7 @@ export function ImagePickerField({
           >
             Chọn ảnh từ máy
           </button>
-          <span className="text-xs text-gray-500">{emptyText}</span>
+          {emptyText ? <span className="text-xs text-gray-500">{emptyText}</span> : null}
         </div>
 
         {hint ? <p className="mt-1 text-[11px] text-gray-500">{hint}</p> : null}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import {
   FALLBACK_STATUS_OPTIONS,
@@ -9,13 +9,31 @@ import {
   normalizeOrderStatus,
 } from '../../constants/orderStatus'
 import { ReasonInputModal } from '../../components/ReasonInputModal'
+import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
 import { formatVnd } from '../../utils/format'
 
+const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
+  'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
+
+function getStatusUpdateErrorMessage(err) {
+  const status = err?.response?.status
+  if (status === 400) return err?.response?.data?.message || 'Cập nhật trạng thái thất bại.'
+  if (status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
+  }
+  if (status === 403) {
+    return err?.response?.data?.message || 'Bạn không có quyền quản trị để thực hiện thao tác này.'
+  }
+  return 'Có lỗi hệ thống. Vui lòng thử lại.'
+}
+
 export function AdminOrders() {
+  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
   const [updatingId, setUpdatingId] = useState('')
   const [cancelModal, setCancelModal] = useState({
     open: false,
@@ -23,6 +41,18 @@ export function AdminOrders() {
     reason: '',
   })
   const [cancelModalError, setCancelModalError] = useState('')
+  const [completeModal, setCompleteModal] = useState({
+    step: 0,
+    orderId: '',
+    token: '',
+  })
+  const [completeModalError, setCompleteModalError] = useState('')
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const t = setTimeout(() => setToast(''), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   async function load() {
     setLoading(true)
@@ -73,10 +103,9 @@ export function AdminOrders() {
 
   async function commitStatusChange(id, normalizedStatus, note = '') {
     const previous = orders.find((order) => order._id === id)
-    if (!previous) return
+    if (!previous) return false
     const previousStatus = normalizeOrderStatus(previous.status)
-    const previousCancelNote = previous.cancelNote || ''
-    if (previousStatus === normalizedStatus) return
+    if (previousStatus === normalizedStatus) return false
 
     const payload = { status: normalizedStatus }
     if (normalizedStatus === ORDER_STATUS.CANCELLED) {
@@ -85,20 +114,6 @@ export function AdminOrders() {
 
     setUpdatingId(id)
     setError('')
-    setOrders((prev) =>
-      prev.map((order) =>
-        order._id === id
-          ? {
-              ...order,
-              status: normalizedStatus,
-              cancelNote:
-                normalizedStatus === ORDER_STATUS.CANCELLED
-                  ? payload.note
-                  : order.cancelNote,
-            }
-          : order,
-      ),
-    )
     try {
       const { data } = await api.patch(`/api/admin/orders/${id}/status`, payload)
       setOrders((prev) =>
@@ -112,26 +127,52 @@ export function AdminOrders() {
             : order,
         ),
       )
+      setToast('Cập nhật trạng thái thành công')
+      return true
     } catch (err) {
-      setOrders((prev) =>
-        prev.map((order) =>
-          order._id === id
-            ? { ...order, status: previousStatus, cancelNote: previousCancelNote }
-            : order,
-        ),
-      )
-      setError(
-        err.response?.status === 400 || err.response?.status === 404
-          ? err.response?.data?.message || 'Cập nhật trạng thái thất bại.'
-          : 'Cập nhật trạng thái thất bại.',
-      )
+      const status = err?.response?.status
+      if (status === 401) {
+        navigate('/login', { replace: true })
+      }
+      setError(getStatusUpdateErrorMessage(err))
+      if (!status || status >= 500) {
+        setToast('Không thể cập nhật trạng thái. Vui lòng thử lại.')
+      }
+      return false
     } finally {
       setUpdatingId('')
     }
   }
 
-  function updateStatus(id, status) {
+  function openCompleteFlow(id, currentStatus) {
+    if (currentStatus !== ORDER_STATUS.SHIPPING) {
+      setError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
+      return
+    }
+    setCompleteModal({
+      step: 1,
+      orderId: id,
+      token: '',
+    })
+    setCompleteModalError('')
+  }
+
+  function closeCompleteFlow() {
+    if (updatingId) return
+    setCompleteModal({
+      step: 0,
+      orderId: '',
+      token: '',
+    })
+    setCompleteModalError('')
+  }
+
+  function updateStatus(id, status, currentStatus) {
     const normalizedStatus = normalizeOrderStatus(status)
+    if (normalizedStatus === ORDER_STATUS.COMPLETED) {
+      openCompleteFlow(id, currentStatus)
+      return
+    }
     if (normalizedStatus === ORDER_STATUS.CANCELLED) {
       setCancelModal({ open: true, orderId: id, reason: '' })
       setCancelModalError('')
@@ -149,6 +190,33 @@ export function AdminOrders() {
     await commitStatusChange(cancelModal.orderId, ORDER_STATUS.CANCELLED, reason)
     setCancelModal({ open: false, orderId: '', reason: '' })
     setCancelModalError('')
+  }
+
+  async function submitCompleteOrder() {
+    const token = completeModal.token.trim().toUpperCase()
+    if (token !== COMPLETE_CONFIRM_TEXT) {
+      setCompleteModalError(`Vui lòng nhập chính xác ${COMPLETE_CONFIRM_TEXT}.`)
+      return
+    }
+    const target = orders.find((o) => o._id === completeModal.orderId)
+    if (!target) {
+      closeCompleteFlow()
+      return
+    }
+    const currentStatus = normalizeOrderStatus(target.status)
+    if (currentStatus !== ORDER_STATUS.SHIPPING) {
+      setCompleteModalError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
+      return
+    }
+    const ok = await commitStatusChange(completeModal.orderId, ORDER_STATUS.COMPLETED)
+    if (ok) {
+      setCompleteModal({
+        step: 0,
+        orderId: '',
+        token: '',
+      })
+      setCompleteModalError('')
+    }
   }
 
   if (loading) {
@@ -225,18 +293,34 @@ export function AdminOrders() {
                 <select
                   id={`status-${o._id}`}
                   value={currentStatus}
-                  onChange={(e) => updateStatus(o._id, e.target.value)}
+                  onChange={(e) => updateStatus(o._id, e.target.value, currentStatus)}
                   disabled={updatingId === o._id}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
-                  {statusOptions.map((opt) => (
+                  {statusOptions
+                    .filter(
+                      (opt) =>
+                        opt.code !== ORDER_STATUS.COMPLETED ||
+                        currentStatus === ORDER_STATUS.COMPLETED,
+                    )
+                    .map((opt) => (
                     <option key={opt.code} value={opt.code}>
                       {opt.label || ORDER_STATUS_LABELS[opt.code] || opt.code}
                     </option>
-                  ))}
+                    ))}
                 </select>
                 {updatingId === o._id ? (
                   <p className="mt-1 text-xs text-gray-500">Đang cập nhật...</p>
+                ) : null}
+                {currentStatus === ORDER_STATUS.SHIPPING ? (
+                  <button
+                    type="button"
+                    onClick={() => openCompleteFlow(o._id, currentStatus)}
+                    disabled={updatingId === o._id}
+                    className="mt-2 block w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Hoàn thành
+                  </button>
                 ) : null}
                 <Link
                   to={`/admin/orders/${o._id}`}
@@ -290,6 +374,24 @@ export function AdminOrders() {
         loading={Boolean(updatingId)}
         error={cancelModalError}
       />
+      <CompleteOrderConfirmModal
+        step={completeModal.step}
+        inputValue={completeModal.token}
+        onInputChange={(value) => {
+          setCompleteModal((prev) => ({ ...prev, token: value }))
+          if (completeModalError) setCompleteModalError('')
+        }}
+        onClose={closeCompleteFlow}
+        onContinue={() => setCompleteModal((prev) => ({ ...prev, step: 2 }))}
+        onConfirm={submitCompleteOrder}
+        loading={Boolean(updatingId)}
+        error={completeModalError}
+      />
+      {toast ? (
+        <div className="fixed right-4 top-4 z-[120] rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { User, ShoppingBag, KeyRound, PencilLine } from 'lucide-react'
 import { Header } from '../components/Header'
 import { ReasonInputModal } from '../components/ReasonInputModal'
@@ -18,6 +18,7 @@ import { formatVnd } from '../utils/format'
 const PAGE_LIMIT = 10
 
 export function ProfilePage() {
+  const location = useLocation()
   const { user, loading, logout, updateUser } = useAuth()
   const [search, setSearch] = useState('')
   const [brandFilter, setBrandFilter] = useState('all')
@@ -156,10 +157,10 @@ export function ProfilePage() {
   }
 
   useEffect(() => {
-    if (window.location.hash === '#orders') {
+    if (location.hash === '#orders') {
       setSection('orders')
     }
-  }, [])
+  }, [location.hash])
 
   useEffect(() => {
     if (!user) return

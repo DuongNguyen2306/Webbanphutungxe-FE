@@ -22,6 +22,100 @@ const PART_PRESET = new Set([
   'engine',
 ])
 
+function slugifyText(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function normalizeNoAccent(input) {
+  return String(input || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+}
+
+function buildSkuNameCode(productName) {
+  const words = normalizeNoAccent(productName)
+    .split(/[^A-Z0-9]+/)
+    .filter(Boolean)
+  if (!words.length) return 'SP'
+  return words.map((word) => word[0]).join('')
+}
+
+function buildSkuColorCode(color) {
+  return normalizeNoAccent(color).replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'NON'
+}
+
+function buildSkuSizeCode(size) {
+  const parts = normalizeNoAccent(size)
+    .split(/[^A-Z0-9]+/)
+    .filter(Boolean)
+  if (!parts.length) return 'SZ'
+  if (parts.length === 1) return parts[0].slice(0, 3)
+  return `${parts[0].slice(0, 2)}${parts[1][0] || ''}`.slice(0, 3)
+}
+
+function generateSKU(productName, color, size) {
+  return `${buildSkuNameCode(productName)}-${buildSkuColorCode(color)}-${buildSkuSizeCode(size)}`
+}
+
+function nextLocalId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function uniqueCaseInsensitive(values = []) {
+  const out = []
+  const seen = new Set()
+  values.forEach((value) => {
+    const clean = String(value || '').trim()
+    if (!clean) return
+    const key = clean.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(clean)
+  })
+  return out
+}
+
+function normalizeAttributeSchema(rows = []) {
+  const usedNames = new Set()
+  return rows.map((row, index) => {
+    const name = String(row?.name || '').trim()
+    const values = uniqueCaseInsensitive(Array.isArray(row?.values) ? row.values : [])
+    const base = name || `Thuộc tính ${index + 1}`
+    let key = base
+    let suffix = 2
+    while (usedNames.has(key.toLowerCase())) {
+      key = `${base}-${suffix}`
+      suffix += 1
+    }
+    usedNames.add(key.toLowerCase())
+    return {
+      id: row?.id || nextLocalId('attr'),
+      name,
+      key,
+      values,
+      draft: String(row?.draft || ''),
+    }
+  })
+}
+
+function defaultVariantKey(attributeValues, attrs) {
+  const raw = attrs.map((attr) => attributeValues?.[attr.key] || '').filter(Boolean).join(' / ')
+  return raw || `Biến thể ${Math.random().toString(16).slice(2, 6)}`
+}
+
+function attributeValuesToLabel(attributeValues, attrs) {
+  const parts = attrs
+    .map((attr) => attributeValues?.[attr.key])
+    .filter((value) => value != null && String(value).trim() !== '')
+  return parts.length ? parts.join(' · ') : 'Mặc định'
+}
+
 function splitPreset(raw, presetSet) {
   const s = String(raw || '').toLowerCase()
   if (presetSet.has(s)) return [s, '']
@@ -30,12 +124,13 @@ function splitPreset(raw, presetSet) {
 
 const emptyVariant = () => ({
   _id: '',
-  typeName: '',
-  color: '',
-  size: '',
+  keyPreview: '',
+  attributeValues: {},
   sku: '',
+  skuManuallyEdited: false,
   price: '',
   originalPrice: '',
+  stock: '',
   isAvailable: true,
   variantImages: [],
 })
@@ -59,6 +154,13 @@ function countPendingFiles(items = []) {
   return items.filter((it) => it?.file instanceof File).length
 }
 
+function buildDefaultAttributes() {
+  return [
+    { id: nextLocalId('attr'), name: 'Màu sắc', values: [], draft: '' },
+    { id: nextLocalId('attr'), name: 'Li', values: [], draft: '' },
+  ]
+}
+
 export function AdminProductForm() {
   const navigate = useNavigate()
   const { id: editId } = useParams()
@@ -77,10 +179,12 @@ export function AdminProductForm() {
   const [partCategoryOther, setPartCategoryOther] = useState('')
   const [homeFeature, setHomeFeature] = useState('')
   const [showOnStorefront, setShowOnStorefront] = useState(true)
+  const [attributes, setAttributes] = useState(buildDefaultAttributes)
   const [variants, setVariants] = useState([emptyVariant()])
   const [basePrice, setBasePrice] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [variantErrorRow, setVariantErrorRow] = useState(-1)
   const [saving, setSaving] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null)
   /** @type {'idle' | 'upload' | 'save'} */
@@ -140,22 +244,74 @@ export function AdminProductForm() {
     setHomeFeature(data.homeFeature ?? '')
     setShowOnStorefront(data.showOnStorefront !== false)
     setBasePrice('')
+
+    let rawAttrs = Array.isArray(data.attributes) ? data.attributes : []
+    if (!rawAttrs.length && Array.isArray(data.variants)) {
+      const inferMap = [
+        { name: 'Loại', key: 'typeName' },
+        { name: 'Màu sắc', key: 'color' },
+        { name: 'Kích thước', key: 'size' },
+      ]
+      rawAttrs = inferMap
+        .map((item) => {
+          const values = uniqueCaseInsensitive(data.variants.map((v) => v?.[item.key]).filter(Boolean))
+          return values.length ? { name: item.name, values } : null
+        })
+        .filter(Boolean)
+    }
+
+    const normalizedAttrs = normalizeAttributeSchema(
+      rawAttrs.map((attr) => ({
+        id: nextLocalId('attr'),
+        name: attr?.name || '',
+        values: Array.isArray(attr?.values) ? attr.values : [],
+        draft: '',
+      })),
+    )
+    const attrsForUI = normalizedAttrs.slice(0, 2)
+    while (attrsForUI.length < 2) {
+      const defaults = buildDefaultAttributes()
+      attrsForUI.push(defaults[attrsForUI.length])
+    }
+    setAttributes(attrsForUI)
+
+    const attrsForVariant = attrsForUI
+    const legacyAttrKeyMap = {
+      typeName: attrsForVariant[0]?.key,
+      color: attrsForVariant[1]?.key,
+      size: attrsForVariant[2]?.key,
+    }
     setVariants(
-      data.variants?.length
-        ? data.variants.map((v) => ({
-            _id: v._id ? String(v._id) : '',
-            typeName: v.typeName ?? '',
-            color: v.color ?? '',
-            size: v.size ?? '',
-            sku: v.sku ?? '',
-            price: String(v.price ?? ''),
-            originalPrice:
-              v.originalPrice != null && v.originalPrice !== ''
-                ? String(v.originalPrice)
-                : '',
-            isAvailable: v.isAvailable !== false,
-            variantImages: createImageItemsFromUrls(v.images),
-          }))
+      Array.isArray(data.variants) && data.variants.length
+        ? data.variants.map((v) => {
+            const fromApiValues =
+              v?.attributeValues && typeof v.attributeValues === 'object'
+                ? v.attributeValues
+                : {}
+            const legacyValues = {}
+            if (legacyAttrKeyMap.typeName && v?.typeName) legacyValues[legacyAttrKeyMap.typeName] = String(v.typeName)
+            if (legacyAttrKeyMap.color && v?.color) legacyValues[legacyAttrKeyMap.color] = String(v.color)
+            if (legacyAttrKeyMap.size && v?.size) legacyValues[legacyAttrKeyMap.size] = String(v.size)
+            const attributeValues = { ...legacyValues, ...fromApiValues }
+            const variantKey = String(v?.key || defaultVariantKey(attributeValues, attrsForVariant))
+            const variantImages = createImageItemsFromUrls(
+              Array.isArray(v?.images) && v.images.length ? v.images : v?.image ? [v.image] : [],
+            )
+            return {
+              _id: v?._id ? String(v._id) : '',
+              keyPreview: variantKey,
+              attributeValues,
+              sku: v?.sku ?? '',
+              skuManuallyEdited: Boolean(v?.sku),
+              price: String(v?.price ?? ''),
+              originalPrice:
+                v?.originalPrice != null && v.originalPrice !== '' ? String(v.originalPrice) : '',
+              stock:
+                v?.stock != null ? String(v.stock) : v?.stockQuantity != null ? String(v.stockQuantity) : '',
+              isAvailable: v?.isAvailable !== false,
+              variantImages,
+            }
+          })
         : [emptyVariant()],
     )
   }
@@ -182,25 +338,221 @@ export function AdminProductForm() {
     }
   }, [editId])
 
-  function addRow() {
-    setVariants((v) => [...v, emptyVariant()])
-  }
-
   function updateRow(i, patch) {
+    if (variantErrorRow === i) setVariantErrorRow(-1)
     setVariants((v) => v.map((row, j) => (j === i ? { ...row, ...patch } : row)))
   }
 
-  function removeRow(i) {
-    setVariants((v) => {
-      const row = v[i]
-      if (row) revokePreviewUrls(row.variantImages)
-      return v.filter((_, j) => j !== i)
+  function buildSkuForRow(row, attrs = activeAttributes) {
+    const color = String(row?.attributeValues?.[attrs?.[0]?.key] || '')
+    const size = String(row?.attributeValues?.[attrs?.[1]?.key] || '')
+    return generateSKU(name, color, size)
+  }
+
+  function handleAttributeValueChange(rowIndex, attrKey, value) {
+    setVariants((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== rowIndex) return row
+        const nextAttributeValues = {
+          ...(row.attributeValues || {}),
+          [attrKey]: value,
+        }
+        const nextRow = { ...row, attributeValues: nextAttributeValues }
+        if (row.skuManuallyEdited) return nextRow
+        return { ...nextRow, sku: buildSkuForRow(nextRow) }
+      }),
+    )
+  }
+
+  function addManualVariantRow() {
+    const baseValues = {}
+    activeAttributes.forEach((attr) => {
+      baseValues[attr.key] = ''
+    })
+    setVariants((prev) => [
+      ...prev,
+      {
+        ...emptyVariant(),
+        attributeValues: baseValues,
+        sku: generateSKU(
+          name,
+          String(baseValues?.[activeAttributes?.[0]?.key] || ''),
+          String(baseValues?.[activeAttributes?.[1]?.key] || ''),
+        ),
+      },
+    ])
+  }
+
+  function removeVariantRow(index) {
+    setVariants((prev) => {
+      const target = prev[index]
+      if (target?.variantImages?.length) revokePreviewUrls(target.variantImages)
+      return prev.filter((_, i) => i !== index)
     })
   }
+
+  function updateAttribute(id, patch) {
+    setAttributes((prev) => prev.map((attr) => (attr.id === id ? { ...attr, ...patch } : attr)))
+  }
+
+  function pushAttributeValue(id, rawValue) {
+    const clean = String(rawValue || '').trim()
+    if (!clean) return
+    setAttributes((prev) =>
+      prev.map((attr) => {
+        if (attr.id !== id) return attr
+        const values = uniqueCaseInsensitive([...attr.values, clean])
+        return { ...attr, values, draft: '' }
+      }),
+    )
+  }
+
+  function removeAttributeValue(id, value) {
+    setAttributes((prev) =>
+      prev.map((attr) =>
+        attr.id === id
+          ? { ...attr, values: attr.values.filter((item) => item !== value) }
+          : attr,
+      ),
+    )
+  }
+
+  function generateVariantRowsFromAttributes() {
+    if (!activeAttributes.length) return
+    const combos = activeAttributes.reduce(
+      (acc, attr) => {
+        const next = []
+        acc.forEach((base) => {
+          attr.values.forEach((value) => {
+            next.push({ ...base, [attr.key]: value })
+          })
+        })
+        return next
+      },
+      [{}],
+    )
+    setVariants((prev) => {
+      const byCombo = new Map(
+        prev.map((row) => [defaultVariantKey(row.attributeValues || {}, activeAttributes), row]),
+      )
+      const generatedRows = combos.map((attributeValues) => {
+        const comboKey = defaultVariantKey(attributeValues, activeAttributes)
+        const existed = byCombo.get(comboKey)
+        if (existed) {
+          return {
+            ...existed,
+            attributeValues,
+            keyPreview: comboKey,
+            sku:
+              existed.skuManuallyEdited
+                ? existed.sku
+                : generateSKU(
+                    name,
+                    String(attributeValues?.[activeAttributes?.[0]?.key] || ''),
+                    String(attributeValues?.[activeAttributes?.[1]?.key] || ''),
+                  ),
+          }
+        }
+        return {
+          ...emptyVariant(),
+          attributeValues,
+          keyPreview: comboKey,
+          sku: generateSKU(
+            name,
+            String(attributeValues?.[activeAttributes?.[0]?.key] || ''),
+            String(attributeValues?.[activeAttributes?.[1]?.key] || ''),
+          ),
+        }
+      })
+      const generatedKeySet = new Set(generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, activeAttributes)))
+      const manualExtras = prev.filter((row) => {
+        const key = defaultVariantKey(row.attributeValues || {}, activeAttributes)
+        return !generatedKeySet.has(key)
+      })
+      return [...generatedRows, ...manualExtras]
+    })
+  }
+
+  const normalizedAttributes = useMemo(
+    () => normalizeAttributeSchema(attributes),
+    [attributes],
+  )
+
+  const activeAttributes = useMemo(
+    () => normalizedAttributes.filter((attr) => attr.name && attr.values.length),
+    [normalizedAttributes],
+  )
+
+  const hasIncompleteAttribute = useMemo(
+    () => normalizedAttributes.some((attr) => attr.name.trim() === '' || attr.values.length === 0),
+    [normalizedAttributes],
+  )
+
+  const axisA = normalizedAttributes[0]
+  const axisB = normalizedAttributes[1]
+
+  useEffect(() => {
+    const keys = activeAttributes.map((attr) => attr.key)
+    setVariants((prev) => {
+      let changed = false
+      const next = prev.map((row) => {
+        const nextAttributeValues = {}
+        keys.forEach((key) => {
+          nextAttributeValues[key] = String(row.attributeValues?.[key] || '')
+        })
+        const prevValues = row.attributeValues || {}
+        const same =
+          Object.keys(prevValues).length === keys.length &&
+          keys.every((key) => String(prevValues[key] || '') === nextAttributeValues[key])
+        if (same) return row
+        changed = true
+        return { ...row, attributeValues: nextAttributeValues }
+      })
+      return changed ? next : prev
+    })
+  }, [activeAttributes])
+
+  useEffect(() => {
+    if (!name.trim()) return
+    setVariants((prev) =>
+      prev.map((row) => {
+        if (row.skuManuallyEdited) return row
+        if (String(row.sku || '').trim()) return row
+        return { ...row, sku: buildSkuForRow(row) }
+      }),
+    )
+  }, [name, activeAttributes])
+
+  const duplicatedSkuSet = useMemo(() => {
+    const counts = new Map()
+    variants.forEach((row) => {
+      const sku = String(row.sku || '').trim().toUpperCase()
+      if (!sku) return
+      counts.set(sku, (counts.get(sku) || 0) + 1)
+    })
+    return new Set(
+      Array.from(counts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([sku]) => sku),
+    )
+  }, [variants])
+
+  useEffect(() => {
+    const cat = String(categoryInput || '').trim().toLowerCase()
+    if (!cat.includes('ốc')) return
+    setAttributes((prev) => {
+      if (!prev.length) return prev
+      const next = [...prev]
+      if (next[0]) next[0] = { ...next[0], name: next[0].name || 'Màu sắc' }
+      if (next[1]) next[1] = { ...next[1], name: next[1].name || 'Chân ren' }
+      return next
+    })
+  }, [categoryInput])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setVariantErrorRow(-1)
     if (!name.trim()) {
       setError('Tên sản phẩm là bắt buộc.')
       return
@@ -223,41 +575,85 @@ export function AdminProductForm() {
       return
     }
 
+    if (normalizedAttributes.some((attr) => !attr.name.trim())) {
+      setError('Thuộc tính có tên trống. Vui lòng nhập đầy đủ tên thuộc tính.')
+      return
+    }
+    if (normalizedAttributes.some((attr) => attr.values.length === 0)) {
+      setError('Mỗi thuộc tính cần ít nhất 1 giá trị.')
+      return
+    }
+    if (!variants.length) {
+      setError('Chưa có biến thể nào được sinh từ thuộc tính.')
+      return
+    }
+    if (duplicatedSkuSet.size > 0) {
+      setError('Có SKU đang bị trùng. Vui lòng kiểm tra lại các dòng biến thể.')
+      return
+    }
+
     const variantPayload = []
+    const comboSet = new Set()
     for (let idx = 0; idx < variants.length; idx += 1) {
       const row = variants[idx]
       const rowNo = idx + 1
-      const hasAnyField =
-        String(row.typeName || '').trim() ||
-        String(row.color || '').trim() ||
-        String(row.size || '').trim() ||
-        String(row.sku || '').trim() ||
-        String(row.price || '').trim() ||
-        String(row.originalPrice || '').trim() ||
-        row.variantImages.length > 0
-      if (!hasAnyField) continue
-
       if (row.price === '' || Number.isNaN(Number(row.price)) || Number(row.price) < 0) {
+        setVariantErrorRow(idx)
+        setToast(`Biến thể #${rowNo} có giá không hợp lệ.`)
         setError(`Biến thể #${rowNo}: giá không hợp lệ.`)
+        return
+      }
+      if (!String(row.sku || '').trim()) {
+        setVariantErrorRow(idx)
+        setToast(`Biến thể #${rowNo} đang thiếu SKU.`)
+        setError(`Biến thể #${rowNo}: SKU là bắt buộc.`)
         return
       }
       if (
         row.originalPrice !== '' &&
         (Number.isNaN(Number(row.originalPrice)) || Number(row.originalPrice) < 0)
       ) {
+        setVariantErrorRow(idx)
+        setToast(`Biến thể #${rowNo} có giá gốc không hợp lệ.`)
         setError(`Biến thể #${rowNo}: giá gốc không hợp lệ.`)
         return
       }
+      if (row.stock !== '' && (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0)) {
+        setVariantErrorRow(idx)
+        setToast(`Biến thể #${rowNo} có tồn kho không hợp lệ.`)
+        setError(`Biến thể #${rowNo}: tồn kho không hợp lệ.`)
+        return
+      }
+      const attributeValues = {}
+      for (const attr of activeAttributes) {
+        const value = String(row.attributeValues?.[attr.key] || '').trim()
+        if (!value) {
+          setVariantErrorRow(idx)
+          setToast(`Biến thể #${rowNo} thiếu giá trị thuộc tính "${attr.name}".`)
+          setError(`Biến thể #${rowNo}: thiếu giá trị thuộc tính ${attr.name}.`)
+          return
+        }
+        attributeValues[attr.name] = value
+      }
+      const comboDisplayKey = activeAttributes.map((attr) => attributeValues[attr.name]).join(' / ')
+      const comboNormalized = comboDisplayKey.toLowerCase()
+      if (comboSet.has(comboNormalized)) {
+        setVariantErrorRow(idx)
+        setToast(`Biến thể #${rowNo} bị trùng tổ hợp ${comboDisplayKey}.`)
+        setError(`Biến thể #${rowNo}: trùng tổ hợp thuộc tính.`)
+        return
+      }
+      comboSet.add(comboNormalized)
 
       const variant = {
-        typeName: row.typeName,
-        color: row.color,
-        size: row.size,
+        attributeValues,
         sku: String(row.sku || '').trim(),
         price: Number(row.price),
         originalPrice: row.originalPrice === '' ? undefined : Number(row.originalPrice),
+        stock: row.stock === '' ? undefined : Number(row.stock),
         isAvailable: Boolean(row.isAvailable),
-        images: [],
+        image: '',
+        images: undefined,
       }
       if (row._id) variant._id = row._id
       variantPayload.push({ ...variant, __imageItems: row.variantImages })
@@ -288,7 +684,11 @@ export function AdminProductForm() {
             onFileUploaded: bumpUpload,
           })
           const { __imageItems, ...cleanVariant } = variant
-          return { ...cleanVariant, images: uploadedImages }
+          return {
+            ...cleanVariant,
+            images: uploadedImages,
+            image: uploadedImages[0] || '',
+          }
         }),
       )
 
@@ -306,6 +706,15 @@ export function AdminProductForm() {
         homeFeature: homeFeature || null,
         showOnStorefront,
         basePrice: basePrice ? Number(basePrice) : undefined,
+        attributes: activeAttributes.map((attr) => {
+          const fromRows = variants
+            .map((row) => String(row.attributeValues?.[attr.key] || '').trim())
+            .filter(Boolean)
+          return {
+            name: attr.name,
+            values: uniqueCaseInsensitive([...(attr.values || []), ...fromRows]),
+          }
+        }),
         variants: variantsWithImages,
       }
 
@@ -317,7 +726,13 @@ export function AdminProductForm() {
         navigate('/admin/products')
       }
     } catch (err) {
-      setError(formatApiError(err))
+      const message = formatApiError(err)
+      const rowMatch = String(message).match(/dòng\s*#?\s*(\d+)/i)
+      if (rowMatch) {
+        const idx = Number(rowMatch[1]) - 1
+        if (Number.isInteger(idx) && idx >= 0) setVariantErrorRow(idx)
+      }
+      setError(message)
     } finally {
       setSaving(false)
       setSubmitPhase('idle')
@@ -349,11 +764,6 @@ export function AdminProductForm() {
       <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
         {isEdit ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
       </h1>
-      <p className="mt-1 max-w-2xl text-sm text-gray-600">
-        Chỉ tên là bắt buộc. Bật &quot;Hiện trên cửa hàng&quot; để SP xuất hiện ở trang
-        chủ / API công khai. Section <strong>Phụ tùng thay thế / Vỏ</strong> chỉ lấy SP
-        có gắn đúng loại ở ô &quot;Section đặc biệt&quot;.
-      </p>
 
       <form
         onSubmit={handleSubmit}
@@ -412,7 +822,6 @@ export function AdminProductForm() {
           label="Ảnh sản phẩm"
           items={images}
           onChange={setImages}
-          hint="Ảnh được nén WebP ~800px trước khi gửi lên server (POST /api/products/upload). Khi bấm Lưu, ảnh mới upload trước, sau đó mới gọi API tạo/cập nhật sản phẩm (JSON, không gửi File)."
         />
         <p className="text-[11px] text-gray-500">
           Trạng thái: {productUploadedUrls.length} URL đã có · {productFilesSelected.length} file chờ upload
@@ -495,61 +904,181 @@ export function AdminProductForm() {
         </select>
 
         <div className="border-t border-gray-200 pt-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-900">Biến thể (tuỳ chọn)</span>
-            <button
-              type="button"
-              onClick={addRow}
-              className="text-xs font-bold uppercase text-brand hover:underline"
-            >
-              + Dòng
-            </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[axisA, axisB].map((attr, idx) => (
+              <div key={attr?.id || `axis-${idx}`} className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+                <input
+                  placeholder={`Tên thuộc tính ${idx + 1}`}
+                  value={attr?.name || ''}
+                  onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
+                  className={field}
+                />
+                <div className="mt-2 flex gap-2">
+                  <input
+                    placeholder="Nhập giá trị và Enter"
+                    value={attr?.draft || ''}
+                    onChange={(e) => updateAttribute(attr.id, { draft: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault()
+                        pushAttributeValue(attr.id, attr.draft)
+                      }
+                    }}
+                    className={field}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => pushAttributeValue(attr.id, attr.draft)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  >
+                    Thêm
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(attr?.values || []).map((value) => (
+                    <button
+                      key={`${attr.id}-${value}`}
+                      type="button"
+                      onClick={() => removeAttributeValue(attr.id, value)}
+                      className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      {value} ×
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="mt-1 text-xs text-gray-500">Để trống tất cả dòng giá: dùng giá gốc bên dưới.</p>
-          <div className="mt-3 space-y-3">
-            {variants.map((row, i) => (
-              <div key={row._id || `row-${i}`} className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
-                <div className="grid gap-2 sm:grid-cols-7">
-                  <input
-                    placeholder="Tên kiểu"
-                    value={row.typeName}
-                    onChange={(e) => updateRow(i, { typeName: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <input
-                    placeholder="Màu"
-                    value={row.color}
-                    onChange={(e) => updateRow(i, { color: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <input
-                    placeholder="Size"
-                    value={row.size}
-                    onChange={(e) => updateRow(i, { size: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <input
-                    placeholder="SKU"
-                    value={row.sku}
-                    onChange={(e) => updateRow(i, { sku: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Giá *"
-                    value={row.price}
-                    onChange={(e) => updateRow(i, { price: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Giá gốc"
-                    value={row.originalPrice}
-                    onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
-                    className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 text-xs text-gray-700">
+
+          <div className="mt-5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-gray-900">Biến thể theo tổ hợp</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">{variants.length} dòng</span>
+                <button
+                  type="button"
+                  onClick={generateVariantRowsFromAttributes}
+                  className="text-xs font-bold uppercase text-gray-700 hover:underline"
+                >
+                  SINH TỔ HỢP
+                </button>
+                <button
+                  type="button"
+                  onClick={addManualVariantRow}
+                  className="text-xs font-bold uppercase text-brand hover:underline"
+                >
+                  + Dòng
+                </button>
+              </div>
+            </div>
+            {hasIncompleteAttribute ? (
+              <p className="mt-2 text-xs text-amber-700">
+                Hoàn thiện tên và giá trị cho từng thuộc tính để sinh đầy đủ tổ hợp.
+              </p>
+            ) : null}
+            <div className="mt-3 space-y-3">
+              {variants.map((row, i) => (
+                <div
+                  key={row._id || `row-${i}`}
+                  className={`rounded-lg border p-3 ${
+                    variantErrorRow === i
+                      ? 'border-red-300 bg-red-50/80'
+                      : 'border-gray-200 bg-gray-50/80'
+                  }`}
+                >
+                  <div className="mb-2 text-xs font-semibold text-gray-700">
+                    {attributeValuesToLabel(row.attributeValues, activeAttributes)}
+                  </div>
+                  <div className="mb-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {activeAttributes.map((attr) => (
+                      <select
+                        key={`${row._id || i}-${attr.key}`}
+                        value={row.attributeValues?.[attr.key] || ''}
+                        onChange={(e) => handleAttributeValueChange(i, attr.key, e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                      >
+                        <option value="">-- {attr.name} --</option>
+                        {attr.values.map((value) => (
+                          <option key={`${attr.id}-${value}`} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    ))}
+                  </div>
+                  <p className="mb-2 text-[11px] text-gray-500">
+                    Key preview: {defaultVariantKey(row.attributeValues || {}, activeAttributes)}
+                  </p>
+                  <div className="mb-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeVariantRow(i)}
+                      className="text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      Xóa dòng
+                    </button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                    <div>
+                      <label
+                        className="mb-1 block text-[11px] font-semibold text-gray-600"
+                        title="SKU tự sinh từ: viết tắt tên SP + 3 ký tự màu + mã size."
+                      >
+                        SKU
+                      </label>
+                      <div className="flex gap-1">
+                        <input
+                          placeholder="SKU"
+                          value={row.sku}
+                          onChange={(e) =>
+                            updateRow(i, { sku: e.target.value, skuManuallyEdited: true })
+                          }
+                          className={`w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm ${
+                            duplicatedSkuSet.has(String(row.sku || '').trim().toUpperCase())
+                              ? 'border-red-400'
+                              : 'border-gray-300'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          title="Tạo lại SKU tự động"
+                          onClick={() =>
+                            updateRow(i, {
+                              sku: buildSkuForRow(row),
+                              skuManuallyEdited: false,
+                            })
+                          }
+                          className="rounded-lg border border-gray-300 px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                        >
+                          ↻
+                        </button>
+                      </div>
+                      {duplicatedSkuSet.has(String(row.sku || '').trim().toUpperCase()) ? (
+                        <p className="mt-1 text-[11px] font-medium text-red-600">Mã SKU bị trùng</p>
+                      ) : null}
+                    </div>
+                    <input
+                      type="number"
+                      placeholder="Giá *"
+                      value={row.price}
+                      onChange={(e) => updateRow(i, { price: e.target.value })}
+                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Giá gốc"
+                      value={row.originalPrice}
+                      onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
+                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Tồn kho"
+                      value={row.stock}
+                      onChange={(e) => updateRow(i, { stock: e.target.value })}
+                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                    />
+                    <label className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700">
                       <input
                         type="checkbox"
                         checked={row.isAvailable}
@@ -557,37 +1086,17 @@ export function AdminProductForm() {
                       />
                       Còn hàng
                     </label>
-                    {variants.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(i)}
-                        className="ml-auto text-xs font-semibold text-red-600 hover:underline"
-                      >
-                        Xóa
-                      </button>
-                    ) : null}
+                  </div>
+                  <div className="mt-2">
+                    <ImagePickerField
+                      label="Ảnh riêng biến thể"
+                      items={row.variantImages}
+                      onChange={(next) => updateRow(i, { variantImages: next })}
+                    />
                   </div>
                 </div>
-                <div className="mt-2">
-                  <ImagePickerField
-                    label="Ảnh riêng biến thể"
-                    items={row.variantImages}
-                    onChange={(next) => updateRow(i, { variantImages: next })}
-                    emptyText="Kéo thả hoặc chọn ảnh cho biến thể"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3">
-            <label className="text-xs font-medium text-gray-600">Giá mặc định (khi không có dòng biến thể hợp lệ)</label>
-            <input
-              type="number"
-              value={basePrice}
-              onChange={(e) => setBasePrice(e.target.value)}
-              className={`mt-1 ${field}`}
-              placeholder="0"
-            />
+              ))}
+            </div>
           </div>
         </div>
 

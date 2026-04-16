@@ -14,8 +14,11 @@ function toggleId(arr, id) {
 
 export function FilterPanelContent({
   filters,
+  priceDraft,
   absoluteMaxPrice,
   onChange,
+  onPriceChange,
+  onApplyPrice,
   onReset,
 }) {
   const set = (patch) => onChange({ ...filters, ...patch })
@@ -113,11 +116,18 @@ export function FilterPanelContent({
           Khoảng giá
         </legend>
         <PriceRangeSlider
-          min={filters.priceMin}
-          max={filters.priceMax}
+          min={priceDraft.priceMin}
+          max={priceDraft.priceMax}
           absoluteMax={absoluteMaxPrice}
-          onChange={(priceMin, priceMax) => set({ priceMin, priceMax })}
+          onChange={onPriceChange}
         />
+        <button
+          type="button"
+          onClick={onApplyPrice}
+          className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-white hover:bg-brand-dark"
+        >
+          Áp dụng khoảng giá
+        </button>
       </fieldset>
 
       <label className="flex cursor-pointer items-center gap-2 border-t border-gray-200 pt-4 text-sm font-semibold">
@@ -129,22 +139,29 @@ export function FilterPanelContent({
         />
         Chỉ hiện còn hàng
       </label>
+
     </div>
   )
 }
 
 export function FilterPanelSidebar({
   filters,
+  priceDraft,
   absoluteMaxPrice,
   onChange,
+  onPriceChange,
+  onApplyPrice,
   onReset,
 }) {
   return (
     <aside className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <FilterPanelContent
         filters={filters}
+        priceDraft={priceDraft}
         absoluteMaxPrice={absoluteMaxPrice}
         onChange={onChange}
+        onPriceChange={onPriceChange}
+        onApplyPrice={onApplyPrice}
         onReset={onReset}
       />
     </aside>
