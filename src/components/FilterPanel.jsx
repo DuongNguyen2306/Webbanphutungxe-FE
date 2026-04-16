@@ -3,8 +3,6 @@ import {
   BRAND_FILTER_IDS,
   VEHICLE_TYPES,
   PART_TYPES,
-  PRICE_SLIDER_MIN,
-  PRICE_SLIDER_MAX,
 } from '../data/filterOptions'
 import { BRANDS } from '../data/products'
 import { PriceRangeSlider } from './PriceRangeSlider'
@@ -14,7 +12,12 @@ function toggleId(arr, id) {
   return [...arr, id]
 }
 
-export function FilterPanelContent({ filters, onChange, onReset }) {
+export function FilterPanelContent({
+  filters,
+  absoluteMaxPrice,
+  onChange,
+  onReset,
+}) {
   const set = (patch) => onChange({ ...filters, ...patch })
 
   return (
@@ -112,6 +115,7 @@ export function FilterPanelContent({ filters, onChange, onReset }) {
         <PriceRangeSlider
           min={filters.priceMin}
           max={filters.priceMax}
+          absoluteMax={absoluteMaxPrice}
           onChange={(priceMin, priceMax) => set({ priceMin, priceMax })}
         />
       </fieldset>
@@ -129,11 +133,17 @@ export function FilterPanelContent({ filters, onChange, onReset }) {
   )
 }
 
-export function FilterPanelSidebar({ filters, onChange, onReset }) {
+export function FilterPanelSidebar({
+  filters,
+  absoluteMaxPrice,
+  onChange,
+  onReset,
+}) {
   return (
     <aside className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <FilterPanelContent
         filters={filters}
+        absoluteMaxPrice={absoluteMaxPrice}
         onChange={onChange}
         onReset={onReset}
       />

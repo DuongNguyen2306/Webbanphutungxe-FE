@@ -1,22 +1,25 @@
 import { useCallback } from 'react'
-import { PRICE_SLIDER_MIN, PRICE_SLIDER_MAX } from '../data/filterOptions'
+import { PRICE_SLIDER_MIN } from '../data/filterOptions'
 
-export function PriceRangeSlider({ min, max, onChange }) {
+export function PriceRangeSlider({ min, max, absoluteMax, onChange }) {
+  const safeAbsoluteMax = Math.max(PRICE_SLIDER_MIN, Number(absoluteMax) || PRICE_SLIDER_MIN)
+  const effectiveMax = max == null ? safeAbsoluteMax : max
+
   const clampPair = useCallback(
     (a, b) => {
       let lo = Math.min(a, b)
       let hi = Math.max(a, b)
-      lo = Math.max(PRICE_SLIDER_MIN, Math.min(lo, PRICE_SLIDER_MAX))
-      hi = Math.max(PRICE_SLIDER_MIN, Math.min(hi, PRICE_SLIDER_MAX))
+      lo = Math.max(PRICE_SLIDER_MIN, Math.min(lo, safeAbsoluteMax))
+      hi = Math.max(PRICE_SLIDER_MIN, Math.min(hi, safeAbsoluteMax))
       if (lo > hi) [lo, hi] = [hi, lo]
       return { lo, hi }
     },
-    [],
+    [safeAbsoluteMax],
   )
 
   const onMinInput = (e) => {
     const v = Number(e.target.value)
-    const { lo, hi } = clampPair(v, max)
+    const { lo, hi } = clampPair(v, effectiveMax)
     onChange(lo, hi)
   }
 
@@ -26,10 +29,35 @@ export function PriceRangeSlider({ min, max, onChange }) {
     onChange(lo, hi)
   }
 
+  const onMinTextInput = (e) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    const v = raw === '' ? PRICE_SLIDER_MIN : Number(raw)
+    const { lo, hi } = clampPair(v, effectiveMax)
+    onChange(lo, hi)
+  }
+
+  const onMaxTextInput = (e) => {
+    const raw = e.target.value.replace(/\D/g, '')
+    if (raw === '') {
+      onChange(min, null)
+      return
+    }
+    const v = Number(raw)
+    const { lo, hi } = clampPair(min, v)
+    onChange(lo, hi)
+  }
+
   const minPct =
-    ((min - PRICE_SLIDER_MIN) / (PRICE_SLIDER_MAX - PRICE_SLIDER_MIN)) * 100
+    ((min - PRICE_SLIDER_MIN) / (safeAbsoluteMax - PRICE_SLIDER_MIN || 1)) * 100
   const maxPct =
-    ((max - PRICE_SLIDER_MIN) / (PRICE_SLIDER_MAX - PRICE_SLIDER_MIN)) * 100
+    ((effectiveMax - PRICE_SLIDER_MIN) / (safeAbsoluteMax - PRICE_SLIDER_MIN || 1)) * 100
+
+  const maxReachedLabel =
+    effectiveMax >= safeAbsoluteMax
+      ? safeAbsoluteMax >= 5_000_000
+        ? 'Trên 5tr'
+        : 'Giá tối đa'
+      : null
 
   return (
     <div className="pt-1">
@@ -45,7 +73,7 @@ export function PriceRangeSlider({ min, max, onChange }) {
         <input
           type="range"
           min={PRICE_SLIDER_MIN}
-          max={PRICE_SLIDER_MAX}
+          max={safeAbsoluteMax}
           step={10_000}
           value={min}
           onChange={onMinInput}
@@ -55,9 +83,9 @@ export function PriceRangeSlider({ min, max, onChange }) {
         <input
           type="range"
           min={PRICE_SLIDER_MIN}
-          max={PRICE_SLIDER_MAX}
+          max={safeAbsoluteMax}
           step={10_000}
-          value={max}
+          value={effectiveMax}
           onChange={onMaxInput}
           className="price-range-input absolute inset-x-0 top-0 z-20 h-8 w-full cursor-pointer appearance-none bg-transparent"
           aria-label="Giá tối đa"
@@ -65,7 +93,25 @@ export function PriceRangeSlider({ min, max, onChange }) {
       </div>
       <div className="mt-2 flex justify-between text-xs font-semibold text-ink/70">
         <span>{formatK(min)}</span>
-        <span>{formatK(max)}</span>
+        <span>{maxReachedLabel || formatK(effectiveMax)}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={String(min)}
+          onChange={onMinTextInput}
+          placeholder="Giá tối thiểu"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        />
+        <input
+          type="text"
+          inputMode="numeric"
+          value={max == null ? '' : String(max)}
+          onChange={onMaxTextInput}
+          placeholder="Giá tối đa"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        />
       </div>
     </div>
   )

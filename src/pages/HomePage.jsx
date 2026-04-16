@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { Header } from '../components/Header'
@@ -7,7 +7,7 @@ import { BrandScroller } from '../components/BrandScroller'
 import { ProductSection } from '../components/ProductSection'
 import { CatalogFeatureSection } from '../components/CatalogFeatureSection'
 import { FilterPanelSidebar, FilterPanelContent } from '../components/FilterPanel'
-import { createDefaultFilterState } from '../data/filterOptions'
+import { PRICE_SLIDER_MAX, createDefaultFilterState } from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
@@ -22,13 +22,33 @@ const BRAND_SECTION_LABEL = {
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
 
 export function HomePage() {
-  const { products, loading: catalogLoading, error: catalogError } =
-    useShopCatalog()
   const [searchQuery, setSearchQuery] = useState('')
   const [adv, setAdv] = useState(() => createDefaultFilterState())
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const { products, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
+    useShopCatalog({
+      priceMin: adv.priceMin,
+      priceMax: adv.priceMax,
+    })
+  const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
 
   const headerBrand = adv.brands.length === 1 ? adv.brands[0] : 'all'
+
+  useEffect(() => {
+    setAdv((prev) => {
+      const prevAbsoluteMax = prevAbsoluteMaxRef.current
+      const nextPriceMax =
+        prev.priceMax === prevAbsoluteMax
+          ? absoluteMaxPrice
+          : prev.priceMax != null && prev.priceMax > absoluteMaxPrice
+            ? absoluteMaxPrice
+            : prev.priceMax
+
+      if (nextPriceMax === prev.priceMax) return prev
+      return { ...prev, priceMax: nextPriceMax }
+    })
+    prevAbsoluteMaxRef.current = absoluteMaxPrice
+  }, [absoluteMaxPrice])
 
   const setHeaderBrand = useCallback((id) => {
     setAdv((a) => ({
@@ -77,41 +97,41 @@ export function HomePage() {
   )
 
   const resetAdv = useCallback(() => {
-    setAdv(createDefaultFilterState())
-  }, [])
+    setAdv(createDefaultFilterState(absoluteMaxPrice))
+  }, [absoluteMaxPrice])
 
   const handleViewMoreBrand = useCallback((brandKey) => {
-    setAdv({ ...createDefaultFilterState(), brands: [brandKey] })
+    setAdv({ ...createDefaultFilterState(absoluteMaxPrice), brands: [brandKey] })
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [absoluteMaxPrice])
 
   const handleViewMoreSection = useCallback(
     (sectionKey) => {
       if (sectionKey === 'other') {
-        setAdv(createDefaultFilterState())
+        setAdv(createDefaultFilterState(absoluteMaxPrice))
         window.scrollTo({ top: 0, behavior: 'smooth' })
         return
       }
       handleViewMoreBrand(sectionKey)
     },
-    [handleViewMoreBrand],
+    [absoluteMaxPrice, handleViewMoreBrand],
   )
 
   const applyReplacementFilter = useCallback(() => {
     setAdv({
-      ...createDefaultFilterState(),
+      ...createDefaultFilterState(absoluteMaxPrice),
       parts: ['shock', 'lighting', 'engine'],
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [absoluteMaxPrice])
 
   const applyTiresFilter = useCallback(() => {
     setAdv({
-      ...createDefaultFilterState(),
+      ...createDefaultFilterState(absoluteMaxPrice),
       parts: ['tires_wheels'],
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [absoluteMaxPrice])
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
@@ -161,6 +181,7 @@ export function HomePage() {
               <div className="sticky top-28">
                 <FilterPanelSidebar
                   filters={adv}
+                  absoluteMaxPrice={absoluteMaxPrice}
                   onChange={setAdv}
                   onReset={resetAdv}
                 />
@@ -249,6 +270,7 @@ export function HomePage() {
                 </div>
                 <FilterPanelContent
                   filters={adv}
+                  absoluteMaxPrice={absoluteMaxPrice}
                   onChange={setAdv}
                   onReset={() => {
                     resetAdv()

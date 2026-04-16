@@ -18,13 +18,13 @@ export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 export const PRICE_SLIDER_MIN = 0
 export const PRICE_SLIDER_MAX = 5_000_000
 
-export function createDefaultFilterState() {
+export function createDefaultFilterState(absoluteMaxPrice = PRICE_SLIDER_MAX) {
   return {
     brands: [],
     vehicles: [],
     parts: [],
     priceMin: PRICE_SLIDER_MIN,
-    priceMax: PRICE_SLIDER_MAX,
+    priceMax: absoluteMaxPrice,
     inStockOnly: false,
   }
 }

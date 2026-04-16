@@ -8,7 +8,7 @@ import { normalizeSearch } from './string'
  *   vehicles: string[]
  *   parts: string[]
  *   priceMin: number
- *   priceMax: number
+ *   priceMax: number | null
  *   inStockOnly: boolean
  * }} f
  */
@@ -27,7 +27,8 @@ export function filterCatalog(list, f) {
     if (f.parts.length > 0 && !f.parts.includes(p.partCategory)) return false
 
     const price = listPrice(p)
-    if (price < f.priceMin || price > f.priceMax) return false
+    if (price < f.priceMin) return false
+    if (f.priceMax != null && price > f.priceMax) return false
 
     if (f.inStockOnly && !inStock(p)) return false
 
