@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
+import { resolveImageItemsToUrls } from '../../api/productUploadApi'
+import {
+  ImagePickerField,
+  createImageItemsFromUrls,
+  getFilesSelectedFromItems,
+  getUploadedUrlsFromItems,
+  revokePreviewUrls,
+} from '../../components/ImagePickerField'
 
 const OTHER = '__other__'
 
@@ -29,7 +37,7 @@ const emptyVariant = () => ({
   price: '',
   originalPrice: '',
   isAvailable: true,
-  variantImages: '',
+  variantImages: [],
 })
 
 function resolveOther(selectVal, otherVal, label) {
@@ -41,6 +49,16 @@ function resolveOther(selectVal, otherVal, label) {
   return selectVal
 }
 
+function formatApiError(err) {
+  const status = err?.response?.status
+  if (status === 403) return 'Cần quyền quản trị.'
+  return err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.'
+}
+
+function countPendingFiles(items = []) {
+  return items.filter((it) => it?.file instanceof File).length
+}
+
 export function AdminProductForm() {
   const navigate = useNavigate()
   const { id: editId } = useParams()
@@ -50,7 +68,7 @@ export function AdminProductForm() {
   const [categoryInput, setCategoryInput] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [images, setImages] = useState('')
+  const [images, setImages] = useState([])
   const [brand, setBrand] = useState('honda')
   const [brandOther, setBrandOther] = useState('')
   const [vehicleType, setVehicleType] = useState('scooter')
@@ -64,7 +82,31 @@ export function AdminProductForm() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null)
+  /** @type {'idle' | 'upload' | 'save'} */
+  const [submitPhase, setSubmitPhase] = useState('idle')
   const [bootstrapping, setBootstrapping] = useState(isEdit)
+  const imagesRef = useRef([])
+  const variantsRef = useRef([emptyVariant()])
+
+  /** Tách từ danh sách slot ảnh sản phẩm (đúng contract: filesSelected + uploadedUrls) */
+  const productFilesSelected = useMemo(() => getFilesSelectedFromItems(images), [images])
+  const productUploadedUrls = useMemo(() => getUploadedUrlsFromItems(images), [images])
+
+  useEffect(() => {
+    imagesRef.current = images
+  }, [images])
+
+  useEffect(() => {
+    variantsRef.current = variants
+  }, [variants])
+
+  useEffect(() => {
+    return () => {
+      revokePreviewUrls(imagesRef.current)
+      variantsRef.current.forEach((row) => revokePreviewUrls(row.variantImages))
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -80,10 +122,12 @@ export function AdminProductForm() {
   }, [])
 
   function applyProductData(data) {
+    revokePreviewUrls(imagesRef.current)
+    variantsRef.current.forEach((row) => revokePreviewUrls(row.variantImages))
     setName(data.name ?? '')
     setCategoryInput(data.category?.name ?? '')
     setDescription(data.description ?? '')
-    setImages(Array.isArray(data.images) ? data.images.join('\n') : '')
+    setImages(createImageItemsFromUrls(data.images))
     const [b, bo] = splitPreset(data.brand, BRAND_PRESET)
     setBrand(b)
     setBrandOther(bo)
@@ -110,7 +154,7 @@ export function AdminProductForm() {
                 ? String(v.originalPrice)
                 : '',
             isAvailable: v.isAvailable !== false,
-            variantImages: Array.isArray(v.images) ? v.images.join('\n') : '',
+            variantImages: createImageItemsFromUrls(v.images),
           }))
         : [emptyVariant()],
     )
@@ -147,7 +191,11 @@ export function AdminProductForm() {
   }
 
   function removeRow(i) {
-    setVariants((v) => v.filter((_, j) => j !== i))
+    setVariants((v) => {
+      const row = v[i]
+      if (row) revokePreviewUrls(row.variantImages)
+      return v.filter((_, j) => j !== i)
+    })
   }
 
   async function handleSubmit(e) {
@@ -186,7 +234,7 @@ export function AdminProductForm() {
         String(row.sku || '').trim() ||
         String(row.price || '').trim() ||
         String(row.originalPrice || '').trim() ||
-        String(row.variantImages || '').trim()
+        row.variantImages.length > 0
       if (!hasAnyField) continue
 
       if (row.price === '' || Number.isNaN(Number(row.price)) || Number(row.price) < 0) {
@@ -209,32 +257,56 @@ export function AdminProductForm() {
         price: Number(row.price),
         originalPrice: row.originalPrice === '' ? undefined : Number(row.originalPrice),
         isAvailable: Boolean(row.isAvailable),
-        images: String(row.variantImages || '')
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        images: [],
       }
       if (row._id) variant._id = row._id
-      variantPayload.push(variant)
+      variantPayload.push({ ...variant, __imageItems: row.variantImages })
     }
 
     setSaving(true)
+    setSubmitPhase('upload')
+
+    const totalUploads =
+      countPendingFiles(images) +
+      variantPayload.reduce((s, v) => s + countPendingFiles(v.__imageItems || []), 0)
+
+    let doneUploads = 0
+    setUploadProgress(totalUploads > 0 ? { current: 0, total: totalUploads } : null)
+
     try {
+      const bumpUpload = () => {
+        doneUploads += 1
+        setUploadProgress({ current: doneUploads, total: totalUploads })
+      }
+
+      const productImages = await resolveImageItemsToUrls(images, {
+        onFileUploaded: bumpUpload,
+      })
+      const variantsWithImages = await Promise.all(
+        variantPayload.map(async (variant) => {
+          const uploadedImages = await resolveImageItemsToUrls(variant.__imageItems || [], {
+            onFileUploaded: bumpUpload,
+          })
+          const { __imageItems, ...cleanVariant } = variant
+          return { ...cleanVariant, images: uploadedImages }
+        }),
+      )
+
+      setUploadProgress(null)
+      setSubmitPhase('save')
+
       const payload = {
         name: name.trim(),
         category: cat,
         description,
-        images: images
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        images: productImages,
         brand: brandFinal,
         vehicleType: vehicleTypeFinal,
         partCategory: partCategoryFinal,
         homeFeature: homeFeature || null,
         showOnStorefront,
         basePrice: basePrice ? Number(basePrice) : undefined,
-        variants: variantPayload,
+        variants: variantsWithImages,
       }
 
       if (isEdit) {
@@ -245,9 +317,11 @@ export function AdminProductForm() {
         navigate('/admin/products')
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Cập nhật thất bại')
+      setError(formatApiError(err))
     } finally {
       setSaving(false)
+      setSubmitPhase('idle')
+      setUploadProgress(null)
     }
   }
 
@@ -334,13 +408,15 @@ export function AdminProductForm() {
           rows={3}
           className={field}
         />
-        <textarea
-          placeholder="URL ảnh (mỗi dòng một link)"
-          value={images}
-          onChange={(e) => setImages(e.target.value)}
-          rows={2}
-          className={field}
+        <ImagePickerField
+          label="Ảnh sản phẩm"
+          items={images}
+          onChange={setImages}
+          hint="Ảnh được nén WebP ~800px trước khi gửi lên server (POST /api/products/upload). Khi bấm Lưu, ảnh mới upload trước, sau đó mới gọi API tạo/cập nhật sản phẩm (JSON, không gửi File)."
         />
+        <p className="text-[11px] text-gray-500">
+          Trạng thái: {productUploadedUrls.length} URL đã có · {productFilesSelected.length} file chờ upload
+        </p>
 
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
@@ -492,14 +568,14 @@ export function AdminProductForm() {
                     ) : null}
                   </div>
                 </div>
-                <label className="mt-2 block text-xs font-medium text-gray-600">Ảnh riêng biến thể (mỗi dòng một URL)</label>
-                <textarea
-                  value={row.variantImages}
-                  onChange={(e) => updateRow(i, { variantImages: e.target.value })}
-                  rows={2}
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder:text-gray-400"
-                />
+                <div className="mt-2">
+                  <ImagePickerField
+                    label="Ảnh riêng biến thể"
+                    items={row.variantImages}
+                    onChange={(next) => updateRow(i, { variantImages: next })}
+                    emptyText="Kéo thả hoặc chọn ảnh cho biến thể"
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -524,7 +600,15 @@ export function AdminProductForm() {
           disabled={saving}
           className="w-full rounded-xl bg-brand py-3.5 text-sm font-extrabold uppercase text-white shadow-sm transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? 'Đang lưu...' : isEdit ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm'}
+          {saving
+            ? submitPhase === 'upload' && uploadProgress
+              ? `Đang upload ảnh (${uploadProgress.current}/${uploadProgress.total})…`
+              : submitPhase === 'save'
+                ? 'Đang lưu sản phẩm…'
+                : 'Đang xử lý…'
+            : isEdit
+              ? 'Cập nhật sản phẩm'
+              : 'Lưu sản phẩm'}
         </button>
       </form>
 
