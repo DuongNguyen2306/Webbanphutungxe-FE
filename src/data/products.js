@@ -1,12 +1,17 @@
-/** Zalo OA / số shop — thay bằng link thật khi triển khai */
-export const SHOP_ZALO_URL = 'https://zalo.me/848xxxxxxxx'
+/** Liên hệ Zalo (số 0932042912 → 84932042912) */
+export const SHOP_ZALO_URL = 'https://zalo.me/84932042912'
 
 export const SHOP_INFO = {
-  name: 'Thai Vũ — Phụ kiện xe máy',
-  address: '123 Đường X, Phường Y, Quận Tân Bình, TP. Hồ Chí Minh',
-  hotline: '0900 123 456',
-  email: 'hotro@thaivu.vn',
-  taxCode: '0123456789',
+  name: 'Thai Vũ — Phụ kiện Vespa Piaggio',
+  address: '15F đường 4F, phường Tân Thuận, Quận 7, TP. Hồ Chí Minh',
+  /** Số gọi / tel (không dấu chấm) */
+  hotline: '0932042912',
+  /** Hiển thị cho người xem */
+  hotlineDisplay: '093.204.2912',
+  contactPerson: 'A. Vũ',
+  facebookUrl: 'https://www.facebook.com/PhuKienXeVespaPiaggio',
+  email: '',
+  taxCode: '',
 }
 
 export const BRANDS = {

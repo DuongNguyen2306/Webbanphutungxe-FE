@@ -1,6 +1,6 @@
 import { SlidersHorizontal, RotateCcw } from 'lucide-react'
 import {
-  BRAND_FILTER_IDS,
+  BRAND_FILTER_GROUPS,
   VEHICLE_TYPES,
   PART_TYPES,
 } from '../data/filterOptions'
@@ -40,28 +40,84 @@ export function FilterPanelContent({
         </button>
       </div>
 
-      <fieldset className="space-y-2 border-0 p-0">
-        <legend className="mb-2 text-xs font-extrabold uppercase tracking-wide text-gray-500">
+      <fieldset className="space-y-3 border-0 p-0">
+        <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-gray-500">
           Hãng xe
         </legend>
-        <div className="flex flex-col gap-2">
-          {BRAND_FILTER_IDS.map((id) => (
-            <label
-              key={id}
-              className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-            >
-              <input
-                type="checkbox"
-                checked={filters.brands.includes(id)}
-                onChange={() => set({ brands: toggleId(filters.brands, id) })}
-                className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
-              />
-              {BRANDS[id]?.label ?? id}
-            </label>
+        <p className="text-[11px] leading-snug text-gray-600">
+          Cửa hàng chuyên Vespa; tick thêm Honda / Yamaha khi cần tìm vài món xe khác.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => set({ brands: [] })}
+            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+              filters.brands.length === 0
+                ? 'border-brand bg-brand text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-brand/40'
+            }`}
+          >
+            Tất cả hãng
+          </button>
+          <button
+            type="button"
+            onClick={() => set({ brands: ['vespa', 'piaggio'] })}
+            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+              filters.brands.length === 2 &&
+              filters.brands.includes('vespa') &&
+              filters.brands.includes('piaggio')
+                ? 'border-brand bg-brand text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-brand/40'
+            }`}
+          >
+            Vespa + Piaggio
+          </button>
+          <button
+            type="button"
+            onClick={() => set({ brands: ['honda', 'yamaha'] })}
+            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+              filters.brands.length === 2 &&
+              filters.brands.includes('honda') &&
+              filters.brands.includes('yamaha')
+                ? 'border-brand bg-brand text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-brand/40'
+            }`}
+          >
+            Honda + Yamaha
+          </button>
+        </div>
+        <div className="space-y-4 border-t border-gray-100 pt-3">
+          {BRAND_FILTER_GROUPS.map((group) => (
+            <div key={group.id} className="space-y-2">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+                  {group.legend}
+                </p>
+                {group.hint ? (
+                  <p className="text-[11px] text-gray-500">{group.hint}</p>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-2">
+                {group.ids.map((id) => (
+                  <label
+                    key={id}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.brands.includes(id)}
+                      onChange={() => set({ brands: toggleId(filters.brands, id) })}
+                      className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                    />
+                    {BRANDS[id]?.label ?? id}
+                  </label>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <p className="text-[11px] text-gray-500">
-          Không chọn = hiển thị tất cả hãng.
+          Không chọn ô nào = hiện mọi hãng (mặc định).
         </p>
       </fieldset>
 

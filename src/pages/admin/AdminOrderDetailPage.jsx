@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getAdminOrderDetail } from '../../api/orderDetailApi'
+import { getAdminOrderDetail, patchAdminOrderDelivery } from '../../api/orderDetailApi'
 import { formatVnd } from '../../utils/format'
 import {
   FALLBACK_STATUS_OPTIONS,
@@ -11,11 +11,24 @@ import {
 } from '../../constants/orderStatus'
 import { api } from '../../api/client'
 import { mapOrderDetail } from '../../utils/orderDetailMapper'
+import { canAdminEditOrderDelivery, normalizeOrderDelivery } from '../../utils/orderDelivery'
 import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
 
 const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
   'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
+
+function getDeliveryPatchErrorMessage(err) {
+  const status = err?.response?.status
+  if (status === 400) return err?.response?.data?.message || 'Không thể lưu thông tin vận chuyển.'
+  if (status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
+  }
+  if (status === 403) {
+    return err?.response?.data?.message || 'Bạn không có quyền thực hiện thao tác này.'
+  }
+  return 'Có lỗi hệ thống. Vui lòng thử lại.'
+}
 
 function getStatusUpdateErrorMessage(err) {
   const status = err?.response?.status
@@ -66,6 +79,10 @@ export function AdminOrderDetailPage() {
   const [cancelError, setCancelError] = useState('')
   const [completeModal, setCompleteModal] = useState({ step: 0, token: '' })
   const [completeError, setCompleteError] = useState('')
+  const [deliveryCarrier, setDeliveryCarrier] = useState('')
+  const [deliveryTracking, setDeliveryTracking] = useState('')
+  const [deliverySaving, setDeliverySaving] = useState(false)
+  const [deliveryError, setDeliveryError] = useState('')
 
   useEffect(() => {
     if (!toast) return undefined
@@ -126,6 +143,13 @@ export function AdminOrderDetailPage() {
     load()
     loadStatusOptions()
   }, [id])
+
+  useEffect(() => {
+    if (!order) return
+    setDeliveryCarrier(order.delivery?.carrierName || '')
+    setDeliveryTracking(order.delivery?.trackingNumber || '')
+    setDeliveryError('')
+  }, [order?._id, order?.delivery?.carrierName, order?.delivery?.trackingNumber])
 
   async function commitStatus(status, note = '') {
     if (!order) return false
@@ -257,6 +281,50 @@ export function AdminOrderDetailPage() {
     ].join('\n')
   }
 
+  async function saveDelivery() {
+    if (!order?._id) return
+    setDeliverySaving(true)
+    setDeliveryError('')
+    setError('')
+    try {
+      const body = {}
+      const carrier = deliveryCarrier.trim()
+      const tracking = deliveryTracking.trim()
+      if (carrier) body.carrierName = carrier
+      if (tracking) body.trackingNumber = tracking
+      if (!body.carrierName && !body.trackingNumber) {
+        setDeliveryError('Nhập ít nhất đơn vị vận chuyển hoặc mã vận đơn.')
+        setDeliverySaving(false)
+        return
+      }
+      const { data } = await patchAdminOrderDelivery(order._id, body)
+      if (data?.items && Array.isArray(data.items)) {
+        setOrder(mapOrderDetail(data))
+      } else {
+        setOrder((prev) => {
+          if (!prev) return prev
+          const patch =
+            data && typeof data.delivery === 'object' && data.delivery !== null ? data.delivery : {}
+          return {
+            ...prev,
+            delivery: normalizeOrderDelivery({
+              delivery: { ...prev.delivery, ...patch },
+            }),
+          }
+        })
+      }
+      setToast('Đã lưu thông tin vận chuyển')
+    } catch (err) {
+      const statusCode = err?.response?.status
+      if (statusCode === 401) {
+        navigate('/login', { replace: true })
+      }
+      setDeliveryError(getDeliveryPatchErrorMessage(err))
+    } finally {
+      setDeliverySaving(false)
+    }
+  }
+
   async function copyOrderInfo() {
     if (!order || copying) return
     setCopying(true)
@@ -363,6 +431,85 @@ export function AdminOrderDetailPage() {
               <p className="mt-2 text-gray-500">Ghi chú giao hàng</p>
               <p className="text-gray-700">{order.shippingNote || '—'}</p>
             </div>
+          </div>
+
+          <div
+            className={`rounded-xl border bg-white p-4 shadow-sm ${
+              normalizeOrderStatus(order.status) === ORDER_STATUS.SHIPPING
+                ? 'border-emerald-300 ring-2 ring-emerald-100'
+                : 'border-gray-200'
+            }`}
+          >
+            <p className="text-sm font-bold text-gray-900">Vận chuyển</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Đơn vị giao hàng và mã vận đơn — khách xem ở trang đơn (chỉ đọc). Chỉnh được khi đơn ở trạng thái
+              Đã xác nhận, Đang giao hoặc Hoàn thành (sửa nhầm mã).
+            </p>
+            {canAdminEditOrderDelivery(order.status) ? (
+              <>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-700">
+                      Đơn vị vận chuyển
+                    </label>
+                    <input
+                      value={deliveryCarrier}
+                      onChange={(e) => {
+                        setDeliveryCarrier(e.target.value)
+                        if (deliveryError) setDeliveryError('')
+                      }}
+                      placeholder="VD: GHN, GHTK, Viettel Post"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-700">
+                      Mã vận đơn / mã giao hàng
+                    </label>
+                    <input
+                      value={deliveryTracking}
+                      onChange={(e) => {
+                        setDeliveryTracking(e.target.value)
+                        if (deliveryError) setDeliveryError('')
+                      }}
+                      placeholder="VD: GHN123456789"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+                {deliveryError ? (
+                  <p className="mt-2 text-sm font-semibold text-red-600">{deliveryError}</p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={saveDelivery}
+                  disabled={deliverySaving}
+                  className="mt-3 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deliverySaving ? 'Đang lưu...' : 'Lưu vận chuyển'}
+                </button>
+              </>
+            ) : (
+              <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/80 p-3 text-sm text-gray-600">
+                {order.delivery?.carrierName || order.delivery?.trackingNumber ? (
+                  <>
+                    <p>
+                      <span className="font-semibold text-gray-800">Đơn vị:</span>{' '}
+                      {order.delivery?.carrierName || '—'}
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-semibold text-gray-800">Mã:</span>{' '}
+                      {order.delivery?.trackingNumber || '—'}
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    Chưa thể cập nhật vận chuyển ở trạng thái này. Khi đơn chuyển sang Đã xác nhận / Đang giao /
+                    Hoàn thành, bạn có thể nhập đơn vị và mã vận đơn tại đây.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-4">

@@ -1,4 +1,5 @@
 import { normalizeOrderStatus } from './../constants/orderStatus'
+import { normalizeOrderDelivery } from './orderDelivery'
 
 function pickItemImage(item) {
   const candidates = [
@@ -26,6 +27,7 @@ export function mapOrderDetail(raw) {
   return {
     ...raw,
     status: normalizeOrderStatus(raw?.status),
+    delivery: normalizeOrderDelivery(raw),
     shippingAddressText: buildShippingAddressText(raw),
     shippingNote,
     cancelReason,

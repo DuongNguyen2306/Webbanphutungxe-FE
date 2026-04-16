@@ -188,7 +188,23 @@ export function ProductReviewsSection({
   }
 
   const byRating = summary?.byRating || {}
-  const totalPages = listData?.totalPages ?? 0
+
+  const totalPages = useMemo(() => {
+    const rawTp = Number(listData?.totalPages ?? NaN)
+    if (Number.isFinite(rawTp) && rawTp > 0) return Math.floor(rawTp)
+    const rawTotal = Number(listData?.total ?? listData?.count ?? NaN)
+    if (Number.isFinite(rawTotal) && rawTotal >= 0 && limit > 0) {
+      return Math.max(1, Math.ceil(rawTotal / limit))
+    }
+    return 0
+  }, [listData, limit])
+
+  const totalReviews = Number(listData?.total ?? listData?.count ?? NaN)
+
+  const itemsLen = listData?.items?.length ?? 0
+  const canGoPrev = page > 1
+  const canGoNext =
+    totalPages > 0 ? page < totalPages : itemsLen >= limit
 
   return (
     <section
@@ -433,27 +449,66 @@ export function ProductReviewsSection({
         )}
       </div>
 
-      {totalPages > 1 ? (
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
-          >
-            Trước
-          </button>
-          <span className="text-sm text-gray-600">
-            Trang {page} / {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
-          >
-            Sau
-          </button>
+      {!listLoading && !listErr && itemsLen > 0 ? (
+        <div className="mt-8 border-t border-gray-100 pt-6">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              disabled={!canGoPrev}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Trang trước"
+            >
+              ‹
+            </button>
+            {totalPages > 1 ? (
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {buildPaginationWindow(page, totalPages).map((entry, idx) =>
+                  entry === '…' ? (
+                    <span
+                      key={`e-${idx}`}
+                      className="px-2 text-sm font-medium text-gray-400"
+                      aria-hidden
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={entry}
+                      type="button"
+                      onClick={() => setPage(entry)}
+                      className={`min-h-9 min-w-9 rounded-lg border text-sm font-bold transition ${
+                        page === entry
+                          ? 'border-brand bg-brand text-white shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-800 hover:border-brand/40'
+                      }`}
+                    >
+                      {entry}
+                    </button>
+                  ),
+                )}
+              </div>
+            ) : (
+              <span className="px-2 text-sm font-medium text-gray-600">Trang {page}</span>
+            )}
+            <button
+              type="button"
+              disabled={!canGoNext}
+              onClick={() => setPage((p) => p + 1)}
+              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-sm font-bold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Trang sau"
+            >
+              ›
+            </button>
+          </div>
+          {totalPages > 1 ? (
+            <p className="mt-2 text-center text-xs text-gray-500">
+              Trang {page} / {totalPages}
+              {Number.isFinite(totalReviews) && totalReviews > 0
+                ? ` · ${totalReviews} đánh giá`
+                : null}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -504,6 +559,25 @@ function HalfStarInput({ value, hoverValue, onHover, onChange }) {
       })}
     </div>
   )
+}
+
+/** Cửa sổ số trang kiểu 1 … 4 5 6 … 12 */
+function buildPaginationWindow(current, total, maxButtons = 5) {
+  if (total <= maxButtons + 2) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const half = Math.floor(maxButtons / 2)
+  let start = Math.max(2, current - half)
+  let end = Math.min(total - 1, start + maxButtons - 1)
+  if (end - start < maxButtons - 1) {
+    start = Math.max(2, end - maxButtons + 1)
+  }
+  const out = [1]
+  if (start > 2) out.push('…')
+  for (let i = start; i <= end; i += 1) out.push(i)
+  if (end < total - 1) out.push('…')
+  out.push(total)
+  return out
 }
 
 function FilterChip({ active, onClick, label }) {

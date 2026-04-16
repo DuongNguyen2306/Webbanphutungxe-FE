@@ -116,6 +116,11 @@ function toSafeNumber(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
+function toNullableNumber(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 /** Chuẩn hóa document Product từ API MongoDB cho storefront */
 export function mapApiProduct(p) {
   const rawVariants = p.variants || []
@@ -188,6 +193,11 @@ export function mapApiProduct(p) {
     p.likeCount ??
     p.wishlist?.count ??
     0
+  const reviewCountRaw = toNullableNumber(p.reviewCount)
+  /** Không hiển thị điểm trung bình khi chưa có review thật (tránh rating mặc định từ BE như 4.5). */
+  const ratingRaw =
+    reviewCountRaw != null && reviewCountRaw > 0 ? toNullableNumber(p.rating) : null
+  const soldCountRaw = toNullableNumber(p.soldCount)
 
   return {
     id: String(p._id),
@@ -205,9 +215,9 @@ export function mapApiProduct(p) {
     partCategory: p.partCategory ?? 'accessories',
     homeFeature: p.homeFeature ?? null,
     showOnStorefront: p.showOnStorefront !== false,
-    rating: p.rating ?? 4.5,
-    reviewCount: p.reviewCount ?? 0,
-    soldCount: p.soldCount ?? 0,
+    rating: ratingRaw,
+    reviewCount: reviewCountRaw,
+    soldCount: soldCountRaw,
     wishlistCount: Math.max(0, toSafeNumber(wishlistCountRaw, 0)),
     tags: Array.isArray(p.tags) ? p.tags.map((x) => String(x)) : [],
     compatibleVehicles: Array.isArray(p.compatibleVehicles)

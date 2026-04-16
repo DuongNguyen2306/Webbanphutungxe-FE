@@ -1,6 +1,6 @@
-import { MapPin, Phone, Mail, Share2 } from 'lucide-react'
+import { MapPin, Phone, Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { SHOP_INFO } from '../data/products'
+import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 
 const policyLinks = [
   { href: '#', label: 'Hỗ trợ đặt hàng' },
@@ -10,7 +10,13 @@ const policyLinks = [
   { href: '#', label: 'Quyền riêng tư' },
 ]
 
+const MAP_EMBED_SRC =
+  'https://maps.google.com/maps?q=15F+%C4%91%C6%B0%E1%BB%9Dng+4F+ph%C6%B0%E1%BB%9Dng+T%C3%A2n+Thu%E1%BA%ADn+Qu%E1%BA%ADn+7&t=&z=15&ie=UTF8&iwloc=&output=embed'
+
 export function SiteFooter() {
+  const telHref = `tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[Thai Vũ] Xin chào ${SHOP_INFO.contactPerson}`)}`
+
   return (
     <footer className="mt-auto border-t border-gray-200">
       <div className="bg-page px-4 py-10 text-ink sm:px-6 lg:px-8">
@@ -26,35 +32,43 @@ export function SiteFooter() {
                   thaivu.vn
                 </a>
               </p>
+              {SHOP_INFO.email ? (
+                <p>
+                  <span className="font-semibold text-brand">Email:</span>{' '}
+                  <a
+                    href={`mailto:${SHOP_INFO.email}`}
+                    className="text-ink underline-offset-2 hover:underline"
+                  >
+                    {SHOP_INFO.email}
+                  </a>
+                </p>
+              ) : null}
               <p>
-                <span className="font-semibold text-brand">Email:</span>{' '}
+                <span className="font-semibold text-brand">Zalo / Hotline:</span>{' '}
+                <a href={zaloHref} className="font-medium text-ink underline-offset-2 hover:underline">
+                  {SHOP_INFO.hotlineDisplay}
+                </a>
+                {' — '}
+                <a href={telHref} className="font-medium text-ink underline-offset-2 hover:underline">
+                  Gọi
+                </a>
+                {SHOP_INFO.contactPerson ? (
+                  <>
+                    {' '}
+                    <span className="text-gray-600">({SHOP_INFO.contactPerson})</span>
+                  </>
+                ) : null}
+              </p>
+              <p>
+                <span className="font-semibold text-brand">Facebook:</span>{' '}
                 <a
-                  href={`mailto:${SHOP_INFO.email}`}
+                  href={SHOP_INFO.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-ink underline-offset-2 hover:underline"
                 >
-                  {SHOP_INFO.email}
+                  Phụ kiện xe Vespa Piaggio
                 </a>
-              </p>
-              <p>
-                <span className="font-semibold text-brand">Hotline / Zalo:</span>{' '}
-                <a
-                  href={`tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`}
-                  className="font-medium text-ink"
-                >
-                  {SHOP_INFO.hotline}
-                </a>
-              </p>
-              <p className="text-xs text-gray-600">
-                <span className="font-semibold text-brand">Tư vấn kỹ thuật:</span>{' '}
-                Mr. Hoàng 090x · Mr. Tây 091x (giờ hành chính).
-              </p>
-              <p className="text-xs text-gray-600">
-                <span className="font-semibold text-brand">Góp ý / khiếu nại:</span>{' '}
-                gopy@thaivu.vn — Zalo OA Thai Vũ.
-              </p>
-              <p className="text-xs text-gray-600">
-                <span className="font-semibold text-brand">Hợp tác / buôn sỉ:</span>{' '}
-                Zalo phòng kinh doanh (8h–18h).
               </p>
             </div>
           </div>
@@ -64,7 +78,7 @@ export function SiteFooter() {
               Chương trình chiết khấu
             </h3>
             <ul className="mt-3 list-inside list-disc space-y-2 text-sm text-gray-700">
-              <li>Ưu đãi theo tổng giá trị đơn — chi tiết cập nhật trên Zalo OA.</li>
+              <li>Ưu đãi theo tổng giá trị đơn — chi tiết cập nhật trên Zalo.</li>
               <li className="text-brand">
                 Một số nhóm hàng (loa, thẻ nhớ, cồng kềnh) có thể không áp dụng
                 khuyến mãi %.
@@ -119,37 +133,41 @@ export function SiteFooter() {
               </p>
               <p className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0" />
-                <a href={`tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`}>
-                  {SHOP_INFO.hotline}
-                </a>
+                <a href={telHref}>{SHOP_INFO.hotlineDisplay}</a>
+                {SHOP_INFO.contactPerson ? (
+                  <span className="text-white/80">— {SHOP_INFO.contactPerson}</span>
+                ) : null}
               </p>
-              <p className="flex items-center gap-2">
-                <Mail className="size-4 shrink-0" />
-                <a href={`mailto:${SHOP_INFO.email}`}>{SHOP_INFO.email}</a>
-              </p>
-              <p className="text-white/80">MST: {SHOP_INFO.taxCode}</p>
+              {SHOP_INFO.email ? (
+                <p className="flex items-center gap-2">
+                  <Mail className="size-4 shrink-0" />
+                  <a href={`mailto:${SHOP_INFO.email}`}>{SHOP_INFO.email}</a>
+                </p>
+              ) : null}
+              {SHOP_INFO.taxCode ? (
+                <p className="text-white/80">MST: {SHOP_INFO.taxCode}</p>
+              ) : null}
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <a
-                href="#"
-                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white transition hover:bg-white/25"
+                href={SHOP_INFO.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
                 aria-label="Facebook"
               >
-                f
+                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
               </a>
               <a
-                href="#"
-                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-xs font-bold text-white transition hover:bg-white/25"
+                href={zaloHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-xs font-extrabold text-white transition hover:bg-white/25"
                 aria-label="Zalo"
               >
                 Z
-              </a>
-              <a
-                href="#"
-                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
-                aria-label="Mạng xã hội"
-              >
-                <Share2 className="size-5" />
               </a>
             </div>
           </div>
@@ -161,7 +179,7 @@ export function SiteFooter() {
             <div className="mt-4 overflow-hidden rounded-lg border border-white/20 bg-black/20">
               <iframe
                 title="Bản đồ cửa hàng Thai Vũ"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.319!2d106.629!3d10.823!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTDCsDQ5JzIyLjgiTiAxMDbCsDM3JzQ0LjQiRQ!5e0!3m2!1svi!2s!4v1"
+                src={MAP_EMBED_SRC}
                 className="h-56 w-full border-0 sm:h-64"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -174,14 +192,21 @@ export function SiteFooter() {
               Fanpage Facebook
             </h3>
             <div className="mt-4 rounded-lg border border-white/20 bg-black/10 p-4 text-sm text-white/90">
-              <p className="font-semibold">Thai Vũ — Phụ kiện xe máy</p>
+              <p className="font-semibold">Phụ kiện xe Vespa Piaggio</p>
               <p className="mt-2 text-xs text-white/75">
-                Nhúng plugin Fanpage Facebook tại đây (Page ID + SDK) để hiển thị
-                lượt thích và nút theo dõi như mẫu tham khảo.
+                Theo dõi fanpage để cập nhật hàng mới, khuyến mãi và hướng dẫn lắp đặt.
               </p>
+              <a
+                href={SHOP_INFO.facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-block rounded-md bg-white px-4 py-2 text-xs font-bold uppercase text-footer-blue"
+              >
+                Mở Facebook
+              </a>
               <Link
                 to="/"
-                className="mt-4 inline-block rounded-md bg-white px-4 py-2 text-xs font-bold uppercase text-footer-blue"
+                className="mt-2 ml-2 inline-block rounded-md border border-white/40 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white/10"
               >
                 Về trang chủ
               </Link>

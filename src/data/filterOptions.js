@@ -14,6 +14,22 @@ export const PART_TYPES = [
 
 export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 
+/** Nhóm hãng: ưu tiên Vespa — phù hợp shop chuyên Vespa, ít hàng xe khác */
+export const BRAND_FILTER_GROUPS = [
+  {
+    id: 'vespa-core',
+    legend: 'Vespa & Piaggio',
+    hint: 'Hàng chủ lực cửa hàng',
+    ids: ['vespa', 'piaggio'],
+  },
+  {
+    id: 'other-bikes',
+    legend: 'Xe khác (ít hàng)',
+    hint: 'Chỉ bật khi cần lọc Honda / Yamaha',
+    ids: ['honda', 'yamaha'],
+  },
+]
+
 /** Tối thiểu 0 để SP giá thấp / 0đ (mặc định biến thể) không bị lọc mất */
 export const PRICE_SLIDER_MIN = 0
 export const PRICE_SLIDER_MAX = 5_000_000

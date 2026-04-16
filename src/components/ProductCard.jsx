@@ -14,6 +14,8 @@ export function ProductCard({
   priceFrom = false,
   zaloUrl = SHOP_ZALO_URL,
   imageAspect = 'square',
+  /** 'default' | 'shelf' — shelf: chỉ ẩn nút Zalo (carousel gọn) */
+  variant = 'default',
 }) {
   const id = productId
   const displaySale = salePrice ?? 0
@@ -21,6 +23,8 @@ export function ProductCard({
 
   const aspectClass =
     imageAspect === 'tire' ? 'aspect-[4/5]' : 'aspect-square'
+
+  const isShelf = variant === 'shelf'
 
   const inner = (
     <>
@@ -79,18 +83,20 @@ export function ProductCard({
         inner
       )}
 
-      <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-        <a
-          href={zaloHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#0068ff]/30 bg-[#0068ff]/5 py-2 text-[11px] font-bold text-[#0068ff] transition hover:bg-[#0068ff] hover:text-white"
-        >
-          <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.5} />
-          Tư vấn Zalo
-        </a>
-      </div>
+      {!isShelf ? (
+        <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
+          <a
+            href={zaloHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#0068ff]/30 bg-[#0068ff]/5 py-2 text-[11px] font-bold text-[#0068ff] transition hover:bg-[#0068ff] hover:text-white"
+          >
+            <MessageCircle className="size-3.5 shrink-0" strokeWidth={2.5} />
+            Tư vấn Zalo
+          </a>
+        </div>
+      ) : null}
     </article>
   )
 }

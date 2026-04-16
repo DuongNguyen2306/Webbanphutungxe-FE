@@ -14,3 +14,9 @@ export async function updateMyOrderCustomerInfo(id, payload) {
   const { data } = await api.patch(`/api/orders/${id}/customer-info`, payload)
   return data
 }
+
+/** Admin: cập nhật đơn vị vận chuyển + mã vận đơn (BE chỉ cho phép một số trạng thái). */
+export async function patchAdminOrderDelivery(id, payload) {
+  const { data } = await api.patch(`/api/admin/orders/${id}/delivery`, payload)
+  return data
+}

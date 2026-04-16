@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import {
@@ -11,6 +11,9 @@ import {
 import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
 import { formatVnd } from '../../utils/format'
+import { parseOrderListResponse } from '../../utils/orderListResponse'
+
+const PAGE_LIMIT = 10
 
 const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
   'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
@@ -32,6 +35,11 @@ export function AdminOrders() {
   const [orders, setOrders] = useState([])
   const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [ordersTotal, setOrdersTotal] = useState(null)
+  const [hasNextPage, setHasNextPage] = useState(false)
+  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [updatingId, setUpdatingId] = useState('')
@@ -48,20 +56,39 @@ export function AdminOrders() {
   })
   const [completeModalError, setCompleteModalError] = useState('')
 
+  const adminTotalPages = useMemo(() => {
+    if (ordersTotal == null || !Number.isFinite(ordersTotal)) return null
+    return Math.max(1, Math.ceil(ordersTotal / PAGE_LIMIT))
+  }, [ordersTotal])
+
   useEffect(() => {
     if (!toast) return undefined
     const t = setTimeout(() => setToast(''), 2500)
     return () => clearTimeout(t)
   }, [toast])
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
+    const safePage = Math.max(1, page)
+    const skip = (safePage - 1) * PAGE_LIMIT
+    const params = { limit: PAGE_LIMIT, skip }
+    const q = search.trim()
+    if (q) params.search = q
     try {
-      const { data } = await api.get('/api/admin/orders')
-      setOrders(data)
+      const { data } = await api.get('/api/admin/orders', { params })
+      const { items, total } = parseOrderListResponse(data)
+      setOrders(items)
+      setOrdersTotal(total)
+      const hasNext =
+        total != null && Number.isFinite(total)
+          ? skip + items.length < total
+          : items.length === PAGE_LIMIT
+      setHasNextPage(hasNext)
     } catch (err) {
       setOrders([])
+      setOrdersTotal(null)
+      setHasNextPage(false)
       setError(
         err.response?.data?.message ||
           'Không tải được đơn hàng từ API /api/admin/orders.',
@@ -69,7 +96,7 @@ export function AdminOrders() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, search])
 
   async function loadStatusOptions() {
     try {
@@ -97,9 +124,12 @@ export function AdminOrders() {
   }
 
   useEffect(() => {
-    load()
     loadStatusOptions()
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function commitStatusChange(id, normalizedStatus, note = '') {
     const previous = orders.find((order) => order._id === id)
@@ -123,6 +153,9 @@ export function AdminOrders() {
                 ...order,
                 status: normalizeOrderStatus(data.status || normalizedStatus),
                 cancelNote: data.cancelNote || '',
+                ...(data?.delivery && typeof data.delivery === 'object'
+                  ? { delivery: { ...order.delivery, ...data.delivery } }
+                  : {}),
               }
             : order,
         ),
@@ -219,7 +252,7 @@ export function AdminOrders() {
     }
   }
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
       <p className="text-sm text-gray-500">Đang tải đơn hàng...</p>
     )
@@ -227,18 +260,78 @@ export function AdminOrders() {
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
-        Đơn hàng
-      </h1>
-      <p className="mt-1 text-sm text-gray-600">
-        Thông tin khách và đúng các dòng đã chọn khi thanh toán.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+            Đơn hàng
+          </h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Thông tin khách và đúng các dòng đã chọn khi thanh toán.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          {loading ? <span className="font-semibold text-brand">Đang tải…</span> : null}
+          {ordersTotal != null ? (
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">
+              {ordersTotal} đơn
+            </span>
+          ) : orders.length > 0 ? (
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">
+              {orders.length} đơn / trang
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              setPage(1)
+              setSearch(searchInput.trim())
+            }
+          }}
+          placeholder="Tìm mã đơn, SĐT, email, tên khách…"
+          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          aria-label="Tìm đơn hàng"
+        />
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPage(1)
+              setSearch(searchInput.trim())
+            }}
+            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+          >
+            Tìm
+          </button>
+          {search ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('')
+                setSearch('')
+                setPage(1)
+              }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       {error ? (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
           <button
             type="button"
-            onClick={load}
+            onClick={() => load()}
             className="ml-2 font-bold underline"
           >
             Thử lại
@@ -251,13 +344,16 @@ export function AdminOrders() {
             const currentStatus = normalizeOrderStatus(o.status)
             const ageMs = Date.now() - new Date(o.createdAt).getTime()
             const urgent = currentStatus === ORDER_STATUS.PENDING && ageMs > 30 * 60 * 1000
+            const shippingHighlight = currentStatus === ORDER_STATUS.SHIPPING
             return (
           <li
             key={o._id}
             className={`rounded-xl border p-5 shadow-sm ${
               urgent
                 ? 'animate-pulse border-red-200 bg-red-50/70'
-                : 'border-gray-200 bg-white'
+                : shippingHighlight
+                  ? 'border-emerald-300 bg-emerald-50/40 ring-1 ring-emerald-100'
+                  : 'border-gray-200 bg-white'
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -284,6 +380,20 @@ export function AdminOrders() {
                   <p className="mt-2 text-xs font-bold text-red-700">
                     ⚠️ Cần xử lý gấp
                   </p>
+                ) : null}
+                {currentStatus === ORDER_STATUS.SHIPPING ||
+                currentStatus === ORDER_STATUS.CONFIRMED ||
+                currentStatus === ORDER_STATUS.COMPLETED ? (
+                  o.delivery?.carrierName || o.delivery?.trackingNumber ? (
+                    <p className="mt-2 rounded-lg border border-emerald-200 bg-white/90 px-2.5 py-1.5 text-xs text-emerald-900">
+                      <span className="font-bold">Vận chuyển:</span>{' '}
+                      {[o.delivery?.carrierName, o.delivery?.trackingNumber].filter(Boolean).join(' · ')}
+                    </p>
+                  ) : currentStatus === ORDER_STATUS.SHIPPING ? (
+                    <p className="mt-2 text-xs font-medium text-amber-800">
+                      Chưa có mã vận đơn — mở chi tiết đơn để nhập đơn vị và mã.
+                    </p>
+                  ) : null
                 ) : null}
               </div>
               <div className="shrink-0">
@@ -350,9 +460,37 @@ export function AdminOrders() {
           })()
         ))}
       </ul>
-      {orders.length === 0 ? (
+      {orders.length > 0 ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+          <p className="text-xs text-gray-500">
+            {adminTotalPages != null ? `Trang ${page} / ${adminTotalPages}` : `Trang ${page}`}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Trước
+            </button>
+            <button
+              type="button"
+              disabled={
+                loading ||
+                (adminTotalPages != null ? page >= adminTotalPages : !hasNextPage)
+              }
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Sau
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {orders.length === 0 && !loading ? (
         <p className="mt-8 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-          Chưa có đơn nào.
+          {search ? 'Không có đơn khớp tìm kiếm.' : 'Chưa có đơn nào.'}
         </p>
       ) : null}
       <ReasonInputModal

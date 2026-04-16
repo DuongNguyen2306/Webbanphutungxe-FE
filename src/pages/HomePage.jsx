@@ -9,6 +9,7 @@ import { CatalogFeatureSection } from '../components/CatalogFeatureSection'
 import { FilterPanelSidebar, FilterPanelContent } from '../components/FilterPanel'
 import { PRICE_SLIDER_MAX, createDefaultFilterState } from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
+import { BestSellingShelf } from '../components/BestSellingShelf'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
 
@@ -326,6 +327,8 @@ export function HomePage() {
           )}
         </>
       ) : null}
+
+      <BestSellingShelf products={products} />
 
       <SiteFooter />
     </div>

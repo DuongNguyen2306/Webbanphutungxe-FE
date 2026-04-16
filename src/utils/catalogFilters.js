@@ -12,11 +12,24 @@ import { normalizeSearch } from './string'
  *   inStockOnly: boolean
  * }} f
  */
+function productSearchBlob(p) {
+  const tags = Array.isArray(p.tags) ? p.tags : []
+  const vehicles = Array.isArray(p.compatibleVehicles) ? p.compatibleVehicles : []
+  const parts = [
+    p.name,
+    p.description,
+    p.categoryName,
+    ...tags,
+    ...vehicles,
+  ]
+  return normalizeSearch(parts.map((x) => String(x || '')).join(' '))
+}
+
 export function filterCatalog(list, f) {
   const q = normalizeSearch(f.search.trim())
 
   return list.filter((p) => {
-    if (q && !normalizeSearch(p.name).includes(q)) return false
+    if (q && !productSearchBlob(p).includes(q)) return false
 
     if (f.brands.length > 0 && !f.brands.includes(p.brand)) return false
 

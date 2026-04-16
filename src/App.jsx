@@ -16,6 +16,7 @@ import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminProducts } from './pages/admin/AdminProducts'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
 import { AdminInventory } from './pages/admin/AdminInventory'
+import { FloatingContactRails } from './components/FloatingContactRails'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="inventory" element={<AdminInventory />} />
           </Route>
         </Routes>
+        <FloatingContactRails />
       </CartProvider>
     </AuthProvider>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { User, ShoppingBag, KeyRound, PencilLine } from 'lucide-react'
 import { Header } from '../components/Header'
@@ -14,6 +14,7 @@ import {
   normalizeOrderStatus,
 } from '../constants/orderStatus'
 import { formatVnd } from '../utils/format'
+import { parseOrderListResponse } from '../utils/orderListResponse'
 
 const PAGE_LIMIT = 10
 
@@ -31,10 +32,12 @@ export function ProfilePage() {
   const [toast, setToast] = useState('')
   const [orders, setOrders] = useState([])
   const [ordLoading, setOrdLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [ordError, setOrdError] = useState('')
   const [hasMoreOrders, setHasMoreOrders] = useState(false)
-  const [orderSkip, setOrderSkip] = useState(0)
+  const [orderPage, setOrderPage] = useState(1)
+  const [ordersTotal, setOrdersTotal] = useState(null)
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderSearchInput, setOrderSearchInput] = useState('')
   const [cancellingId, setCancellingId] = useState('')
   const [cancelModal, setCancelModal] = useState({
     open: false,
@@ -119,42 +122,44 @@ export function ProfilePage() {
     }
   }, [user])
 
-  async function fetchOrders({ reset = false, tab = statusTab } = {}) {
-    const nextSkip = reset ? 0 : orderSkip
-    const statusCode = mapOrderTabToStatusCode(tab)
-    const params = {
-      limit: PAGE_LIMIT,
-      skip: nextSkip,
-    }
-    if (statusCode) params.status = statusCode
-
-    if (reset) {
+  const loadOrdersPage = useCallback(
+    async (page) => {
+      if (!user) return
       setOrdLoading(true)
       setOrdError('')
-    } else {
-      setLoadingMore(true)
-    }
+      const statusCode = mapOrderTabToStatusCode(statusTab)
+      const safePage = Math.max(1, Number(page) || 1)
+      const skip = (safePage - 1) * PAGE_LIMIT
+      const params = {
+        limit: PAGE_LIMIT,
+        skip,
+      }
+      if (statusCode) params.status = statusCode
+      const q = orderSearch.trim()
+      if (q) params.search = q
 
-    try {
-      const { data } = await api.get('/api/orders/my-orders', { params })
-      const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : []
-      setOrders((prev) => {
-        if (reset) return list
-        const known = new Set(prev.map((o) => o._id))
-        const appended = list.filter((o) => !known.has(o._id))
-        return [...prev, ...appended]
-      })
-      setOrderSkip(nextSkip + list.length)
-      setHasMoreOrders(list.length === PAGE_LIMIT)
-    } catch (err) {
-      setOrdError(err.response?.data?.message || 'Không tải được đơn hàng.')
-      if (reset) setOrders([])
-      setHasMoreOrders(false)
-    } finally {
-      if (reset) setOrdLoading(false)
-      setLoadingMore(false)
-    }
-  }
+      try {
+        const { data } = await api.get('/api/orders/my-orders', { params })
+        const { items, total } = parseOrderListResponse(data)
+        setOrders(items)
+        setOrderPage(safePage)
+        setOrdersTotal(total)
+        const hasNext =
+          total != null && Number.isFinite(total)
+            ? skip + items.length < total
+            : items.length === PAGE_LIMIT
+        setHasMoreOrders(hasNext)
+      } catch (err) {
+        setOrdError(err.response?.data?.message || 'Không tải được đơn hàng.')
+        setOrders([])
+        setOrdersTotal(null)
+        setHasMoreOrders(false)
+      } finally {
+        setOrdLoading(false)
+      }
+    },
+    [user, statusTab, orderSearch],
+  )
 
   useEffect(() => {
     if (location.hash === '#orders') {
@@ -164,8 +169,8 @@ export function ProfilePage() {
 
   useEffect(() => {
     if (!user) return
-    fetchOrders({ reset: true, tab: statusTab })
-  }, [user, statusTab])
+    loadOrdersPage(1)
+  }, [user, statusTab, orderSearch, loadOrdersPage])
 
   const statusTabs = [
     { id: ORDER_STATUS_TAB.ALL, label: 'Tất cả' },
@@ -176,6 +181,11 @@ export function ProfilePage() {
     { id: ORDER_STATUS_TAB.COMPLETED, label: ORDER_STATUS_LABELS[ORDER_STATUS.COMPLETED] },
     { id: ORDER_STATUS_TAB.CANCELLED, label: ORDER_STATUS_LABELS[ORDER_STATUS.CANCELLED] },
   ]
+
+  const orderListTotalPages = useMemo(() => {
+    if (ordersTotal == null || !Number.isFinite(ordersTotal)) return null
+    return Math.max(1, Math.ceil(ordersTotal / PAGE_LIMIT))
+  }, [ordersTotal])
 
   const statusBadgeClass = {
     [ORDER_STATUS.PENDING]: 'bg-amber-50 text-amber-700',
@@ -247,7 +257,7 @@ export function ProfilePage() {
       setCancelModal({ open: false, orderId: '', reason: '' })
       setCancelModalError('')
       setToast('Đã gửi yêu cầu hủy đơn.')
-      fetchOrders({ reset: true, tab: statusTab })
+      loadOrdersPage(orderPage)
     } catch (err) {
       setOrdError(err.response?.data?.message || 'Hủy đơn thất bại.')
     } finally {
@@ -422,8 +432,50 @@ export function ProfilePage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-xl font-extrabold">Đơn mua của tôi</h2>
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
-                      {orders.length} đơn hiện tại
+                      {ordersTotal != null
+                        ? `${ordersTotal} đơn`
+                        : orders.length > 0
+                          ? `${orders.length} đơn / trang`
+                          : '0 đơn'}
                     </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="search"
+                      value={orderSearchInput}
+                      onChange={(e) => setOrderSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          setOrderSearch(orderSearchInput.trim())
+                        }
+                      }}
+                      placeholder="Tìm theo mã đơn, tên SP, SĐT…"
+                      className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      aria-label="Tìm đơn hàng"
+                    />
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOrderSearch(orderSearchInput.trim())}
+                        className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+                      >
+                        Tìm
+                      </button>
+                      {orderSearch ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOrderSearchInput('')
+                            setOrderSearch('')
+                          }}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Xóa lọc
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 border-b border-gray-200">
@@ -461,6 +513,7 @@ export function ProfilePage() {
                     </p>
                   </div>
                 ) : (
+                  <>
                   <ul className="mt-4 space-y-3">
                     {orders.map((o) => (
                       <li
@@ -512,6 +565,21 @@ export function ProfilePage() {
                             )
                           })}
                         </div>
+                        {normalizeOrderStatus(o.status) === ORDER_STATUS.SHIPPING ||
+                        normalizeOrderStatus(o.status) === ORDER_STATUS.COMPLETED ? (
+                          o.delivery?.carrierName || o.delivery?.trackingNumber ? (
+                            <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-900">
+                              <span className="font-bold">Giao hàng:</span>{' '}
+                              {[o.delivery?.carrierName, o.delivery?.trackingNumber]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          ) : normalizeOrderStatus(o.status) === ORDER_STATUS.SHIPPING ? (
+                            <p className="mt-2 text-xs text-gray-600">
+                              Shop sẽ cập nhật mã vận đơn sớm.
+                            </p>
+                          ) : null
+                        ) : null}
                         <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="text-right sm:ml-auto">
                             <p className="text-xs text-gray-500">Tổng thanh toán</p>
@@ -552,19 +620,38 @@ export function ProfilePage() {
                       </li>
                     ))}
                   </ul>
-                )}
-                {hasMoreOrders ? (
-                  <div className="mt-4 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => fetchOrders({ reset: false, tab: statusTab })}
-                      disabled={loadingMore}
-                      className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      {loadingMore ? 'Đang tải...' : 'Xem thêm'}
-                    </button>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                    <p className="text-xs text-gray-500">
+                      {orderListTotalPages != null
+                        ? `Trang ${orderPage} / ${orderListTotalPages}`
+                        : `Trang ${orderPage}`}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={ordLoading || orderPage <= 1}
+                        onClick={() => loadOrdersPage(orderPage - 1)}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          ordLoading ||
+                          (orderListTotalPages != null
+                            ? orderPage >= orderListTotalPages
+                            : !hasMoreOrders)
+                        }
+                        onClick={() => loadOrdersPage(orderPage + 1)}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Sau
+                      </button>
+                    </div>
                   </div>
-                ) : null}
+                  </>
+                )}
                 </div>
               </>
             ) : null}

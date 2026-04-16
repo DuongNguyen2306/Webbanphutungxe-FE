@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Copy } from 'lucide-react'
 import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
 import { useAuth } from '../context/AuthContext'
@@ -14,6 +15,66 @@ function SkeletonBlock() {
       <div className="h-4 w-40 rounded bg-gray-200" />
       <div className="h-4 w-full rounded bg-gray-100" />
       <div className="h-4 w-2/3 rounded bg-gray-100" />
+    </div>
+  )
+}
+
+function CustomerDeliveryCard({ order, onCopied }) {
+  const carrier = order?.delivery?.carrierName?.trim()
+  const tracking = order?.delivery?.trackingNumber?.trim()
+  const isShipping = order?.status === ORDER_STATUS.SHIPPING
+  const isCompleted = order?.status === ORDER_STATUS.COMPLETED
+  const [copying, setCopying] = useState(false)
+
+  const visible =
+    isShipping || (isCompleted && (Boolean(carrier) || Boolean(tracking)))
+  if (!visible) return null
+
+  async function copyTracking() {
+    if (!tracking || copying) return
+    setCopying(true)
+    try {
+      await navigator.clipboard.writeText(tracking)
+      onCopied?.()
+    } catch {
+      onCopied?.('Không sao chép được — bạn có thể chọn và copy tay.')
+    } finally {
+      setCopying(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
+      <p className="text-sm font-extrabold text-emerald-900">Theo dõi giao hàng</p>
+      {carrier || tracking ? (
+        <dl className="mt-3 space-y-2 text-sm text-gray-800">
+          <div>
+            <dt className="text-xs font-semibold text-gray-500">Đơn vị</dt>
+            <dd className="mt-0.5 font-medium">{carrier || '—'}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold text-gray-500">Mã vận đơn</dt>
+            <dd className="mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="font-mono font-semibold">{tracking || '—'}</span>
+              {tracking ? (
+                <button
+                  type="button"
+                  onClick={copyTracking}
+                  disabled={copying}
+                  className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+                >
+                  <Copy className="size-3.5" aria-hidden />
+                  {copying ? '...' : 'Sao chép mã'}
+                </button>
+              ) : null}
+            </dd>
+          </div>
+        </dl>
+      ) : isShipping ? (
+        <p className="mt-2 text-sm text-gray-700">
+          Shop sẽ cập nhật mã vận đơn sớm — bạn quay lại sau hoặc liên hệ shop nếu cần gấp.
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -353,6 +414,14 @@ export function OrderDetailPage() {
                 </div>
               </div>
             </div>
+
+            <CustomerDeliveryCard
+              order={order}
+              onCopied={(errMsg) => {
+                if (errMsg) setToast(errMsg)
+                else setToast('Đã sao chép mã vận đơn')
+              }}
+            />
 
             <div className="rounded-xl border border-gray-200 bg-white p-4">
               <p className="text-sm font-bold text-gray-800">Sản phẩm</p>

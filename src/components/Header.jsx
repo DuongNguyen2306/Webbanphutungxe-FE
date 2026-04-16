@@ -16,6 +16,7 @@ import { BRANDS } from '../data/products'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
+import { normalizeSearch } from '../utils/string'
 
 const BRAND_OPTIONS = [
   BRANDS.all,
@@ -91,17 +92,27 @@ export function Header({
     searchTimerRef.current = setTimeout(async () => {
       try {
         const { data } = await api.get('/api/products')
-        const text = q.toLowerCase()
-        const matched = (Array.isArray(data) ? data : [])
+        const rawList = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.products)
+            ? data.products
+            : Array.isArray(data?.items)
+              ? data.items
+              : []
+        const nq = normalizeSearch(q)
+        const matched = rawList
           .filter((p) => {
             const fields = [
               p.name,
+              p.description,
+              p.category?.name,
               ...(Array.isArray(p.tags) ? p.tags : []),
               ...(Array.isArray(p.compatibleVehicles) ? p.compatibleVehicles : []),
             ]
-            return fields.some((x) => String(x || '').toLowerCase().includes(text))
+            const blob = normalizeSearch(fields.map((x) => String(x || '')).join(' '))
+            return blob.includes(nq)
           })
-          .slice(0, 6)
+          .slice(0, 8)
         setSearchResults(matched)
       } catch (err) {
         setSearchResults([])
@@ -113,7 +124,7 @@ export function Header({
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     }
-  }, [q, searchOpen])
+  }, [q])
 
   return (
     <header className="sticky top-0 z-50 shadow-md">

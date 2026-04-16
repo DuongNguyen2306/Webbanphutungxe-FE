@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import { resolveImageItemsToUrls } from '../../api/productUploadApi'
 import {
   ImagePickerField,
   createImageItemsFromUrls,
-  getFilesSelectedFromItems,
-  getUploadedUrlsFromItems,
   revokePreviewUrls,
 } from '../../components/ImagePickerField'
 
@@ -50,17 +48,24 @@ function buildSkuColorCode(color) {
   return normalizeNoAccent(color).replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'NON'
 }
 
-function buildSkuSizeCode(size) {
-  const parts = normalizeNoAccent(size)
-    .split(/[^A-Z0-9]+/)
+/**
+ * SKU tự sinh: viết tắt tên SP + mã rút gọn từng giá trị thuộc tính (theo thứ tự cột).
+ * Hỗ trợ gọi kiểu cũ generateSKU(name, color, size) hoặc generateSKU(name, parts[]).
+ */
+function generateSKU(productName, colorOrParts, size) {
+  const base = buildSkuNameCode(productName)
+  let parts = []
+  if (Array.isArray(colorOrParts)) {
+    parts = colorOrParts
+  } else {
+    parts = [colorOrParts, size]
+  }
+  const segs = parts
+    .map((p) => String(p ?? '').trim())
     .filter(Boolean)
-  if (!parts.length) return 'SZ'
-  if (parts.length === 1) return parts[0].slice(0, 3)
-  return `${parts[0].slice(0, 2)}${parts[1][0] || ''}`.slice(0, 3)
-}
-
-function generateSKU(productName, color, size) {
-  return `${buildSkuNameCode(productName)}-${buildSkuColorCode(color)}-${buildSkuSizeCode(size)}`
+    .map((p) => buildSkuColorCode(p))
+  if (!segs.length) return `${base}-NON-SZ`
+  return `${base}-${segs.join('-')}`
 }
 
 function nextLocalId(prefix) {
@@ -86,7 +91,7 @@ function normalizeAttributeSchema(rows = []) {
   return rows.map((row, index) => {
     const name = String(row?.name || '').trim()
     const values = uniqueCaseInsensitive(Array.isArray(row?.values) ? row.values : [])
-    const base = name || `Thuộc tính ${index + 1}`
+    const base = name || `Phân loại ${index + 1}`
     let key = base
     let suffix = 2
     while (usedNames.has(key.toLowerCase())) {
@@ -105,15 +110,20 @@ function normalizeAttributeSchema(rows = []) {
 }
 
 function defaultVariantKey(attributeValues, attrs) {
-  const raw = attrs.map((attr) => attributeValues?.[attr.key] || '').filter(Boolean).join(' / ')
+  const raw = attrs
+    .map((attr) => attributeValues?.[attr.key])
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+    .join(' - ')
   return raw || `Biến thể ${Math.random().toString(16).slice(2, 6)}`
 }
 
-function attributeValuesToLabel(attributeValues, attrs) {
+/** Tên hiển thị preview (vd: Chanh - 100ml) */
+function displayVariantLabel(attributeValues, attrs) {
   const parts = attrs
-    .map((attr) => attributeValues?.[attr.key])
-    .filter((value) => value != null && String(value).trim() !== '')
-  return parts.length ? parts.join(' · ') : 'Mặc định'
+    .map((attr) => String(attributeValues?.[attr.key] ?? '').trim())
+    .filter(Boolean)
+  return parts.length ? parts.join(' - ') : '—'
 }
 
 function splitPreset(raw, presetSet) {
@@ -150,15 +160,32 @@ function formatApiError(err) {
   return err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.'
 }
 
+/** Rê chuột hoặc Tab + focus vào dấu ? để xem hướng dẫn nhanh (tiếng Việt dễ hiểu). */
+function QuickGuide({ text }) {
+  return (
+    <span
+      className="group relative ml-1 inline-flex size-[18px] shrink-0 cursor-help items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200/90"
+      tabIndex={0}
+      aria-label="Hướng dẫn nhanh"
+    >
+      ?
+      <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-[80] w-[min(17rem,85vw)] -translate-x-1/2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-[11px] font-normal leading-relaxed text-gray-700 shadow-md opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+        {text}
+      </span>
+    </span>
+  )
+}
+
 function countPendingFiles(items = []) {
   return items.filter((it) => it?.file instanceof File).length
 }
 
+function emptyAttributeRow() {
+  return { id: nextLocalId('attr'), name: '', values: [], draft: '' }
+}
+
 function buildDefaultAttributes() {
-  return [
-    { id: nextLocalId('attr'), name: 'Màu sắc', values: [], draft: '' },
-    { id: nextLocalId('attr'), name: 'Li', values: [], draft: '' },
-  ]
+  return [emptyAttributeRow()]
 }
 
 export function AdminProductForm() {
@@ -179,9 +206,14 @@ export function AdminProductForm() {
   const [partCategoryOther, setPartCategoryOther] = useState('')
   const [homeFeature, setHomeFeature] = useState('')
   const [showOnStorefront, setShowOnStorefront] = useState(true)
+  const [hasVariants, setHasVariants] = useState(true)
   const [attributes, setAttributes] = useState(buildDefaultAttributes)
   const [variants, setVariants] = useState([emptyVariant()])
-  const [basePrice, setBasePrice] = useState('')
+  const [singlePrice, setSinglePrice] = useState('')
+  const [singleOriginalPrice, setSingleOriginalPrice] = useState('')
+  const [singleStock, setSingleStock] = useState('')
+  const [singleSku, setSingleSku] = useState('')
+  const [singleSkuManuallyEdited, setSingleSkuManuallyEdited] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [variantErrorRow, setVariantErrorRow] = useState(-1)
@@ -192,10 +224,6 @@ export function AdminProductForm() {
   const [bootstrapping, setBootstrapping] = useState(isEdit)
   const imagesRef = useRef([])
   const variantsRef = useRef([emptyVariant()])
-
-  /** Tách từ danh sách slot ảnh sản phẩm (đúng contract: filesSelected + uploadedUrls) */
-  const productFilesSelected = useMemo(() => getFilesSelectedFromItems(images), [images])
-  const productUploadedUrls = useMemo(() => getUploadedUrlsFromItems(images), [images])
 
   useEffect(() => {
     imagesRef.current = images
@@ -243,7 +271,20 @@ export function AdminProductForm() {
     setPartCategoryOther(pco)
     setHomeFeature(data.homeFeature ?? '')
     setShowOnStorefront(data.showOnStorefront !== false)
-    setBasePrice('')
+    const apiHasVariants =
+      typeof data?.hasVariants === 'boolean'
+        ? data.hasVariants
+        : Array.isArray(data?.variants) && data.variants.length > 0
+    setHasVariants(apiHasVariants)
+    setSinglePrice(String(data?.price ?? data?.salePrice ?? data?.basePrice ?? ''))
+    setSingleOriginalPrice(
+      data?.originalPrice != null && data.originalPrice !== '' ? String(data.originalPrice) : '',
+    )
+    setSingleStock(
+      data?.stock != null ? String(data.stock) : data?.stockQuantity != null ? String(data.stockQuantity) : '',
+    )
+    setSingleSku(String(data?.sku ?? ''))
+    setSingleSkuManuallyEdited(Boolean(data?.sku))
 
     let rawAttrs = Array.isArray(data.attributes) ? data.attributes : []
     if (!rawAttrs.length && Array.isArray(data.variants)) {
@@ -268,11 +309,7 @@ export function AdminProductForm() {
         draft: '',
       })),
     )
-    const attrsForUI = normalizedAttrs.slice(0, 2)
-    while (attrsForUI.length < 2) {
-      const defaults = buildDefaultAttributes()
-      attrsForUI.push(defaults[attrsForUI.length])
-    }
+    const attrsForUI = normalizedAttrs.length ? normalizedAttrs : [emptyAttributeRow()]
     setAttributes(attrsForUI)
 
     const attrsForVariant = attrsForUI
@@ -338,15 +375,72 @@ export function AdminProductForm() {
     }
   }, [editId])
 
+  const normalizedAttributes = useMemo(
+    () => normalizeAttributeSchema(attributes),
+    [attributes],
+  )
+
+  const attributesForVariants = useMemo(
+    () => normalizedAttributes.filter((attr) => attr.name.trim()),
+    [normalizedAttributes],
+  )
+
+  /** Chỉ dùng cho nút Sinh tổ hợp: mỗi thuộc tính cần có ít nhất 1 tag */
+  const comboAttributes = useMemo(
+    () => attributesForVariants.filter((attr) => attr.values.length > 0),
+    [attributesForVariants],
+  )
+
+  const comboSourcesIncomplete = useMemo(
+    () => attributesForVariants.some((attr) => attr.values.length === 0),
+    [attributesForVariants],
+  )
+
+  const buildSkuForRow = useCallback(
+    (row) => {
+      const parts = attributesForVariants.map((attr) =>
+        String(row?.attributeValues?.[attr.key] || '').trim(),
+      )
+      return generateSKU(name, parts)
+    },
+    [name, attributesForVariants],
+  )
+
+  useEffect(() => {
+    const keys = attributesForVariants.map((attr) => attr.key)
+    setVariants((prev) => {
+      let changed = false
+      const next = prev.map((row) => {
+        const nextAttributeValues = {}
+        keys.forEach((key) => {
+          nextAttributeValues[key] = String(row.attributeValues?.[key] || '')
+        })
+        const prevValues = row.attributeValues || {}
+        const same =
+          Object.keys(prevValues).length === keys.length &&
+          keys.every((key) => String(prevValues[key] || '') === nextAttributeValues[key])
+        if (same) return row
+        changed = true
+        return { ...row, attributeValues: nextAttributeValues }
+      })
+      return changed ? next : prev
+    })
+  }, [attributesForVariants])
+
+  useEffect(() => {
+    if (!name.trim()) return
+    setVariants((prev) =>
+      prev.map((row) => {
+        if (row.skuManuallyEdited) return row
+        if (String(row.sku || '').trim()) return row
+        return { ...row, sku: buildSkuForRow(row) }
+      }),
+    )
+  }, [name, buildSkuForRow])
+
   function updateRow(i, patch) {
     if (variantErrorRow === i) setVariantErrorRow(-1)
     setVariants((v) => v.map((row, j) => (j === i ? { ...row, ...patch } : row)))
-  }
-
-  function buildSkuForRow(row, attrs = activeAttributes) {
-    const color = String(row?.attributeValues?.[attrs?.[0]?.key] || '')
-    const size = String(row?.attributeValues?.[attrs?.[1]?.key] || '')
-    return generateSKU(name, color, size)
   }
 
   function handleAttributeValueChange(rowIndex, attrKey, value) {
@@ -366,19 +460,15 @@ export function AdminProductForm() {
 
   function addManualVariantRow() {
     const baseValues = {}
-    activeAttributes.forEach((attr) => {
+    attributesForVariants.forEach((attr) => {
       baseValues[attr.key] = ''
     })
+    const row = { ...emptyVariant(), attributeValues: baseValues }
     setVariants((prev) => [
       ...prev,
       {
-        ...emptyVariant(),
-        attributeValues: baseValues,
-        sku: generateSKU(
-          name,
-          String(baseValues?.[activeAttributes?.[0]?.key] || ''),
-          String(baseValues?.[activeAttributes?.[1]?.key] || ''),
-        ),
+        ...row,
+        sku: buildSkuForRow(row),
       },
     ])
   }
@@ -388,6 +478,16 @@ export function AdminProductForm() {
       const target = prev[index]
       if (target?.variantImages?.length) revokePreviewUrls(target.variantImages)
       return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  function toggleHasVariants() {
+    setHasVariants((prev) => {
+      const next = !prev
+      if (next) {
+        setVariants((rows) => (rows.length ? rows : [emptyVariant()]))
+      }
+      return next
     })
   }
 
@@ -417,9 +517,27 @@ export function AdminProductForm() {
     )
   }
 
+  function addAttributeRow() {
+    setAttributes((prev) => [...prev, emptyAttributeRow()])
+  }
+
+  function removeAttributeRow(id) {
+    setAttributes((prev) => {
+      if (prev.length <= 1) return prev
+      return prev.filter((attr) => attr.id !== id)
+    })
+  }
+
   function generateVariantRowsFromAttributes() {
-    if (!activeAttributes.length) return
-    const combos = activeAttributes.reduce(
+    if (!comboAttributes.length) {
+      setToast('Mỗi cột phân loại cần có ít nhất một lựa chọn (ô màu đỏ, xanh…) rồi mới tạo danh sách nhanh được nhé.')
+      return
+    }
+    if (comboSourcesIncomplete) {
+      setToast('Còn cột phân loại chưa có lựa chọn nào — thêm tag hoặc xóa cột thừa. Hoặc bấm «Thêm một loại thủ công».')
+      return
+    }
+    const combos = comboAttributes.reduce(
       (acc, attr) => {
         const next = []
         acc.forEach((base) => {
@@ -433,95 +551,45 @@ export function AdminProductForm() {
     )
     setVariants((prev) => {
       const byCombo = new Map(
-        prev.map((row) => [defaultVariantKey(row.attributeValues || {}, activeAttributes), row]),
+        prev.map((row) => [defaultVariantKey(row.attributeValues || {}, attributesForVariants), row]),
       )
       const generatedRows = combos.map((attributeValues) => {
-        const comboKey = defaultVariantKey(attributeValues, activeAttributes)
+        const comboKey = defaultVariantKey(attributeValues, attributesForVariants)
         const existed = byCombo.get(comboKey)
+        const nextRow = { ...emptyVariant(), attributeValues, keyPreview: comboKey }
         if (existed) {
           return {
             ...existed,
             attributeValues,
             keyPreview: comboKey,
-            sku:
-              existed.skuManuallyEdited
-                ? existed.sku
-                : generateSKU(
-                    name,
-                    String(attributeValues?.[activeAttributes?.[0]?.key] || ''),
-                    String(attributeValues?.[activeAttributes?.[1]?.key] || ''),
-                  ),
+            sku: existed.skuManuallyEdited ? existed.sku : buildSkuForRow({ ...existed, attributeValues }),
           }
         }
         return {
-          ...emptyVariant(),
-          attributeValues,
-          keyPreview: comboKey,
-          sku: generateSKU(
-            name,
-            String(attributeValues?.[activeAttributes?.[0]?.key] || ''),
-            String(attributeValues?.[activeAttributes?.[1]?.key] || ''),
-          ),
+          ...nextRow,
+          sku: buildSkuForRow(nextRow),
         }
       })
-      const generatedKeySet = new Set(generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, activeAttributes)))
+      const generatedKeySet = new Set(
+        generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, attributesForVariants)),
+      )
       const manualExtras = prev.filter((row) => {
-        const key = defaultVariantKey(row.attributeValues || {}, activeAttributes)
+        const key = defaultVariantKey(row.attributeValues || {}, attributesForVariants)
         return !generatedKeySet.has(key)
       })
       return [...generatedRows, ...manualExtras]
     })
   }
 
-  const normalizedAttributes = useMemo(
-    () => normalizeAttributeSchema(attributes),
-    [attributes],
-  )
-
-  const activeAttributes = useMemo(
-    () => normalizedAttributes.filter((attr) => attr.name && attr.values.length),
-    [normalizedAttributes],
-  )
-
-  const hasIncompleteAttribute = useMemo(
-    () => normalizedAttributes.some((attr) => attr.name.trim() === '' || attr.values.length === 0),
-    [normalizedAttributes],
-  )
-
-  const axisA = normalizedAttributes[0]
-  const axisB = normalizedAttributes[1]
-
-  useEffect(() => {
-    const keys = activeAttributes.map((attr) => attr.key)
-    setVariants((prev) => {
-      let changed = false
-      const next = prev.map((row) => {
-        const nextAttributeValues = {}
-        keys.forEach((key) => {
-          nextAttributeValues[key] = String(row.attributeValues?.[key] || '')
-        })
-        const prevValues = row.attributeValues || {}
-        const same =
-          Object.keys(prevValues).length === keys.length &&
-          keys.every((key) => String(prevValues[key] || '') === nextAttributeValues[key])
-        if (same) return row
-        changed = true
-        return { ...row, attributeValues: nextAttributeValues }
-      })
-      return changed ? next : prev
-    })
-  }, [activeAttributes])
-
   useEffect(() => {
     if (!name.trim()) return
-    setVariants((prev) =>
-      prev.map((row) => {
-        if (row.skuManuallyEdited) return row
-        if (String(row.sku || '').trim()) return row
-        return { ...row, sku: buildSkuForRow(row) }
-      }),
-    )
-  }, [name, activeAttributes])
+    if (hasVariants) return
+    setSingleSku((prev) => {
+      if (singleSkuManuallyEdited) return prev
+      if (String(prev || '').trim()) return prev
+      return generateSKU(name, [])
+    })
+  }, [name, hasVariants, singleSkuManuallyEdited])
 
   const duplicatedSkuSet = useMemo(() => {
     const counts = new Map()
@@ -575,88 +643,110 @@ export function AdminProductForm() {
       return
     }
 
-    if (normalizedAttributes.some((attr) => !attr.name.trim())) {
-      setError('Thuộc tính có tên trống. Vui lòng nhập đầy đủ tên thuộc tính.')
-      return
-    }
-    if (normalizedAttributes.some((attr) => attr.values.length === 0)) {
-      setError('Mỗi thuộc tính cần ít nhất 1 giá trị.')
-      return
-    }
-    if (!variants.length) {
-      setError('Chưa có biến thể nào được sinh từ thuộc tính.')
-      return
-    }
-    if (duplicatedSkuSet.size > 0) {
-      setError('Có SKU đang bị trùng. Vui lòng kiểm tra lại các dòng biến thể.')
-      return
-    }
-
-    const variantPayload = []
-    const comboSet = new Set()
-    for (let idx = 0; idx < variants.length; idx += 1) {
-      const row = variants[idx]
-      const rowNo = idx + 1
-      if (row.price === '' || Number.isNaN(Number(row.price)) || Number(row.price) < 0) {
-        setVariantErrorRow(idx)
-        setToast(`Biến thể #${rowNo} có giá không hợp lệ.`)
-        setError(`Biến thể #${rowNo}: giá không hợp lệ.`)
-        return
-      }
-      if (!String(row.sku || '').trim()) {
-        setVariantErrorRow(idx)
-        setToast(`Biến thể #${rowNo} đang thiếu SKU.`)
-        setError(`Biến thể #${rowNo}: SKU là bắt buộc.`)
+    if (!hasVariants) {
+      if (singlePrice === '' || Number.isNaN(Number(singlePrice)) || Number(singlePrice) < 0) {
+        setError('Giá bán không hợp lệ.')
         return
       }
       if (
-        row.originalPrice !== '' &&
-        (Number.isNaN(Number(row.originalPrice)) || Number(row.originalPrice) < 0)
+        singleOriginalPrice !== '' &&
+        (Number.isNaN(Number(singleOriginalPrice)) || Number(singleOriginalPrice) < 0)
       ) {
-        setVariantErrorRow(idx)
-        setToast(`Biến thể #${rowNo} có giá gốc không hợp lệ.`)
-        setError(`Biến thể #${rowNo}: giá gốc không hợp lệ.`)
+        setError('Giá gốc không hợp lệ.')
         return
       }
-      if (row.stock !== '' && (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0)) {
-        setVariantErrorRow(idx)
-        setToast(`Biến thể #${rowNo} có tồn kho không hợp lệ.`)
-        setError(`Biến thể #${rowNo}: tồn kho không hợp lệ.`)
+      if (singleStock !== '' && singleStock != null && (Number.isNaN(Number(singleStock)) || Number(singleStock) < 0)) {
+        setError('Số lượng tồn kho không hợp lệ.')
         return
       }
-      const attributeValues = {}
-      for (const attr of activeAttributes) {
-        const value = String(row.attributeValues?.[attr.key] || '').trim()
-        if (!value) {
+    }
+
+    let variantPayload = []
+    if (hasVariants) {
+      if (normalizedAttributes.some((attr) => !attr.name.trim() && attr.values.length > 0)) {
+        setError('Có cột phân loại đã có lựa chọn nhưng chưa đặt tên cột. Đặt tên (vd: Màu sắc) hoặc xóa hết lựa chọn trong cột đó.')
+        return
+      }
+      if (!attributesForVariants.length) {
+        setError('Hãy thêm ít nhất một nhóm phân loại và gõ tên cột (vd: Màu sắc, Size).')
+        return
+      }
+      if (!variants.length) {
+        setError('Chưa có dòng hàng nào. Bấm «Tạo nhanh danh sách» hoặc «+ Thêm một loại thủ công».')
+        return
+      }
+      if (duplicatedSkuSet.size > 0) {
+        setError('Có hai dòng trùng mã SKU — mỗi loại hàng cần một mã riêng, kiểm tra lại giúp mình nhé.')
+        return
+      }
+
+      const comboSet = new Set()
+      for (let idx = 0; idx < variants.length; idx += 1) {
+        const row = variants[idx]
+        const rowNo = idx + 1
+        if (row.price === '' || Number.isNaN(Number(row.price)) || Number(row.price) < 0) {
           setVariantErrorRow(idx)
-          setToast(`Biến thể #${rowNo} thiếu giá trị thuộc tính "${attr.name}".`)
-          setError(`Biến thể #${rowNo}: thiếu giá trị thuộc tính ${attr.name}.`)
+          setToast(`Dòng số ${rowNo}: Bạn chưa nhập giá bán (hoặc giá chưa đúng).`)
+          setError(`Dòng số ${rowNo}: Bạn chưa nhập giá bán.`)
           return
         }
-        attributeValues[attr.name] = value
-      }
-      const comboDisplayKey = activeAttributes.map((attr) => attributeValues[attr.name]).join(' / ')
-      const comboNormalized = comboDisplayKey.toLowerCase()
-      if (comboSet.has(comboNormalized)) {
-        setVariantErrorRow(idx)
-        setToast(`Biến thể #${rowNo} bị trùng tổ hợp ${comboDisplayKey}.`)
-        setError(`Biến thể #${rowNo}: trùng tổ hợp thuộc tính.`)
-        return
-      }
-      comboSet.add(comboNormalized)
+        if (!String(row.sku || '').trim()) {
+          setVariantErrorRow(idx)
+          setToast(`Dòng số ${rowNo}: Thiếu mã SKU — gõ mã hoặc bấm ↻ để tự tạo.`)
+          setError(`Dòng số ${rowNo}: Bạn chưa nhập mã SKU.`)
+          return
+        }
+        if (
+          row.originalPrice !== '' &&
+          (Number.isNaN(Number(row.originalPrice)) || Number(row.originalPrice) < 0)
+        ) {
+          setVariantErrorRow(idx)
+          setToast(`Dòng số ${rowNo}: Giá gốc (gạch ngang) chưa đúng — để trống nếu không dùng.`)
+          setError(`Dòng số ${rowNo}: Giá gốc chưa đúng, kiểm tra lại giúp mình nhé.`)
+          return
+        }
+        if (row.stock !== '' && row.stock != null && (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0)) {
+          setVariantErrorRow(idx)
+          setToast(`Dòng số ${rowNo}: Số lượng tồn chưa đúng — chỉ gõ số, hoặc để trống = không giới hạn.`)
+          setError(`Dòng số ${rowNo}: Số lượng tồn chưa đúng.`)
+          return
+        }
+        const attributeValues = {}
+        for (const attr of attributesForVariants) {
+          const value = String(row.attributeValues?.[attr.key] || '').trim()
+          if (!value) {
+            setVariantErrorRow(idx)
+            setToast(`Dòng số ${rowNo}: Chưa chọn «${attr.name || 'phân loại'}».`)
+            setError(`Dòng số ${rowNo}: Bạn chưa điền đủ phân loại «${attr.name}».`)
+            return
+          }
+          attributeValues[attr.name] = value
+        }
+        const comboDisplayKey = attributesForVariants.map((attr) => attributeValues[attr.name]).join(' / ')
+        const comboNormalized = comboDisplayKey.toLowerCase()
+        if (comboSet.has(comboNormalized)) {
+          setVariantErrorRow(idx)
+          setToast(`Dòng số ${rowNo}: Trùng với dòng khác (${comboDisplayKey}).`)
+          setError(`Dòng số ${rowNo}: Trùng loại hàng với một dòng phía trên — sửa màu/size cho khác nhau.`)
+          return
+        }
+        comboSet.add(comboNormalized)
 
-      const variant = {
-        attributeValues,
-        sku: String(row.sku || '').trim(),
-        price: Number(row.price),
-        originalPrice: row.originalPrice === '' ? undefined : Number(row.originalPrice),
-        stock: row.stock === '' ? undefined : Number(row.stock),
-        isAvailable: Boolean(row.isAvailable),
-        image: '',
-        images: undefined,
+        const variant = {
+          attributeValues,
+          sku: String(row.sku || '').trim(),
+          price: Number(row.price),
+          originalPrice: row.originalPrice === '' ? undefined : Number(row.originalPrice),
+          isAvailable: Boolean(row.isAvailable),
+          image: '',
+          images: undefined,
+        }
+        if (row.stock !== '' && row.stock != null && !Number.isNaN(Number(row.stock))) {
+          variant.stock = Number(row.stock)
+        }
+        if (row._id) variant._id = row._id
+        variantPayload.push({ ...variant, __imageItems: row.variantImages })
       }
-      if (row._id) variant._id = row._id
-      variantPayload.push({ ...variant, __imageItems: row.variantImages })
     }
 
     setSaving(true)
@@ -664,7 +754,7 @@ export function AdminProductForm() {
 
     const totalUploads =
       countPendingFiles(images) +
-      variantPayload.reduce((s, v) => s + countPendingFiles(v.__imageItems || []), 0)
+      (hasVariants ? variantPayload.reduce((s, v) => s + countPendingFiles(v.__imageItems || []), 0) : 0)
 
     let doneUploads = 0
     setUploadProgress(totalUploads > 0 ? { current: 0, total: totalUploads } : null)
@@ -678,22 +768,28 @@ export function AdminProductForm() {
       const productImages = await resolveImageItemsToUrls(images, {
         onFileUploaded: bumpUpload,
       })
-      const variantsWithImages = await Promise.all(
-        variantPayload.map(async (variant) => {
-          const uploadedImages = await resolveImageItemsToUrls(variant.__imageItems || [], {
-            onFileUploaded: bumpUpload,
-          })
-          const { __imageItems, ...cleanVariant } = variant
-          return {
-            ...cleanVariant,
-            images: uploadedImages,
-            image: uploadedImages[0] || '',
-          }
-        }),
-      )
+      const variantsWithImages = hasVariants
+        ? await Promise.all(
+            variantPayload.map(async (variant) => {
+              const uploadedImages = await resolveImageItemsToUrls(variant.__imageItems || [], {
+                onFileUploaded: bumpUpload,
+              })
+              const { __imageItems, ...cleanVariant } = variant
+              return {
+                ...cleanVariant,
+                images: uploadedImages,
+                image: uploadedImages[0] || '',
+              }
+            }),
+          )
+        : []
 
       setUploadProgress(null)
       setSubmitPhase('save')
+
+      const resolvedSingleSku = !hasVariants
+        ? String(singleSku || '').trim() || generateSKU(name, [])
+        : ''
 
       const payload = {
         name: name.trim(),
@@ -705,17 +801,27 @@ export function AdminProductForm() {
         partCategory: partCategoryFinal,
         homeFeature: homeFeature || null,
         showOnStorefront,
-        basePrice: basePrice ? Number(basePrice) : undefined,
-        attributes: activeAttributes.map((attr) => {
-          const fromRows = variants
-            .map((row) => String(row.attributeValues?.[attr.key] || '').trim())
-            .filter(Boolean)
-          return {
-            name: attr.name,
-            values: uniqueCaseInsensitive([...(attr.values || []), ...fromRows]),
-          }
-        }),
-        variants: variantsWithImages,
+        hasVariants,
+        price: !hasVariants ? Number(singlePrice) : undefined,
+        originalPrice:
+          !hasVariants && singleOriginalPrice !== '' ? Number(singleOriginalPrice) : undefined,
+        stock:
+          !hasVariants && singleStock !== '' && singleStock != null
+            ? Number(singleStock)
+            : undefined,
+        sku: !hasVariants ? resolvedSingleSku : undefined,
+        attributes: hasVariants
+          ? attributesForVariants.map((attr) => {
+              const fromRows = variants
+                .map((row) => String(row.attributeValues?.[attr.key] || '').trim())
+                .filter(Boolean)
+              return {
+                name: attr.name,
+                values: uniqueCaseInsensitive([...(attr.values || []), ...fromRows]),
+              }
+            })
+          : [],
+        variants: hasVariants ? variantsWithImages : [],
       }
 
       if (isEdit) {
@@ -811,6 +917,37 @@ export function AdminProductForm() {
           </span>
         </label>
 
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="flex flex-wrap items-center text-sm font-bold text-gray-900">
+                Sản phẩm này có nhiều phiên bản (màu, size...)?
+                <QuickGuide text="Bật khi một mặt hàng có nhiều kiểu bán (vd: đỏ/xanh, size M/L). Tắt khi chỉ bán một kiểu duy nhất — khi đó bạn nhập giá và ảnh ngay bên dưới, không cần bảng nhiều dòng." />
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                Bật nếu sản phẩm có nhiều màu sắc, kích cỡ khác nhau. Tắt nếu chỉ có một loại duy nhất.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hasVariants}
+              onClick={toggleHasVariants}
+              className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                hasVariants
+                  ? 'bg-emerald-500 focus:ring-emerald-300'
+                  : 'bg-gray-300 focus:ring-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block size-6 transform rounded-full bg-white shadow transition-transform duration-300 ${
+                  hasVariants ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         <textarea
           placeholder="Mô tả"
           value={description}
@@ -818,14 +955,15 @@ export function AdminProductForm() {
           rows={3}
           className={field}
         />
-        <ImagePickerField
-          label="Ảnh sản phẩm"
-          items={images}
-          onChange={setImages}
-        />
-        <p className="text-[11px] text-gray-500">
-          Trạng thái: {productUploadedUrls.length} URL đã có · {productFilesSelected.length} file chờ upload
-        </p>
+        {hasVariants ? (
+          <>
+            <ImagePickerField
+              label="Ảnh sản phẩm (gallery chung)"
+              items={images}
+              onChange={setImages}
+            />
+          </>
+        ) : null}
 
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
@@ -903,19 +1041,114 @@ export function AdminProductForm() {
           <option value="tires">Vỏ / lốp</option>
         </select>
 
-        <div className="border-t border-gray-200 pt-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[axisA, axisB].map((attr, idx) => (
-              <div key={attr?.id || `axis-${idx}`} className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+        <div
+          className={`overflow-hidden transition-all duration-300 ${
+            hasVariants ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-[960px] opacity-100'
+          }`}
+        >
+          <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 transition-opacity duration-300">
+            <p className="text-sm font-bold text-gray-900">Sản phẩm đơn</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Giá, SKU và ảnh đại diện. Để trống tồn kho ở bước này — khi cần bán không giới hạn, không gửi
+              số lượng lên BE.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-700">Giá bán *</label>
                 <input
-                  placeholder={`Tên thuộc tính ${idx + 1}`}
-                  value={attr?.name || ''}
-                  onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
+                  type="number"
+                  placeholder="VD: 120000"
+                  value={singlePrice}
+                  onChange={(e) => setSinglePrice(e.target.value)}
                   className={field}
                 />
-                <div className="mt-2 flex gap-2">
+              </div>
+              <div>
+                <label
+                  className="mb-1 block text-xs font-semibold text-gray-700"
+                  title="SKU tự sinh từ tên sản phẩm nếu để trống."
+                >
+                  SKU *
+                </label>
+                <div className="flex gap-2">
                   <input
-                    placeholder="Nhập giá trị và Enter"
+                    placeholder="Để trống để tự sinh"
+                    value={singleSku}
+                    onChange={(e) => {
+                      setSingleSku(e.target.value)
+                      setSingleSkuManuallyEdited(true)
+                    }}
+                    className={field}
+                  />
+                  <button
+                    type="button"
+                    title="Tạo lại SKU tự động"
+                    onClick={() => {
+                      setSingleSku(generateSKU(name, []))
+                      setSingleSkuManuallyEdited(false)
+                    }}
+                    className="rounded-lg border border-gray-300 px-3 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  >
+                    ↻
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4">
+              <ImagePickerField label="Ảnh sản phẩm" items={images} onChange={setImages} />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`overflow-hidden transition-all duration-300 ${
+            hasVariants ? 'max-h-[8000px] opacity-100' : 'pointer-events-none max-h-0 opacity-0'
+          }`}
+        >
+          <div className="border-t border-gray-200 pt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex flex-wrap items-center text-sm font-bold text-gray-900">
+              Phân loại hàng (thêm bao nhiêu cột cũng được)
+              <QuickGuide text="Mỗi cột là một kiểu phân loại: ví dụ cột «Màu», cột «Size». Ở dưới mỗi cột bạn gõ từng lựa chọn, xong một cái thì Enter để thành ô màu — giống cách đăng hàng trên các sàn thương mại." />
+            </p>
+            <button
+              type="button"
+              onClick={addAttributeRow}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-brand hover:bg-gray-50"
+            >
+              + Thêm nhóm phân loại
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {normalizedAttributes.map((attr, idx) => (
+              <div
+                key={attr?.id || `axis-${idx}`}
+                className="rounded-lg border border-gray-200 bg-gray-50/80 p-3"
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <input
+                    placeholder="Tên nhóm phân loại (ví dụ: Màu sắc)"
+                    value={attr?.name || ''}
+                    onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
+                    className={field}
+                    aria-label="Tên nhóm phân loại"
+                  />
+                  <button
+                    type="button"
+                    title="Xóa nhóm phân loại này"
+                    disabled={normalizedAttributes.length <= 1}
+                    onClick={() => removeAttributeRow(attr.id)}
+                    className="shrink-0 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="mb-1 text-[11px] text-gray-500">
+                  Các lựa chọn (ví dụ: Đỏ, Xanh, Titan) — gõ xong mỗi lựa chọn hãy nhấn Enter.
+                </p>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    placeholder="Các lựa chọn (ví dụ: Đỏ, Xanh, Titan)"
                     value={attr?.draft || ''}
                     onChange={(e) => updateAttribute(attr.id, { draft: e.target.value })}
                     onKeyDown={(e) => {
@@ -925,6 +1158,7 @@ export function AdminProductForm() {
                       }
                     }}
                     className={field}
+                    aria-label="Thêm lựa chọn phân loại"
                   />
                   <button
                     type="button"
@@ -940,7 +1174,7 @@ export function AdminProductForm() {
                       key={`${attr.id}-${value}`}
                       type="button"
                       onClick={() => removeAttributeValue(attr.id, value)}
-                      className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      className="rounded-full border border-violet-200/90 bg-violet-50/95 px-2.5 py-1 text-xs font-medium text-violet-900 shadow-sm transition hover:bg-violet-100/95"
                     >
                       {value} ×
                     </button>
@@ -951,31 +1185,42 @@ export function AdminProductForm() {
           </div>
 
           <div className="mt-5">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-900">Biến thể theo tổ hợp</span>
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex flex-wrap items-center text-sm font-bold text-gray-900">
+                Chi tiết loại hàng (từng dòng bán)
+                <QuickGuide text="Mỗi dòng là một loại bán ra: một màu + một size chẳng hạn. Nút «Tạo nhanh danh sách» sẽ ghép hết các lựa chọn ở trên thành nhiều dòng; còn «Thêm thủ công» là tự thêm từng dòng một." />
+              </span>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <span className="text-xs text-gray-500">{variants.length} dòng</span>
                 <button
                   type="button"
                   onClick={generateVariantRowsFromAttributes}
-                  className="text-xs font-bold uppercase text-gray-700 hover:underline"
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900 shadow-sm hover:bg-emerald-100"
                 >
-                  SINH TỔ HỢP
+                  Tạo nhanh danh sách
                 </button>
                 <button
                   type="button"
                   onClick={addManualVariantRow}
-                  className="text-xs font-bold uppercase text-brand hover:underline"
+                  className="rounded-lg border border-brand/30 bg-white px-2.5 py-1 text-xs font-bold text-brand shadow-sm hover:bg-red-50/60"
                 >
-                  + Dòng
+                  + Thêm một loại thủ công
                 </button>
               </div>
             </div>
-            {hasIncompleteAttribute ? (
-              <p className="mt-2 text-xs text-amber-700">
-                Hoàn thiện tên và giá trị cho từng thuộc tính để sinh đầy đủ tổ hợp.
+            {comboSourcesIncomplete ? (
+              <p className="mt-2 text-xs leading-relaxed text-amber-800">
+                Còn cột phân loại chưa có ô lựa chọn nào — bạn vẫn có thể «Thêm một loại thủ công». Để dùng «Tạo
+                nhanh danh sách», hãy thêm đủ lựa chọn (tag) cho mỗi cột cần ghép.
               </p>
             ) : null}
+            {attributesForVariants.map((attr) => (
+              <datalist key={`dl-${attr.id}`} id={`attr-dl-${attr.id}`}>
+                {attr.values.map((value) => (
+                  <option key={`${attr.id}-${value}`} value={value} />
+                ))}
+              </datalist>
+            ))}
             <div className="mt-3 space-y-3">
               {variants.map((row, i) => (
                 <div
@@ -986,29 +1231,33 @@ export function AdminProductForm() {
                       : 'border-gray-200 bg-gray-50/80'
                   }`}
                 >
-                  <div className="mb-2 text-xs font-semibold text-gray-700">
-                    {attributeValuesToLabel(row.attributeValues, activeAttributes)}
-                  </div>
-                  <div className="mb-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    {activeAttributes.map((attr) => (
-                      <select
-                        key={`${row._id || i}-${attr.key}`}
-                        value={row.attributeValues?.[attr.key] || ''}
-                        onChange={(e) => handleAttributeValueChange(i, attr.key, e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                      >
-                        <option value="">-- {attr.name} --</option>
-                        {attr.values.map((value) => (
-                          <option key={`${attr.id}-${value}`} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="mb-2 grid gap-2 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className="mb-0.5 flex items-center text-[11px] font-semibold text-gray-600">
+                        Tên dòng (xem nhanh)
+                        <QuickGuide text="Chỗ này tự ghép từ các ô phân loại bên dưới để bạn nhìn một phát biết đang là màu/size nào — không cần gõ thêm." />
+                      </label>
+                      <input
+                        readOnly
+                        value={displayVariantLabel(row.attributeValues, attributesForVariants)}
+                        className="w-full rounded-lg border border-dashed border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900"
+                      />
+                    </div>
+                    {attributesForVariants.map((attr) => (
+                      <div key={`${row._id || i}-${attr.key}`}>
+                        <label className="mb-0.5 block text-[11px] font-medium text-gray-600">
+                          {attr.name || '—'}
+                        </label>
+                        <input
+                          list={`attr-dl-${attr.id}`}
+                          placeholder="Chọn tag hoặc gõ tự do"
+                          value={row.attributeValues?.[attr.key] ?? ''}
+                          onChange={(e) => handleAttributeValueChange(i, attr.key, e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                        />
+                      </div>
                     ))}
                   </div>
-                  <p className="mb-2 text-[11px] text-gray-500">
-                    Key preview: {defaultVariantKey(row.attributeValues || {}, activeAttributes)}
-                  </p>
                   <div className="mb-2 flex justify-end">
                     <button
                       type="button"
@@ -1020,11 +1269,9 @@ export function AdminProductForm() {
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
                     <div>
-                      <label
-                        className="mb-1 block text-[11px] font-semibold text-gray-600"
-                        title="SKU tự sinh từ: viết tắt tên SP + 3 ký tự màu + mã size."
-                      >
-                        SKU
+                      <label className="mb-1 flex items-center text-[11px] font-semibold text-gray-600">
+                        Mã SKU
+                        <QuickGuide text="Là mã nội bộ để phân biệt từng loại hàng (in tem, tra kho). Có thể bấm ↻ để máy gợi ý mã từ tên sản phẩm + màu/size — bạn vẫn được sửa tay." />
                       </label>
                       <div className="flex gap-1">
                         <input
@@ -1073,10 +1320,11 @@ export function AdminProductForm() {
                     />
                     <input
                       type="number"
-                      placeholder="Tồn kho"
+                      placeholder="Không giới hạn số lượng"
                       value={row.stock}
                       onChange={(e) => updateRow(i, { stock: e.target.value })}
                       className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                      title="Để trống = bán không giới hạn số lượng trong kho"
                     />
                     <label className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700">
                       <input
@@ -1098,6 +1346,7 @@ export function AdminProductForm() {
               ))}
             </div>
           </div>
+        </div>
         </div>
 
         {error ? (

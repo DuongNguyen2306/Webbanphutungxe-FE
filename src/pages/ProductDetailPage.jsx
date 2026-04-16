@@ -19,7 +19,26 @@ import { api } from '../api/client'
 import { useCart } from '../context/CartContext'
 import { useProductDetail } from '../hooks/useProductDetail'
 import { ProductReviewsSection } from '../components/ProductReviewsSection'
+import { ProductRelatedShelf } from '../components/ProductRelatedShelf'
 import { useAuth } from '../context/AuthContext'
+
+function ProductDescriptionBody({ text }) {
+  const looksLikeHtml = /<\/?[a-z][\s\S]*?>/i.test(text)
+  if (looksLikeHtml) {
+    return (
+      <div
+        className="mt-4 space-y-3 text-sm leading-relaxed text-gray-800 [&_a]:text-brand [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+        // eslint-disable-next-line react/no-danger -- mô tả từ CMS/admin; chỉ render khi có thẻ HTML
+        dangerouslySetInnerHTML={{ __html: text }}
+      />
+    )
+  }
+  return (
+    <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
+      {text}
+    </div>
+  )
+}
 
 function StarRow({ value = 0 }) {
   const full = Math.floor(value)
@@ -165,7 +184,11 @@ function ProductDetailBody({
     original && original > sale
       ? Math.round(((original - sale) / original) * 100)
       : null
-
+  const hasReviewCount =
+    Number.isFinite(Number(product.reviewCount)) && Number(product.reviewCount) > 0
+  const hasRating = Number.isFinite(Number(product.rating)) && Number(product.rating) > 0
+  /** Chỉ hiện sao/điểm khi có ít nhất một đánh giá (đồng bộ với mapper, tránh 4.5 ảo). */
+  const showRatingStars = hasRating && hasReviewCount
   const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[Thai Vũ] Tư vấn SP #${product.id}: ${product.name}`)}`
 
   function thumbScroll(dir) {
@@ -177,6 +200,7 @@ function ProductDetailBody({
     if (!variant || !available) return
     addItem({
       productId: product.id,
+      selectedVariant: variant.id,
       variantId: variant.id,
       quantity: qty,
       name: product.name,
@@ -361,18 +385,19 @@ function ProductDetailBody({
           </h1>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-            <span className="font-bold text-discount">{product.rating}</span>
-            <StarRow value={product.rating} />
-            <button type="button" className="text-ink underline">
-              {product.reviewCount.toLocaleString('vi-VN')} đánh giá
-            </button>
-            <span className="text-gray-400">|</span>
-            <span className="text-gray-600">
-              Đã bán{' '}
-              {product.soldCount >= 1000
-                ? `${Math.floor(product.soldCount / 1000)}k+`
-                : product.soldCount}
-            </span>
+            {showRatingStars ? (
+              <>
+                <span className="font-bold text-discount">{Number(product.rating).toFixed(1)}</span>
+                <StarRow value={Number(product.rating)} />
+              </>
+            ) : null}
+            {hasReviewCount ? (
+              <button type="button" className="text-ink underline">
+                {Number(product.reviewCount).toLocaleString('vi-VN')} đánh giá
+              </button>
+            ) : (
+              <span className="text-gray-500">Chưa có đánh giá</span>
+            )}
             <button
               type="button"
               className="ml-auto text-xs text-gray-400 hover:text-brand"
@@ -395,14 +420,9 @@ function ProductDetailBody({
                 <span className="text-sm font-bold text-brand">-{pctOff}%</span>
               )}
             </div>
-            <p className="mt-2 text-xs font-semibold text-gray-600">
-              Tồn kho:{' '}
-              {variant?.stock != null
-                ? `${Math.max(0, Number(variant.stock) || 0)}`
-                : available
-                  ? 'Còn hàng'
-                  : 'Hết hàng'}
-            </p>
+            {!available ? (
+              <p className="mt-2 text-xs font-semibold text-red-600">Tạm hết hàng</p>
+            ) : null}
           </div>
 
           <div className="mt-6 space-y-4 text-sm">
@@ -590,7 +610,23 @@ function ProductDetailBody({
           </a>
         </div>
       </div>
+
+      {product.description?.trim() ? (
+        <section
+          className="mt-10 border-t border-gray-100 pt-8"
+          aria-labelledby="pdp-desc-heading"
+        >
+          <h2 id="pdp-desc-heading" className="text-lg font-extrabold text-ink sm:text-xl">
+            Mô tả sản phẩm
+          </h2>
+          <ProductDescriptionBody text={product.description.trim()} />
+        </section>
+      ) : null}
     </main>
+    <ProductRelatedShelf
+      excludeProductId={product.id}
+      categoryId={product.categoryId}
+    />
     <ProductReviewsSection
       productId={product.id}
       variantId={variant?.id}
