@@ -1,11 +1,17 @@
 import axios from 'axios'
 
 /**
- * baseURL: để trống + Vite proxy `/api` → BE, hoặc `VITE_API_URL=http://localhost:5000` (CORS trên BE phải cho origin FE).
+ * Trong production, luôn ưu tiên BE host tuyệt đối.
+ * Chỉ dùng VITE_API_URL khi đó là URL đầy đủ dạng http/https.
  * Token: `localStorage.thaivu_token` → header Authorization Bearer.
  */
+const DEFAULT_API_URL = 'https://thaivu-backend.onrender.com'
+const rawEnvApiUrl = String(import.meta.env.VITE_API_URL || '').trim()
+const hasAbsoluteApiUrl = /^https?:\/\//i.test(rawEnvApiUrl)
+const baseURL = (hasAbsoluteApiUrl ? rawEnvApiUrl : DEFAULT_API_URL).replace(/\/$/, '')
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL,
 })
 
 api.interceptors.request.use((config) => {

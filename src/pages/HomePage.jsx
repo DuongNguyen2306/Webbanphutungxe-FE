@@ -196,8 +196,7 @@ export function HomePage() {
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-900">
             {catalogError}{' '}
             <span className="font-normal text-red-800">
-              (API: <code className="rounded bg-red-100 px-1">/api/products</code> qua
-              proxy → <code className="rounded bg-red-100 px-1">localhost:5000</code>)
+              (API: <code className="rounded bg-red-100 px-1">/api/products</code>)
             </span>
           </p>
         </div>

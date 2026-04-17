@@ -1,0 +1,140 @@
+HUONG DAN DEMO WEB THAI VU - BAN TOI UU
+======================================
+
+Muc tieu:
+- Demo nhanh, ro, khong loi nhap nhang giua Client va Admin.
+- Tao cam giac "web da san sang van hanh that".
+
+--------------------------------------------------
+1) CHUAN BI TRUOC KHI DEMO (5-10 PHUT)
+--------------------------------------------------
+
+1.1 Khoi dong he thong
+- Mo 2 terminal:
+  Terminal 1: chay backend
+  Terminal 2: chay frontend
+- Kiem tra nhanh:
+  + Backend API con song
+  + Frontend mo duoc trang chu
+
+1.2 Du lieu mau
+- Dam bao da co:
+  + San pham (du anh, gia, bien the)
+  + Danh muc (de demo menu danh muc)
+  + Banner (co it nhat 2-3 banner)
+  + Bai viet gioi thieu + huong dan
+- Tao san 2 tai khoan:
+  + Admin
+  + Khach hang thuong
+
+1.3 Moi truong demo
+- Dong bot tab khong lien quan.
+- Tat thong bao he thong (neu co).
+- Zoom trinh duyet 100%.
+- Dung mang on dinh.
+
+--------------------------------------------------
+2) KICH BAN DEMO DE XUAT (15-20 PHUT)
+--------------------------------------------------
+
+[PHAN A - CLIENT: 7-9 PHUT]
+
+A1. Trang chu + banner
+- Vao trang chu.
+- Noi nhanh:
+  "Trang chu co banner slider tu dong, co nut dieu huong, co cham phan trang."
+- Chuyen slide bang nut trai/phai.
+
+A2. Danh muc va bo loc
+- Mo menu Danh muc san pham.
+- Chon 1 danh muc -> trang /shop?category=...
+- Cho thay loc dung theo danh muc.
+- Su dung bo loc nang cao (gia, hang, dong xe) de thu hep ket qua.
+
+A3. Chi tiet san pham + gio hang
+- Mo 1 san pham.
+- Chon bien the, so luong.
+- Bam "Them vao gio hang" (cho thay hieu ung phan hoi).
+- Vao gio hang, cap nhat so luong.
+
+A4. Don mua
+- Dang nhap tai khoan khach.
+- Vao profile -> Don mua.
+- Xem trang thai don va chi tiet don.
+
+[PHAN B - NOI DUNG: 3-4 PHUT]
+
+B1. Trang Gioi thieu
+- Bam nut "Gioi thieu" tren header.
+- Noi:
+  "Trang nay lay bai gioi thieu moi nhat tu he thong noi dung."
+
+B2. Trang Huong dan
+- Bam "Huong dan".
+- Chon bai ben trai, noi dung doi ben phai theo bai duoc chon.
+
+[PHAN C - ADMIN: 6-8 PHUT]
+
+C1. Quan ly banner
+- Dang nhap admin -> vao Banner.
+- Them 1 dong text cho banner, doi thu tu, bat/tat hien thi.
+- Luu xong quay lai trang chu de cho thay thay doi cap nhat.
+
+C2. Quan ly noi dung
+- Vao "Noi dung".
+- Sua nhanh tieu de/1 doan ngan cua bai gioi thieu.
+- Luu va mo lai trang Gioi thieu de doi chieu ngay.
+
+C3. Quan ly van hanh
+- Vao Don hang / San pham / Ton kho / Khach hang.
+- Nhan manh:
+  "Tat ca da co phan trang 10 muc/trang de de quan ly."
+
+--------------------------------------------------
+3) CAU NOI GOI Y KHI DEMO
+--------------------------------------------------
+
+- "Web nay tach ro 2 vai tro: khach mua hang va quan tri vien."
+- "Moi noi dung quan trong o trang chu co the doi ngay tu trang admin."
+- "He thong huong den thao tac nhanh tai cua hang: bat/tat, sua nhanh, cap nhat truc tiep."
+- "Giao dien da toi uu cho mobile va desktop."
+
+--------------------------------------------------
+4) NHUNG DIEM NEN NHAN MANH (USP)
+--------------------------------------------------
+
+- Banner dong + text layer linh hoat (khong can sua code).
+- Danh muc/loc san pham ro rang, tim san pham nhanh.
+- Luong mua hang day du: gio hang -> dat hang -> theo doi don.
+- Khu admin de dung, co phan trang, phu hop van hanh hang ngay.
+- Noi dung Gioi thieu/Huong dan cap nhat truc tiep.
+
+--------------------------------------------------
+5) CHECKLIST TRANH SU CO KHI DEMO
+--------------------------------------------------
+
+Truoc demo:
+- [ ] Backend dang chay
+- [ ] Frontend dang chay
+- [ ] Da dang nhap dung tai khoan (admin/khach)
+- [ ] Da co du lieu banner/san pham/bai viet
+- [ ] Kiem tra logo/anh hien thi binh thuong
+
+Neu co loi:
+- F5 trang + kiem tra terminal.
+- Dang xuat dang nhap lai.
+- Quay ve duong demo an toan: trang chu -> san pham -> admin banner.
+
+--------------------------------------------------
+6) THU TU DEMO CUC NHANH (3 PHUT)
+--------------------------------------------------
+
+1) Trang chu (banner + danh muc)
+2) San pham -> Them vao gio
+3) Admin -> Sua banner 1 click
+4) Quay lai trang chu xac nhan thay doi
+5) Mo Gioi thieu/Huong dan
+
+Ket:
+"He thong da san sang cho van hanh thuc te, de mo rong va de ban giao."
+
