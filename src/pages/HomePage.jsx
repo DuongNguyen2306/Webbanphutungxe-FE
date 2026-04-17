@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
@@ -12,6 +12,7 @@ import { SiteFooter } from '../components/SiteFooter'
 import { BestSellingShelf } from '../components/BestSellingShelf'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
+import { normalizeSearch } from '../utils/string'
 
 const BRAND_SECTION_LABEL = {
   vespa: 'VESPA',
@@ -23,6 +24,7 @@ const BRAND_SECTION_LABEL = {
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
 
 export function HomePage() {
+  const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
   const [adv, setAdv] = useState(() => createDefaultFilterState())
   const [priceDraft, setPriceDraft] = useState(() => ({
@@ -38,6 +40,11 @@ export function HomePage() {
   const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
 
   const headerBrand = adv.brands.length === 1 ? adv.brands[0] : 'all'
+  const isSingleBrandView = adv.brands.length === 1
+  const categoryQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return String(params.get('category') || '').trim()
+  }, [location.search])
 
   useEffect(() => {
     setAdv((prev) => {
@@ -70,10 +77,14 @@ export function HomePage() {
     }))
   }, [])
 
-  const filtered = useMemo(
-    () => filterCatalog(products, { ...adv, search: searchQuery }),
-    [products, adv, searchQuery],
-  )
+  const filtered = useMemo(() => {
+    const byFilters = filterCatalog(products, { ...adv, search: searchQuery })
+    if (!categoryQuery) return byFilters
+    const normalizedCategory = normalizeSearch(categoryQuery)
+    return byFilters.filter((p) =>
+      normalizeSearch(p.categoryName || '').includes(normalizedCategory),
+    )
+  }, [products, adv, searchQuery, categoryQuery])
 
   const brandMatches = (p, b) =>
     (p.brand || '').toLowerCase() === (b || '').toLowerCase()
@@ -256,20 +267,22 @@ export function HomePage() {
                 ))
               )}
 
-              <div className="mt-6">
-                <CatalogFeatureSection
-                  title="Phụ tùng thay thế"
-                  products={replacementProducts}
-                  onViewAll={applyReplacementFilter}
-                  imageAspect="square"
-                />
-                <CatalogFeatureSection
-                  title="Vỏ xe máy (Lốp xe)"
-                  products={tireProducts}
-                  onViewAll={applyTiresFilter}
-                  imageAspect="tire"
-                />
-              </div>
+              {!isSingleBrandView ? (
+                <div className="mt-6">
+                  <CatalogFeatureSection
+                    title="Phụ tùng thay thế"
+                    products={replacementProducts}
+                    onViewAll={applyReplacementFilter}
+                    imageAspect="square"
+                  />
+                  <CatalogFeatureSection
+                    title="Vỏ xe máy (Lốp xe)"
+                    products={tireProducts}
+                    onViewAll={applyTiresFilter}
+                    imageAspect="tire"
+                  />
+                </div>
+              ) : null}
 
               <section
                 id="tra-cuu-don"

@@ -79,6 +79,10 @@ function ProductDetailBody({
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const [heartPulseKey, setHeartPulseKey] = useState(0)
   const [wishlistError, setWishlistError] = useState('')
+  const [addCartFeedback, setAddCartFeedback] = useState({
+    visible: false,
+    seq: 0,
+  })
 
   const variantById = useMemo(() => {
     if (!product.variants?.length) return null
@@ -171,6 +175,14 @@ function ProductDetailBody({
     }
   }, [product.id, user, isAdmin])
 
+  useEffect(() => {
+    if (!addCartFeedback.visible) return undefined
+    const timer = setTimeout(() => {
+      setAddCartFeedback((prev) => ({ ...prev, visible: false }))
+    }, 1100)
+    return () => clearTimeout(timer)
+  }, [addCartFeedback.visible, addCartFeedback.seq])
+
   const mainSrc =
     galleryImages.length > 0
       ? galleryImages[Math.min(imgIdx, galleryImages.length - 1)]
@@ -198,20 +210,24 @@ function ProductDetailBody({
 
   function handleAddCart() {
     if (!variant || !available) return
-    addItem({
-      productId: product.id,
-      selectedVariant: variant.id,
-      variantId: variant.id,
-      quantity: qty,
-      name: product.name,
-      variantLabel: variant.label,
-      salePrice: variant.salePrice,
-      image:
-        variant.images?.[0] ??
-        product.images?.[0] ??
-        product.image ??
-        '',
-      mongoOk,
+    Promise.resolve(
+      addItem({
+        productId: product.id,
+        selectedVariant: variant.id,
+        variantId: variant.id,
+        quantity: qty,
+        name: product.name,
+        variantLabel: variant.label,
+        salePrice: variant.salePrice,
+        image:
+          variant.images?.[0] ??
+          product.images?.[0] ??
+          product.image ??
+          '',
+        mongoOk,
+      }),
+    ).finally(() => {
+      setAddCartFeedback((prev) => ({ visible: true, seq: prev.seq + 1 }))
     })
   }
 
@@ -579,15 +595,28 @@ function ProductDetailBody({
             </div>
           ) : (
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
+              <motion.button
                 type="button"
                 onClick={handleAddCart}
                 disabled={!available}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded border-2 border-brand bg-white py-3 text-sm font-extrabold uppercase text-brand transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                whileTap={{ scale: 0.98 }}
+                className={`inline-flex flex-1 items-center justify-center gap-2 rounded border-2 border-brand py-3 text-sm font-extrabold uppercase transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  addCartFeedback.visible
+                    ? 'bg-brand text-white'
+                    : 'bg-white text-brand hover:bg-brand hover:text-white'
+                }`}
               >
-                <ShoppingCart className="size-5" />
-                Thêm vào giỏ hàng
-              </button>
+                <motion.span
+                  key={addCartFeedback.seq}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: [1, 1.22, 1] }}
+                  transition={{ duration: 0.24, ease: 'easeOut' }}
+                  className="inline-flex"
+                >
+                  <ShoppingCart className="size-5" />
+                </motion.span>
+                {addCartFeedback.visible ? 'Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
+              </motion.button>
               <button
                 type="button"
                 onClick={handleBuyNow}

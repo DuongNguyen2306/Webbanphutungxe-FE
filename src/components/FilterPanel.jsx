@@ -44,9 +44,6 @@ export function FilterPanelContent({
         <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-gray-500">
           Hãng xe
         </legend>
-        <p className="text-[11px] leading-snug text-gray-600">
-          Cửa hàng chuyên Vespa; tick thêm Honda / Yamaha khi cần tìm vài món xe khác.
-        </p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

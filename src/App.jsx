@@ -16,6 +16,10 @@ import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminProducts } from './pages/admin/AdminProducts'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
 import { AdminInventory } from './pages/admin/AdminInventory'
+import { AdminBanners } from './pages/admin/AdminBanners'
+import { AdminContent } from './pages/admin/AdminContent'
+import { IntroPage } from './pages/IntroPage'
+import { GuidesPage } from './pages/GuidesPage'
 import { FloatingContactRails } from './components/FloatingContactRails'
 
 function ScrollToTop() {
@@ -35,6 +39,9 @@ export default function App() {
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/shop" element={<HomePage />} />
+          <Route path="/gioi-thieu" element={<IntroPage />} />
+          <Route path="/huong-dan" element={<GuidesPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -51,6 +58,8 @@ export default function App() {
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id/edit" element={<AdminProductForm />} />
             <Route path="inventory" element={<AdminInventory />} />
+            <Route path="banners" element={<AdminBanners />} />
+            <Route path="content" element={<AdminContent />} />
           </Route>
         </Routes>
         <FloatingContactRails />

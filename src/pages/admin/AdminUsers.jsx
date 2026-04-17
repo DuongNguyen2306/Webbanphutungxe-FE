@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 
+const PAGE_SIZE = 10
+
 export function AdminUsers() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     ;(async () => {
@@ -21,6 +24,9 @@ export function AdminUsers() {
   if (loading) {
     return <p className="text-sm text-gray-500">Đang tải khách hàng...</p>
   }
+
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE))
+  const pagedUsers = users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div>
@@ -42,7 +48,7 @@ export function AdminUsers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {users.map((u) => (
+              {pagedUsers.map((u) => (
                 <tr key={u._id} className="hover:bg-gray-50/80">
                   <td className="px-4 py-3 text-gray-900">{u.email || '—'}</td>
                   <td className="px-4 py-3 text-gray-700">{u.phone || '—'}</td>
@@ -62,6 +68,31 @@ export function AdminUsers() {
           </table>
         </div>
       </div>
+      {users.length > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Trang {page} / {totalPages} · {users.length} khách hàng
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Trước
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Sau
+            </button>
+          </div>
+        </div>
+      ) : null}
       {users.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
           Chưa có user.

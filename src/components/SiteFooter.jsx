@@ -33,8 +33,13 @@ export function SiteFooter() {
             Về Thai Vũ
           </h3>
           <div className="mt-4">
-            <a href="/" className="inline-block text-2xl font-black tracking-tight text-white">
-              Thai Vũ
+            <a href="/" className="inline-flex items-center gap-3">
+              <img
+                src="/logo.jpg"
+                alt="Thai Vũ"
+                className="h-12 w-auto max-w-[120px] object-contain"
+              />
+              <span className="text-2xl font-black tracking-tight text-white">Thai Vũ</span>
             </a>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
               Chuyên phụ tùng và phụ kiện Vespa Piaggio chính hãng.

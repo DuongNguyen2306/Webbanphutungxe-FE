@@ -43,10 +43,13 @@ export function Header({
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [searchResults, setSearchResults] = useState([])
+  const [categories, setCategories] = useState([])
+  const [cartBump, setCartBump] = useState(false)
   const dropdownRef = useRef(null)
   const desktopMenuRef = useRef(null)
   const profileRef = useRef(null)
   const searchTimerRef = useRef(null)
+  const prevCartCountRef = useRef(totalQuantity)
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -69,6 +72,35 @@ export function Header({
     }
     document.addEventListener('mousedown', handleProfileOutside)
     return () => document.removeEventListener('mousedown', handleProfileOutside)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await api.get('/api/categories')
+        if (cancelled) return
+        const rawList = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data?.categories)
+              ? data.categories
+              : []
+        const normalized = rawList
+          .map((item) => ({
+            id: String(item?._id || item?.id || ''),
+            name: String(item?.name || '').trim(),
+          }))
+          .filter((item) => item.id && item.name)
+        setCategories(normalized)
+      } catch {
+        if (!cancelled) setCategories([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const selectedLabel =
@@ -126,6 +158,19 @@ export function Header({
     }
   }, [q])
 
+  useEffect(() => {
+    const prevCount = Number(prevCartCountRef.current || 0)
+    const nextCount = Number(totalQuantity || 0)
+    if (nextCount > prevCount) {
+      setCartBump(true)
+      const timer = setTimeout(() => setCartBump(false), 260)
+      prevCartCountRef.current = nextCount
+      return () => clearTimeout(timer)
+    }
+    prevCartCountRef.current = nextCount
+    return undefined
+  }, [totalQuantity])
+
   return (
     <header className="sticky top-0 z-50 shadow-md">
       <div className="bg-brand px-4 py-1 text-[11px] font-medium text-white/90 xl:px-10">
@@ -141,9 +186,11 @@ export function Header({
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
           <div className="flex shrink-0 items-center gap-3">
             <Link to="/" className="flex items-center gap-2.5 no-underline">
-              <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-2xl font-extrabold tracking-tight text-brand">
-                TV
-              </span>
+              <img
+                src="/logo.jpg"
+                alt="Thai Vũ"
+                className="h-12 w-auto max-w-[120px] object-contain"
+              />
               <span className="hidden text-left leading-tight text-white sm:block">
                 <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/90">
                   Thai Vũ
@@ -192,20 +239,24 @@ export function Header({
               {desktopMenuOpen ? (
                 <div className="absolute left-0 top-full z-30 mt-2 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl">
                   <p className="px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                    Chọn nhanh hãng xe
+                    Danh mục sản phẩm
                   </p>
-                  {BRAND_OPTIONS.map((b) => (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => {
-                        onBrandFilterChange(b.id)
-                        setDesktopMenuOpen(false)
-                      }}
-                      className="block w-full rounded-lg px-2 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+                  <Link
+                    to="/shop"
+                    onClick={() => setDesktopMenuOpen(false)}
+                    className="block w-full rounded-lg px-2 py-2 text-left text-sm font-semibold text-gray-800 transition hover:bg-gray-50 hover:text-brand"
+                  >
+                    Tất cả
+                  </Link>
+                  {categories.map((category) => (
+                    <Link
+                      key={category.id}
+                      to={`/shop?category=${encodeURIComponent(category.name)}`}
+                      onClick={() => setDesktopMenuOpen(false)}
+                      className="block w-full rounded-lg px-2 py-2 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50 hover:text-brand"
                     >
-                      {b.label}
-                    </button>
+                      {category.name}
+                    </Link>
                   ))}
                   <div className="my-1 border-t border-gray-100" />
                   <Link
@@ -279,13 +330,27 @@ export function Header({
 
           <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
             <Link
-              to={user ? '/profile#orders' : '/login'}
-              className="hidden items-center gap-2 rounded-full bg-brand-dark px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black/20 sm:flex sm:px-4"
+              to="/gioi-thieu"
+              className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
             >
-              <span aria-hidden>📝</span>
-              <ClipboardList className="size-4 opacity-90" />
-              <span className="whitespace-nowrap">Tra cứu đơn hàng</span>
+              Giới thiệu
             </Link>
+            <Link
+              to="/huong-dan"
+              className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
+            >
+              Hướng dẫn
+            </Link>
+            {!isAdmin ? (
+              <Link
+                to={user ? '/profile#orders' : '/login'}
+                className="hidden items-center gap-2 rounded-full bg-brand-dark px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black/20 sm:flex sm:px-4"
+              >
+                <span aria-hidden>📝</span>
+                <ClipboardList className="size-4 opacity-90" />
+                <span className="whitespace-nowrap">Tra cứu đơn hàng</span>
+              </Link>
+            ) : null}
             <div
               className="relative"
               ref={profileRef}
@@ -328,14 +393,16 @@ export function Header({
                     <User className="size-4" />
                     Thông tin tài khoản
                   </Link>
-                  <Link
-                    to="/profile#orders"
-                    onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <ShoppingBag className="size-4" />
-                    Đơn mua của tôi
-                  </Link>
+                  {!isAdmin ? (
+                    <Link
+                      to="/profile#orders"
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <ShoppingBag className="size-4" />
+                      Đơn mua của tôi
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {
@@ -359,18 +426,20 @@ export function Header({
                 Admin
               </Link>
             ) : null}
-            <Link
-              to="/cart"
-              className="relative rounded-full p-2 text-white transition hover:bg-white/10"
-              aria-label={`Giỏ hàng${cartCount ? `, ${cartCount} sản phẩm` : ''}`}
-            >
-              <ShoppingCart className="size-6" strokeWidth={2} />
-              {cartCount > 0 && (
-                <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-brand">
-                  {cartCount > 99 ? '99+' : cartCount}
-                </span>
-              )}
-            </Link>
+            {!isAdmin ? (
+              <Link
+                to="/cart"
+                className={`relative rounded-full p-2 text-white transition hover:bg-white/10 ${cartBump ? 'scale-110 bg-white/15' : ''}`}
+                aria-label={`Giỏ hàng${cartCount ? `, ${cartCount} sản phẩm` : ''}`}
+              >
+                <ShoppingCart className="size-6" strokeWidth={2} />
+                {cartCount > 0 && (
+                  <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-brand">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -405,6 +474,12 @@ export function Header({
             className="mt-2 rounded-xl border border-white/20 bg-brand-dark/90 p-2 text-white lg:hidden"
           >
             <div className="grid gap-1">
+              <Link to="/gioi-thieu" className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
+                Giới thiệu
+              </Link>
+              <Link to="/huong-dan" className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
+                Hướng dẫn
+              </Link>
               <Link to={user ? '/profile' : '/login'} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Thông tin tài khoản
               </Link>
@@ -420,13 +495,15 @@ export function Header({
           </motion.div>
         ) : null}
 
-        <Link
-          to={user ? '/profile#orders' : '/login'}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-brand-dark py-2.5 text-xs font-bold text-white sm:hidden"
-        >
-          <span aria-hidden>📝</span>
-          Tra cứu đơn hàng
-        </Link>
+        {!isAdmin ? (
+          <Link
+            to={user ? '/profile#orders' : '/login'}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-brand-dark py-2.5 text-xs font-bold text-white sm:hidden"
+          >
+            <span aria-hidden>📝</span>
+            Tra cứu đơn hàng
+          </Link>
+        ) : null}
 
         <AnimatePresence>
           {searchOpen && q ? (
@@ -470,13 +547,15 @@ export function Header({
           ) : null}
         </AnimatePresence>
       </div>
-      <Link
-        to="/cart"
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-brand p-3 text-white shadow-lg lg:hidden"
-        aria-label="Giỏ hàng nổi"
-      >
-        <ShoppingCart className="size-6" />
-      </Link>
+      {!isAdmin ? (
+        <Link
+          to="/cart"
+          className="fixed bottom-4 right-4 z-50 rounded-full bg-brand p-3 text-white shadow-lg lg:hidden"
+          aria-label="Giỏ hàng nổi"
+        >
+          <ShoppingCart className="size-6" />
+        </Link>
+      ) : null}
     </header>
   )
 }

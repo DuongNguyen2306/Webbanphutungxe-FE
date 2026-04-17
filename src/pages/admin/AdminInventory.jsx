@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { formatVnd } from '../../utils/format'
+
+const PAGE_SIZE = 10
 
 export function AdminInventory() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   async function load() {
     setLoading(true)
@@ -41,6 +44,16 @@ export function AdminInventory() {
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return rows.slice(start, start + PAGE_SIZE)
+  }, [rows, page])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1)
+  }, [page, totalPages])
+
   return (
     <div>
       <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
@@ -62,7 +75,7 @@ export function AdminInventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map(({ product: p, variant: v }) => {
+              {pagedRows.map(({ product: p, variant: v }) => {
                 const label =
                   [v.typeName, v.color, v.size]
                     .filter((x) => x && String(x).trim())
@@ -98,6 +111,31 @@ export function AdminInventory() {
           </table>
         </div>
       </div>
+      {rows.length > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Trang {page} / {totalPages} · {rows.length} biến thể
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Trước
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Sau
+            </button>
+          </div>
+        </div>
+      ) : null}
       {rows.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
           Chưa có biến thể.

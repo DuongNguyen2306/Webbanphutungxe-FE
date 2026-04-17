@@ -32,8 +32,13 @@ export function AdminLayout() {
     <div className="min-h-svh bg-page text-gray-900">
       <header className="sticky top-0 z-10 border-b border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:gap-3">
-          <span className="text-lg font-extrabold tracking-tight text-brand">
-            Thai Vũ · Admin
+          <span className="inline-flex items-center gap-2">
+            <img
+              src="/logo.jpg"
+              alt="Thai Vũ"
+              className="h-9 w-auto max-w-[96px] object-contain"
+            />
+            <span className="text-lg font-extrabold tracking-tight text-brand">Thai Vũ · Admin</span>
           </span>
           <nav className="flex flex-wrap gap-1 rounded-xl bg-gray-100/80 p-1">
             <NavLink to="/admin/orders" className={linkClass}>
@@ -48,6 +53,12 @@ export function AdminLayout() {
             <NavLink to="/admin/users" className={linkClass}>
               Khách hàng
             </NavLink>
+            <NavLink to="/admin/banners" className={linkClass}>
+              Banner
+            </NavLink>
+            <NavLink to="/admin/content" className={linkClass}>
+              Nội dung
+            </NavLink>
           </nav>
           <NavLink
             to="/"
@@ -55,12 +66,6 @@ export function AdminLayout() {
             className={({ isActive }) => `ml-auto ${quickLinkClass({ isActive })}`}
           >
             Về cửa hàng
-          </NavLink>
-          <NavLink to="/profile#orders" className={quickLinkClass}>
-            Đơn mua
-          </NavLink>
-          <NavLink to="/cart" className={quickLinkClass}>
-            Giỏ hàng
           </NavLink>
         </div>
       </header>
