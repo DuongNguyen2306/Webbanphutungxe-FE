@@ -397,17 +397,30 @@ export function CartPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError('')
-                      setCheckoutOpen(true)
-                    }}
-                    disabled={!selectedItems.length || user?.role === 'admin'}
-                    className="mt-4 w-full rounded-lg bg-[#BC1F26] py-3 text-sm font-extrabold uppercase text-white disabled:opacity-50"
-                  >
-                    GỬI ĐƠN HÀNG
-                  </button>
+                  {checkoutOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError('')
+                        setCheckoutOpen(false)
+                      }}
+                      className="mt-4 w-full rounded-lg border border-gray-300 bg-white py-3 text-sm font-extrabold uppercase text-gray-700 hover:bg-gray-50"
+                    >
+                      THU GỌN FORM
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError('')
+                        setCheckoutOpen(true)
+                      }}
+                      disabled={!selectedItems.length}
+                      className="mt-4 w-full rounded-lg bg-[#BC1F26] py-3 text-sm font-extrabold uppercase text-white disabled:opacity-50"
+                    >
+                      GỬI ĐƠN HÀNG
+                    </button>
+                  )}
                 </div>
 
                 {checkoutOpen ? (
@@ -508,14 +521,9 @@ export function CartPage() {
                     {error ? (
                       <p className="text-sm font-semibold text-brand">{error}</p>
                     ) : null}
-                    {user?.role === 'admin' ? (
-                      <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
-                        Tài khoản Admin không có chức năng mua hàng
-                      </p>
-                    ) : null}
                     <button
                       type="submit"
-                      disabled={submitting || !selectedItems.length || user?.role === 'admin'}
+                      disabled={submitting || !selectedItems.length}
                       className="w-full rounded-lg bg-[#BC1F26] py-3 text-sm font-extrabold uppercase text-white disabled:opacity-50"
                     >
                       {submitting ? 'Đang gửi...' : 'GỬI ĐƠN HÀNG'}

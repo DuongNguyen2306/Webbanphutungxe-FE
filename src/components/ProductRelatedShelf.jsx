@@ -73,9 +73,10 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
           </h2>
           <Link
             to="/"
-            className="text-sm font-bold text-brand hover:underline"
+            className="inline-flex items-center text-sm font-bold text-brand hover:underline"
+            aria-label="Mở danh sách sản phẩm của shop"
           >
-            Xem tất cả &gt;
+            <ChevronRight className="size-4" strokeWidth={2.8} />
           </Link>
         </div>
 

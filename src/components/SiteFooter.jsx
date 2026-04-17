@@ -1,222 +1,179 @@
-import { MapPin, Phone, Mail } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import {
+  BadgePercent,
+  Mail,
+  MapPin,
+  Phone,
+  Send,
+  Truck,
+} from 'lucide-react'
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 
-const policyLinks = [
-  { href: '#', label: 'Hỗ trợ đặt hàng' },
-  { href: '#', label: 'Chính sách mua hàng' },
-  { href: '#', label: 'Chính sách người dùng' },
-  { href: '#', label: 'Bảo hành & đổi trả' },
-  { href: '#', label: 'Quyền riêng tư' },
+const supportLinks = [
+  { href: '#', label: 'Hướng dẫn đặt hàng' },
+  { href: '#', label: 'Chính sách đổi trả' },
+  { href: '#', label: 'Bảo hành' },
 ]
 
-const MAP_EMBED_SRC =
-  'https://maps.google.com/maps?q=15F+%C4%91%C6%B0%E1%BB%9Dng+4F+ph%C6%B0%E1%BB%9Dng+T%C3%A2n+Thu%E1%BA%ADn+Qu%E1%BA%ADn+7&t=&z=15&ie=UTF8&iwloc=&output=embed'
+const STORE_PREVIEW_IMAGE =
+  'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=900&q=80'
 
 export function SiteFooter() {
+  const [email, setEmail] = useState('')
   const telHref = `tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`
-  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[Thai Vũ] Xin chào ${SHOP_INFO.contactPerson}`)}`
+  const addressShort = '15F đường 4F, Tân Thuận, Quận 7'
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SHOP_INFO.address)}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[Thai Vũ] Tư vấn giúp mình với nhé.')}`
 
   return (
-    <footer className="mt-auto border-t border-gray-200">
-      <div className="bg-page px-4 py-10 text-ink sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-[1400px] gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-          <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wide text-brand">
-              Hỗ trợ khách hàng
-            </h3>
-            <div className="mt-3 space-y-3 text-sm leading-relaxed">
-              <p>
-                <span className="font-semibold text-brand">Website:</span>{' '}
-                <a href="/" className="text-ink underline-offset-2 hover:underline">
-                  thaivu.vn
+    <footer className="mt-auto border-t border-zinc-800 bg-zinc-950 text-zinc-200">
+      <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-10 lg:px-8">
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
+            Về Thai Vũ
+          </h3>
+          <div className="mt-4">
+            <a href="/" className="inline-block text-2xl font-black tracking-tight text-white">
+              Thai Vũ
+            </a>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Chuyên phụ tùng và phụ kiện Vespa Piaggio chính hãng.
+              <br />
+              Tư vấn nhanh, giá rõ ràng, giao hàng toàn quốc.
+            </p>
+          </div>
+          <div className="mt-5 flex items-center gap-3">
+            <a
+              href={SHOP_INFO.facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-11 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 transition hover:border-brand hover:text-brand"
+              aria-label="Facebook"
+            >
+              Fb
+            </a>
+            <a
+              href={zaloHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-11 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-sm font-extrabold text-zinc-100 transition hover:border-brand hover:text-brand"
+              aria-label="Zalo"
+            >
+              Z
+            </a>
+            <a
+              href={SHOP_INFO.facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-11 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-100 transition hover:border-brand hover:text-brand"
+              aria-label="Instagram"
+            >
+              Ig
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
+            Hỗ Trợ Khách Hàng
+          </h3>
+          <ul className="mt-4 space-y-3 text-sm">
+            {supportLinks.map((item) => (
+              <li key={item.label}>
+                <a href={item.href} className="text-zinc-300 transition hover:text-brand">
+                  {item.label}
                 </a>
-              </p>
-              {SHOP_INFO.email ? (
-                <p>
-                  <span className="font-semibold text-brand">Email:</span>{' '}
-                  <a
-                    href={`mailto:${SHOP_INFO.email}`}
-                    className="text-ink underline-offset-2 hover:underline"
-                  >
-                    {SHOP_INFO.email}
-                  </a>
-                </p>
-              ) : null}
-              <p>
-                <span className="font-semibold text-brand">Zalo / Hotline:</span>{' '}
-                <a href={zaloHref} className="font-medium text-ink underline-offset-2 hover:underline">
-                  {SHOP_INFO.hotlineDisplay}
-                </a>
-                {' — '}
-                <a href={telHref} className="font-medium text-ink underline-offset-2 hover:underline">
-                  Gọi
-                </a>
-                {SHOP_INFO.contactPerson ? (
-                  <>
-                    {' '}
-                    <span className="text-gray-600">({SHOP_INFO.contactPerson})</span>
-                  </>
-                ) : null}
-              </p>
-              <p>
-                <span className="font-semibold text-brand">Facebook:</span>{' '}
-                <a
-                  href={SHOP_INFO.facebookUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-ink underline-offset-2 hover:underline"
-                >
-                  Phụ kiện xe Vespa Piaggio
-                </a>
-              </p>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-200">
+              <Truck className="size-4 text-brand" />
+              Giao hàng toàn quốc
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-200">
+              <BadgePercent className="size-4 text-brand" />
+              Ưu đãi theo chương trình
             </div>
           </div>
+        </div>
 
-          <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wide text-brand">
-              Chương trình chiết khấu
-            </h3>
-            <ul className="mt-3 list-inside list-disc space-y-2 text-sm text-gray-700">
-              <li>Ưu đãi theo tổng giá trị đơn — chi tiết cập nhật trên Zalo.</li>
-              <li className="text-brand">
-                Một số nhóm hàng (loa, thẻ nhớ, cồng kềnh) có thể không áp dụng
-                khuyến mãi %.
-              </li>
-              <li>Không áp dụng đồng thời nhiều mã nếu có điều khoản trùng lặp.</li>
-            </ul>
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
+            Liên Hệ
+          </h3>
+          <div className="mt-4 space-y-3 text-sm">
+            <a
+              href={telHref}
+              className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-2 font-extrabold text-white transition hover:brightness-110"
+            >
+              <Phone className="size-4" />
+              GỌI NGAY {SHOP_INFO.hotlineDisplay}
+            </a>
+            <p className="flex items-start gap-2 text-zinc-300">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-brand" />
+              {addressShort}
+            </p>
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex text-xs font-bold uppercase tracking-wide text-[#D4AF37] hover:underline"
+            >
+              Mở Google Maps
+            </a>
           </div>
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mt-4 block overflow-hidden rounded-xl border border-zinc-800"
+          >
+            <img
+              src={STORE_PREVIEW_IMAGE}
+              alt="Xem vị trí cửa hàng trên Google Maps"
+              className="h-32 w-full object-cover transition duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+          </a>
+        </div>
 
-          <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wide text-brand">
-              Quy định giao hàng
-            </h3>
-            <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
-              <li>Giao nội thành TP.HCM: 1–2 ngày trong bán kính ~5–10km.</li>
-              <li>Miễn phí ship một phần đơn từ ngưỡng shop công bố (ví dụ đơn từ 1,5tr nội thành).</li>
-              <li>Đơn nhỏ tính phí ship theo đơn vị vận chuyển; giá trị tối thiểu để giao (ví dụ 200k).</li>
-              <li>Hàng cồng kềnh / cồng kềnh + pin có thể phụ thu phí riêng.</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-extrabold uppercase tracking-wide text-brand">
-              Chính sách
-            </h3>
-            <ul className="mt-3 space-y-2 text-sm">
-              {policyLinks.map((l) => (
-                <li key={l.label}>
-                  <a
-                    href={l.href}
-                    className="text-ink underline-offset-2 hover:text-brand hover:underline"
-                  >
-                    {l.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
+            Đăng Ký Nhận Tin
+          </h3>
+          <p className="mt-4 text-sm text-zinc-300">
+            Nhận khuyến mãi mới và ưu đãi độc quyền từ Thai Vũ.
+          </p>
+          <form
+            className="mt-4 flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+            }}
+          >
+            <div className="relative min-w-0 flex-1">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email của bạn"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-brand focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex shrink-0 items-center justify-center rounded-md bg-brand px-3 py-2 text-white transition hover:brightness-110"
+              aria-label="Đăng ký nhận tin"
+            >
+              <Send className="size-4" />
+            </button>
+          </form>
         </div>
       </div>
 
-      <div className="bg-footer-blue text-white">
-        <div className="mx-auto flex max-w-[1400px] flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:gap-6 lg:px-8">
-          <div className="w-full lg:w-1/3">
-            <h3 className="text-sm font-extrabold uppercase tracking-wide">
-              Thông tin liên hệ
-            </h3>
-            <div className="mt-4 space-y-3 text-sm leading-relaxed text-white/95">
-              <p className="font-bold">{SHOP_INFO.name}</p>
-              <p className="flex gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0" />
-                {SHOP_INFO.address}
-              </p>
-              <p className="flex items-center gap-2">
-                <Phone className="size-4 shrink-0" />
-                <a href={telHref}>{SHOP_INFO.hotlineDisplay}</a>
-                {SHOP_INFO.contactPerson ? (
-                  <span className="text-white/80">— {SHOP_INFO.contactPerson}</span>
-                ) : null}
-              </p>
-              {SHOP_INFO.email ? (
-                <p className="flex items-center gap-2">
-                  <Mail className="size-4 shrink-0" />
-                  <a href={`mailto:${SHOP_INFO.email}`}>{SHOP_INFO.email}</a>
-                </p>
-              ) : null}
-              {SHOP_INFO.taxCode ? (
-                <p className="text-white/80">MST: {SHOP_INFO.taxCode}</p>
-              ) : null}
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <a
-                href={SHOP_INFO.facebookUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
-                aria-label="Facebook"
-              >
-                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-              </a>
-              <a
-                href={zaloHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex size-10 items-center justify-center rounded-full bg-white/15 text-xs font-extrabold text-white transition hover:bg-white/25"
-                aria-label="Zalo"
-              >
-                Z
-              </a>
-            </div>
-          </div>
-
-          <div className="w-full lg:w-1/3">
-            <h3 className="text-sm font-extrabold uppercase tracking-wide">
-              Bản đồ
-            </h3>
-            <div className="mt-4 overflow-hidden rounded-lg border border-white/20 bg-black/20">
-              <iframe
-                title="Bản đồ cửa hàng Thai Vũ"
-                src={MAP_EMBED_SRC}
-                className="h-56 w-full border-0 sm:h-64"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-          </div>
-
-          <div className="w-full lg:w-1/3">
-            <h3 className="text-sm font-extrabold uppercase tracking-wide">
-              Fanpage Facebook
-            </h3>
-            <div className="mt-4 rounded-lg border border-white/20 bg-black/10 p-4 text-sm text-white/90">
-              <p className="font-semibold">Phụ kiện xe Vespa Piaggio</p>
-              <p className="mt-2 text-xs text-white/75">
-                Theo dõi fanpage để cập nhật hàng mới, khuyến mãi và hướng dẫn lắp đặt.
-              </p>
-              <a
-                href={SHOP_INFO.facebookUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-block rounded-md bg-white px-4 py-2 text-xs font-bold uppercase text-footer-blue"
-              >
-                Mở Facebook
-              </a>
-              <Link
-                to="/"
-                className="mt-2 ml-2 inline-block rounded-md border border-white/40 px-4 py-2 text-xs font-bold uppercase text-white hover:bg-white/10"
-              >
-                Về trang chủ
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/15 py-4 text-center text-xs text-white/70">
-          © {new Date().getFullYear()} Thai Vũ. Bản quyền nội dung thuộc cửa hàng.
-        </div>
+      <div className="border-t border-zinc-800 py-4 text-center text-xs text-zinc-500">
+        © {new Date().getFullYear()} Thai Vũ. All rights reserved.
       </div>
     </footer>
   )

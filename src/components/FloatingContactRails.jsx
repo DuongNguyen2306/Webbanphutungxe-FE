@@ -3,7 +3,7 @@ import { MessageCircle } from 'lucide-react'
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 
 /**
- * Nút liên hệ nổi hai bên (Zalo trái — Facebook phải). Tránh vùng nút giỏ mobile (góc phải dưới).
+ * Nút liên hệ nổi bên phải (Zalo + Facebook). Tránh vùng nút giỏ mobile (góc phải dưới).
  */
 export function FloatingContactRails() {
   const { pathname } = useLocation()
@@ -13,24 +13,21 @@ export function FloatingContactRails() {
   const fb = SHOP_INFO.facebookUrl
 
   return (
-    <>
-      <div
-        className="pointer-events-none fixed bottom-24 left-2 z-[45] flex flex-col gap-3 sm:bottom-28 sm:left-4"
-        aria-label="Liên hệ nhanh"
+    <div
+      className="pointer-events-none fixed bottom-28 right-2 z-[45] flex flex-col gap-3 sm:bottom-32 sm:right-4"
+      aria-label="Liên hệ nhanh"
+    >
+      <a
+        href={zaloHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-[#0068ff] text-white shadow-lg ring-2 ring-white/90 transition hover:brightness-110"
+        title={`Zalo ${SHOP_INFO.hotlineDisplay} — ${SHOP_INFO.contactPerson}`}
+        aria-label="Chat Zalo"
       >
-        <a
-          href={zaloHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-[#0068ff] text-white shadow-lg ring-2 ring-white/90 transition hover:brightness-110"
-          title={`Zalo ${SHOP_INFO.hotlineDisplay} — ${SHOP_INFO.contactPerson}`}
-          aria-label="Chat Zalo"
-        >
-          <MessageCircle className="size-6" strokeWidth={2.2} />
-        </a>
-      </div>
-
-      <div className="pointer-events-none fixed bottom-28 right-2 z-[45] sm:bottom-32 sm:right-4">
+        <MessageCircle className="size-6" strokeWidth={2.2} />
+      </a>
+      <div>
         <a
           href={fb}
           target="_blank"
@@ -44,6 +41,6 @@ export function FloatingContactRails() {
           </svg>
         </a>
       </div>
-    </>
+    </div>
   )
 }

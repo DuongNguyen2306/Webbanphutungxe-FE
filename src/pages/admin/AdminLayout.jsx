@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Outlet, Link } from 'react-router-dom'
+import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 const linkClass = ({ isActive }) =>
@@ -6,6 +6,11 @@ const linkClass = ({ isActive }) =>
     isActive
       ? 'bg-brand text-white shadow-sm'
       : 'text-gray-600 hover:bg-white hover:text-gray-900'
+  }`
+
+const quickLinkClass = ({ isActive }) =>
+  `text-sm font-semibold transition-colors ${
+    isActive ? 'text-brand' : 'text-gray-600 hover:text-gray-900'
   }`
 
 export function AdminLayout() {
@@ -44,12 +49,19 @@ export function AdminLayout() {
               Khách hàng
             </NavLink>
           </nav>
-          <Link
+          <NavLink
             to="/"
-            className="ml-auto text-sm font-semibold text-brand hover:underline"
+            end
+            className={({ isActive }) => `ml-auto ${quickLinkClass({ isActive })}`}
           >
             Về cửa hàng
-          </Link>
+          </NavLink>
+          <NavLink to="/profile#orders" className={quickLinkClass}>
+            Đơn mua
+          </NavLink>
+          <NavLink to="/cart" className={quickLinkClass}>
+            Giỏ hàng
+          </NavLink>
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8">

@@ -296,7 +296,7 @@ export function Header({
                 <button
                   type="button"
                   onClick={() => setProfileMenuOpen((v) => !v)}
-                  className="rounded-full p-2 text-white transition hover:bg-white/10"
+                  className="inline-flex items-center justify-center rounded-full p-2 text-white transition hover:bg-white/10"
                   aria-label="Tài khoản"
                   aria-expanded={profileMenuOpen}
                 >
@@ -305,7 +305,7 @@ export function Header({
               ) : (
                 <Link
                   to="/login"
-                  className="rounded-full p-2 text-white transition hover:bg-white/10"
+                  className="inline-flex items-center justify-center rounded-full p-2 text-white transition hover:bg-white/10"
                   aria-label="Đăng nhập"
                 >
                   <User className="size-6" strokeWidth={2} />

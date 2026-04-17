@@ -53,9 +53,10 @@ export function BestSellingShelf({ products = [] }) {
           </div>
           <Link
             to="/"
-            className="text-sm font-bold text-brand hover:underline"
+            className="inline-flex items-center text-sm font-bold text-brand hover:underline"
+            aria-label="Mở danh sách sản phẩm bán chạy"
           >
-            Xem tất cả &gt;
+            <ChevronRight className="size-4" strokeWidth={2.8} />
           </Link>
         </div>
 
