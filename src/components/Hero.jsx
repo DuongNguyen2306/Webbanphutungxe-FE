@@ -77,8 +77,13 @@ function renderLayer(layer, banner, index) {
   )
 }
 
+function bannersWithImages(list) {
+  return list.filter((b) => String(b?.imageUrl || '').trim())
+}
+
 export function Hero() {
-  const [banners, setBanners] = useState([FALLBACK_BANNER])
+  /** null = đang tải API — không dùng ảnh fallback ngay để tránh mỗi F5 đều flash ảnh Ducati mặc định rồi mới đổi banner. */
+  const [banners, setBanners] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -86,7 +91,9 @@ export function Hero() {
       try {
         const list = await getPublicBanners()
         if (cancelled) return
-        if (list.length) setBanners(list)
+        const withImages = bannersWithImages(list)
+        if (withImages.length) setBanners(withImages)
+        else setBanners([FALLBACK_BANNER])
       } catch {
         if (!cancelled) setBanners([FALLBACK_BANNER])
       }
@@ -95,6 +102,14 @@ export function Hero() {
       cancelled = true
     }
   }, [])
+
+  if (banners == null) {
+    return (
+      <section className="relative w-full overflow-hidden bg-ink" aria-busy="true" aria-label="Đang tải banner">
+        <div className="relative aspect-[21/9] min-h-[200px] max-h-[420px] w-full animate-pulse bg-neutral-900 sm:aspect-[2.4/1] md:max-h-[480px]" />
+      </section>
+    )
+  }
 
   return (
     <section className="relative w-full overflow-hidden bg-ink">

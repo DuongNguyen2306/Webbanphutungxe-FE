@@ -5,7 +5,7 @@ export function CatalogFeatureSection({
   title,
   products,
   imageAspect = 'square',
-  gridClassName = 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6',
+  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6',
 }) {
   if (!products.length) return null
 

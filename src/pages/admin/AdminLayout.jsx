@@ -34,7 +34,7 @@ export function AdminLayout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:gap-3">
           <span className="inline-flex items-center gap-2">
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="Thai Vũ"
               className="h-9 w-auto max-w-[96px] object-contain"
             />

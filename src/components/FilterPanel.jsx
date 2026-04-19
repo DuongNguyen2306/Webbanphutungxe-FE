@@ -118,70 +118,76 @@ export function FilterPanelContent({
         </p>
       </fieldset>
 
-      <fieldset className="space-y-2 border-0 border-t border-gray-200 pt-4">
-        <legend className="mb-2 text-xs font-extrabold uppercase tracking-wide text-gray-500">
-          Dòng xe
-        </legend>
-        <div className="flex flex-col gap-2">
-          {VEHICLE_TYPES.map((v) => (
-            <label
-              key={v.id}
-              className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-            >
-              <input
-                type="checkbox"
-                checked={filters.vehicles.includes(v.id)}
-                onChange={() =>
-                  set({ vehicles: toggleId(filters.vehicles, v.id) })
-                }
-                className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
-              />
-              {v.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="border-t border-gray-200 pt-4">
+        <fieldset className="space-y-2 border-0 p-0">
+          <legend className="mb-2 text-xs font-extrabold uppercase tracking-wide text-gray-500">
+            Dòng xe
+          </legend>
+          <div className="flex flex-col gap-2">
+            {VEHICLE_TYPES.map((v) => (
+              <label
+                key={v.id}
+                className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.vehicles.includes(v.id)}
+                  onChange={() =>
+                    set({ vehicles: toggleId(filters.vehicles, v.id) })
+                  }
+                  className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                />
+                {v.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
 
-      <fieldset className="space-y-2 border-0 border-t border-gray-200 pt-4">
-        <legend className="mb-2 text-xs font-extrabold uppercase tracking-wide text-gray-500">
-          Danh mục phụ tùng
-        </legend>
-        <div className="flex flex-col gap-2">
-          {PART_TYPES.map((p) => (
-            <label
-              key={p.id}
-              className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-            >
-              <input
-                type="checkbox"
-                checked={filters.parts.includes(p.id)}
-                onChange={() => set({ parts: toggleId(filters.parts, p.id) })}
-                className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
-              />
-              {p.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="border-t border-gray-200 pt-4">
+        <fieldset className="space-y-2 border-0 p-0">
+          <legend className="mb-2 text-xs font-extrabold uppercase tracking-wide text-gray-500">
+            Danh mục phụ tùng
+          </legend>
+          <div className="flex flex-col gap-2">
+            {PART_TYPES.map((p) => (
+              <label
+                key={p.id}
+                className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.parts.includes(p.id)}
+                  onChange={() => set({ parts: toggleId(filters.parts, p.id) })}
+                  className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                />
+                {p.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
 
-      <fieldset className="space-y-3 border-0 border-t border-gray-200 pt-4">
-        <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-gray-500">
-          Khoảng giá
-        </legend>
-        <PriceRangeSlider
-          min={priceDraft.priceMin}
-          max={priceDraft.priceMax}
-          absoluteMax={absoluteMaxPrice}
-          onChange={onPriceChange}
-        />
-        <button
-          type="button"
-          onClick={onApplyPrice}
-          className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-white hover:bg-brand-dark"
-        >
-          Áp dụng khoảng giá
-        </button>
-      </fieldset>
+      <div className="border-t border-gray-200 pt-4">
+        <fieldset className="space-y-3 border-0 p-0">
+          <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-gray-500">
+            Khoảng giá
+          </legend>
+          <PriceRangeSlider
+            min={priceDraft.priceMin}
+            max={priceDraft.priceMax}
+            absoluteMax={absoluteMaxPrice}
+            onChange={onPriceChange}
+          />
+          <button
+            type="button"
+            onClick={onApplyPrice}
+            className="w-full rounded-lg bg-brand py-3 text-sm font-extrabold uppercase text-white hover:bg-brand-dark"
+          >
+            Áp dụng khoảng giá
+          </button>
+        </fieldset>
+      </div>
 
       <label className="flex cursor-pointer items-center gap-2 border-t border-gray-200 pt-4 text-sm font-semibold">
         <input

@@ -59,15 +59,24 @@ export function PriceRangeSlider({ min, max, absoluteMax, onChange }) {
         : 'Giá tối đa'
       : null
 
+  const thumb = 18
+  const insetPx = thumb / 2
+
   return (
     <div className="pt-1">
-      <div className="relative h-8">
-        <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gray-200" />
+      <div className="relative h-8 w-full">
         <div
-          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-brand"
+          className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-gray-200"
           style={{
-            left: `${minPct}%`,
-            width: `${Math.max(0, maxPct - minPct)}%`,
+            left: insetPx,
+            right: insetPx,
+          }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-brand"
+          style={{
+            left: `calc(${insetPx}px + (100% - ${thumb}px) * ${minPct / 100})`,
+            width: `calc((100% - ${thumb}px) * ${Math.max(0, maxPct - minPct) / 100})`,
           }}
         />
         <input
@@ -91,9 +100,12 @@ export function PriceRangeSlider({ min, max, absoluteMax, onChange }) {
           aria-label="Giá tối đa"
         />
       </div>
-      <div className="mt-2 flex justify-between text-xs font-semibold text-ink/70">
+      <div
+        className="mt-2 flex justify-between text-xs font-semibold text-ink/70"
+        style={{ paddingLeft: insetPx, paddingRight: insetPx }}
+      >
         <span>{formatK(min)}</span>
-        <span>{maxReachedLabel || formatK(effectiveMax)}</span>
+        <span className="text-right">{maxReachedLabel || formatK(effectiveMax)}</span>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input

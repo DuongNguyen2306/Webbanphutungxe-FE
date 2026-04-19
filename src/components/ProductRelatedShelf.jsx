@@ -100,24 +100,26 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
 
           <div
             ref={railRef}
-            className="flex gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin] md:px-10"
+            className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin] md:px-10"
           >
             {items.map((p) => (
               <div
                 key={p.id}
-                className="w-[150px] shrink-0 sm:w-[168px]"
+                className="flex min-h-0 w-[150px] shrink-0 flex-col self-stretch sm:w-[168px]"
               >
-                <ProductCard
-                  productId={p.id}
-                  name={p.name}
-                  originalPrice={p.originalPrice}
-                  salePrice={p.salePrice}
-                  discountTag={p.discountTag}
-                  image={p.image}
-                  isAvailable={p.isAvailable}
-                  priceFrom={Boolean(p.variants?.length > 1)}
-                  variant="shelf"
-                />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <ProductCard
+                    productId={p.id}
+                    name={p.name}
+                    originalPrice={p.originalPrice}
+                    salePrice={p.salePrice}
+                    discountTag={p.discountTag}
+                    image={p.image}
+                    isAvailable={p.isAvailable}
+                    priceFrom={Boolean(p.variants?.length > 1)}
+                    variant="shelf"
+                  />
+                </div>
               </div>
             ))}
           </div>

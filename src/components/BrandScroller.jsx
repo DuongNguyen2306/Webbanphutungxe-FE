@@ -9,10 +9,22 @@ export function BrandScroller() {
   const location = useLocation()
   const [categories, setCategories] = useState([])
 
-  const activeCategory = useMemo(() => {
+  /** Ưu tiên categoryId để tránh trùng tên danh mục (cùng URL ?category= → cả hai nút đều active). */
+  const activeCategoryId = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return String(params.get('categoryId') || '').trim()
+  }, [location.search])
+
+  const activeCategoryName = useMemo(() => {
     const params = new URLSearchParams(location.search)
     return normalizeSearch(String(params.get('category') || '').trim())
   }, [location.search])
+
+  const legacyNameMatchId = useMemo(() => {
+    if (activeCategoryId || !activeCategoryName || !categories.length) return null
+    const hit = categories.find((c) => normalizeSearch(c.name) === activeCategoryName)
+    return hit?.id ?? null
+  }, [activeCategoryId, activeCategoryName, categories])
 
   useEffect(() => {
     let cancelled = false
@@ -80,26 +92,31 @@ export function BrandScroller() {
         <Link
           to="/shop"
           className={`flex h-12 min-w-[120px] shrink-0 items-center justify-center rounded-md border px-4 text-sm font-extrabold tracking-wide transition ${
-            !activeCategory
+            !activeCategoryId && !activeCategoryName
               ? 'border-brand bg-brand text-white shadow-sm'
               : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
           Tất cả
         </Link>
-        {categories.map((category) => (
-          <Link
-            key={category.id}
-            to={`/shop?category=${encodeURIComponent(category.name)}`}
-            className={`flex h-14 min-w-[100px] shrink-0 items-center justify-center rounded-md border px-4 text-sm font-extrabold tracking-wide transition ${
-              activeCategory === normalizeSearch(category.name)
-                ? 'border-brand bg-brand text-white shadow-sm'
-                : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {category.name}
-          </Link>
-        ))}
+        {categories.map((category) => {
+          const selected =
+            (activeCategoryId && activeCategoryId === category.id) ||
+            (!activeCategoryId && legacyNameMatchId === category.id)
+          return (
+            <Link
+              key={category.id}
+              to={`/shop?categoryId=${encodeURIComponent(category.id)}`}
+              className={`flex h-14 min-w-[100px] shrink-0 items-center justify-center rounded-md border px-4 text-sm font-extrabold tracking-wide transition ${
+                selected
+                  ? 'border-brand bg-brand text-white shadow-sm'
+                  : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {category.name}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

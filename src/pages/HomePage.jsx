@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
@@ -23,6 +23,34 @@ const BRAND_SECTION_LABEL = {
 
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
 
+/** Giữ đúng lưới sản phẩm khi API chưa trả về — tránh khoảng trắng / nhảy layout khi bỏ chữ “Đang tải…”. */
+function HomeCatalogSkeleton() {
+  return (
+    <div className="space-y-10" aria-busy="true" aria-label="Đang tải danh mục sản phẩm">
+      {[0, 1].map((block) => (
+        <div key={block} className="w-full">
+          <div className="mb-4 h-8 max-w-[220px] animate-pulse rounded-md bg-gray-200" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
+              >
+                <div className="aspect-square animate-pulse bg-gray-200" />
+                <div className="space-y-2 p-3">
+                  <div className="h-3 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-gray-100" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function HomePage() {
   const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
@@ -44,6 +72,11 @@ export function HomePage() {
   const categoryQuery = useMemo(() => {
     const params = new URLSearchParams(location.search)
     return String(params.get('category') || '').trim()
+  }, [location.search])
+
+  const categoryIdQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return String(params.get('categoryId') || '').trim()
   }, [location.search])
 
   useEffect(() => {
@@ -79,12 +112,15 @@ export function HomePage() {
 
   const filtered = useMemo(() => {
     const byFilters = filterCatalog(products, { ...adv, search: searchQuery })
+    if (categoryIdQuery) {
+      return byFilters.filter((p) => String(p.categoryId || '') === categoryIdQuery)
+    }
     if (!categoryQuery) return byFilters
     const normalizedCategory = normalizeSearch(categoryQuery)
     return byFilters.filter((p) =>
       normalizeSearch(p.categoryName || '').includes(normalizedCategory),
     )
-  }, [products, adv, searchQuery, categoryQuery])
+  }, [products, adv, searchQuery, categoryQuery, categoryIdQuery])
 
   const brandMatches = (p, b) =>
     (p.brand || '').toLowerCase() === (b || '').toLowerCase()
@@ -202,14 +238,7 @@ export function HomePage() {
         </div>
       ) : null}
 
-      {catalogLoading ? (
-        <div className="mx-auto w-full max-w-[1600px] px-4 py-8 text-center text-sm text-gray-500 xl:px-10">
-          Đang tải danh mục sản phẩm...
-        </div>
-      ) : null}
-
-      {!catalogLoading ? (
-        <>
+      <>
           <div className="mx-auto w-full max-w-[1600px] space-y-4 px-4 py-5 xl:px-10">
             <BrandScroller />
 
@@ -238,22 +267,26 @@ export function HomePage() {
             </div>
 
             <div className="min-w-0">
-              {sections.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-white py-16 text-center">
-                  <p className="text-lg font-semibold text-gray-600">
-                    Không có sản phẩm phù hợp bộ lọc.
-                  </p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Thử nới khoảng giá hoặc bỏ bớt tiêu chí.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={resetAdv}
-                    className="mt-4 text-sm font-bold text-brand underline"
-                  >
-                    Xóa tất cả bộ lọc
-                  </button>
-                </div>
+              {catalogLoading && products.length === 0 ? (
+                <HomeCatalogSkeleton />
+              ) : sections.length === 0 ? (
+                !catalogError ? (
+                  <div className="rounded-lg border border-dashed border-gray-300 bg-white py-16 text-center">
+                    <p className="text-lg font-semibold text-gray-600">
+                      Không có sản phẩm phù hợp bộ lọc.
+                    </p>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Thử nới khoảng giá hoặc bỏ bớt tiêu chí.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={resetAdv}
+                      className="mt-4 text-sm font-bold text-brand underline"
+                    >
+                      Xóa tất cả bộ lọc
+                    </button>
+                  </div>
+                ) : null
               ) : (
                 sections.map((s) => (
                   <ProductSection
@@ -266,7 +299,7 @@ export function HomePage() {
                 ))
               )}
 
-              {!isSingleBrandView ? (
+              {!isSingleBrandView && !(catalogLoading && products.length === 0) ? (
                 <div className="mt-6">
                   <CatalogFeatureSection
                     title="Phụ tùng thay thế"
@@ -283,21 +316,6 @@ export function HomePage() {
                 </div>
               ) : null}
 
-              <section
-                id="tra-cuu-don"
-                className="mt-8 rounded-lg border border-gray-200 bg-white px-6 py-9 text-center text-sm text-gray-600"
-              >
-                <p className="font-semibold text-ink">Tra cứu đơn hàng</p>
-                <p className="mt-1">
-                  Xem lịch sử đơn hàng đã đặt trong tài khoản của bạn.
-                </p>
-                <Link
-                  to="/profile"
-                  className="mt-4 inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white hover:bg-brand-dark"
-                >
-                  Xem lịch sử đơn hàng
-                </Link>
-              </section>
             </div>
           </div>
           {mobileFilterOpen && (
@@ -337,8 +355,7 @@ export function HomePage() {
               </div>
             </div>
           )}
-        </>
-      ) : null}
+      </>
 
       <BestSellingShelf products={products} />
 

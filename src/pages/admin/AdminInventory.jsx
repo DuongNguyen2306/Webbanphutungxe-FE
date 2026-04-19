@@ -1,29 +1,57 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { formatVnd } from '../../utils/format'
 
 const PAGE_SIZE = 10
+
+function toProductList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.products)) return data.products
+  if (Array.isArray(data?.items)) return data.items
+  return []
+}
 
 export function AdminInventory() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const { data } = await api.get('/api/admin/products')
-      setProducts(data)
+      setProducts(toProductList(data))
     } catch {
       setProducts([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
+
+  const rows = useMemo(() => {
+    const out = []
+    for (const p of products) {
+      for (const v of p?.variants || []) {
+        out.push({ product: p, variant: v })
+      }
+    }
+    return out
+  }, [products])
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return rows.slice(start, start + PAGE_SIZE)
+  }, [rows, page])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1)
+  }, [page, totalPages])
 
   async function toggleAvailability(productId, variantId, isAvailable) {
     await api.patch(
@@ -36,23 +64,6 @@ export function AdminInventory() {
   if (loading) {
     return <p className="text-sm text-gray-500">Đang tải tồn kho...</p>
   }
-
-  const rows = []
-  for (const p of products) {
-    for (const v of p.variants || []) {
-      rows.push({ product: p, variant: v })
-    }
-  }
-
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const pagedRows = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE
-    return rows.slice(start, start + PAGE_SIZE)
-  }, [rows, page])
-
-  useEffect(() => {
-    if (page > totalPages) setPage(1)
-  }, [page, totalPages])
 
   return (
     <div>
@@ -75,25 +86,31 @@ export function AdminInventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {pagedRows.map(({ product: p, variant: v }) => {
+              {pagedRows.map(({ product: p, variant: v }, idx) => {
                 const label =
                   [v.typeName, v.color, v.size]
                     .filter((x) => x && String(x).trim())
                     .join(' · ') || 'Mặc định'
+                const rowKey = `${p._id || p.id}-${v._id || v.id || v.sku || idx}`
+                const price = v.price != null ? v.price : v.salePrice
                 return (
-                  <tr key={`${p._id}-${v._id}`} className="hover:bg-gray-50/80">
+                  <tr key={rowKey} className="hover:bg-gray-50/80">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {p.name}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{label}</td>
                     <td className="px-4 py-3 font-semibold text-brand">
-                      {formatVnd(v.price)}
+                      {formatVnd(price)}
                     </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
                         onClick={() =>
-                          toggleAvailability(p._id, v._id, !v.isAvailable)
+                          toggleAvailability(
+                            p._id || p.id,
+                            v._id || v.id,
+                            !v.isAvailable,
+                          )
                         }
                         className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
                           v.isAvailable
@@ -120,7 +137,7 @@ export function AdminInventory() {
             <button
               type="button"
               disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => setPage((pg) => Math.max(1, pg - 1))}
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Trước
@@ -128,7 +145,7 @@ export function AdminInventory() {
             <button
               type="button"
               disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => setPage((pg) => pg + 1)}
               className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Sau
