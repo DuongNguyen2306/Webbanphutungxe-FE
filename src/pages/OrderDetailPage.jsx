@@ -189,7 +189,6 @@ export function OrderDetailPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
   const [error, setError] = useState('')
@@ -346,12 +345,7 @@ export function OrderDetailPage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
       <main className="mx-auto max-w-[1050px] px-4 py-6 md:py-8">
         <Link to="/profile#orders" className="text-sm font-semibold text-brand hover:underline">
           ← Quay lại Đơn mua

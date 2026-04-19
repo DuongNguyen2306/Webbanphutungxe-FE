@@ -6,7 +6,6 @@ import { getLatestIntro } from '../api/contentApi'
 
 export function IntroPage() {
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,12 +34,7 @@ export function IntroPage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
       <main className="mx-auto w-full max-w-[1100px] px-4 py-8">
         <section className="relative overflow-hidden rounded-2xl border border-[#BC1F26]/20 bg-gradient-to-r from-[#1f2937] via-[#111827] to-[#111827] p-6 text-white shadow-lg md:p-8">
           <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#BC1F26]/25 blur-2xl" />

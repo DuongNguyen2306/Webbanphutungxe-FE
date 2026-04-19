@@ -67,7 +67,6 @@ export function HomePage() {
     })
   const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
 
-  const headerBrand = adv.brands.length === 1 ? adv.brands[0] : 'all'
   const isSingleBrandView = adv.brands.length === 1
   const categoryQuery = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -102,13 +101,6 @@ export function HomePage() {
     })
     prevAbsoluteMaxRef.current = absoluteMaxPrice
   }, [absoluteMaxPrice])
-
-  const setHeaderBrand = useCallback((id) => {
-    setAdv((a) => ({
-      ...a,
-      brands: id === 'all' ? [] : [id],
-    }))
-  }, [])
 
   const filtered = useMemo(() => {
     const byFilters = filterCatalog(products, { ...adv, search: searchQuery })
@@ -218,12 +210,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        brandFilter={headerBrand}
-        onBrandFilterChange={setHeaderBrand}
-      />
+      <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
 
       <Hero />
 

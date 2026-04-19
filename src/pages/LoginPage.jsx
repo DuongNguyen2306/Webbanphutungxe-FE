@@ -9,7 +9,6 @@ export function LoginPage() {
   const { loginWithToken } = useAuth()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -32,12 +31,7 @@ export function LoginPage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
       <main className="mx-auto max-w-md px-4 py-10">
         <h1 className="text-2xl font-extrabold">Đăng nhập</h1>
         <p className="mt-1 text-sm text-gray-600">

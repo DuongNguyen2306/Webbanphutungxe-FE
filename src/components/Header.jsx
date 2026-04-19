@@ -5,36 +5,20 @@ import {
   Menu,
   Search,
   X,
-  ChevronDown,
   ClipboardList,
   User,
   ShoppingBag,
   LogOut,
   ShoppingCart,
 } from 'lucide-react'
-import { BRANDS } from '../data/products'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { normalizeSearch } from '../utils/string'
 
-const BRAND_OPTIONS = [
-  BRANDS.all,
-  BRANDS.vespa,
-  BRANDS.honda,
-  BRANDS.yamaha,
-  BRANDS.piaggio,
-]
-
-export function Header({
-  searchQuery,
-  onSearchQueryChange,
-  brandFilter,
-  onBrandFilterChange,
-}) {
+export function Header({ searchQuery, onSearchQueryChange }) {
   const { totalQuantity } = useCart()
   const { user, isAdmin, logout } = useAuth()
-  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -45,7 +29,6 @@ export function Header({
   const [searchResults, setSearchResults] = useState([])
   const [categories, setCategories] = useState([])
   const [cartBump, setCartBump] = useState(false)
-  const dropdownRef = useRef(null)
   const desktopMenuRef = useRef(null)
   const profileRef = useRef(null)
   const searchTimerRef = useRef(null)
@@ -53,9 +36,6 @@ export function Header({
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false)
-      }
       if (desktopMenuRef.current && !desktopMenuRef.current.contains(e.target)) {
         setDesktopMenuOpen(false)
       }
@@ -102,9 +82,6 @@ export function Header({
       cancelled = true
     }
   }, [])
-
-  const selectedLabel =
-    BRAND_OPTIONS.find((b) => b.id === brandFilter)?.label ?? 'Tất cả'
 
   const cartCount = totalQuantity
   const q = searchQuery?.trim() || ''
@@ -173,7 +150,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-50 shadow-md">
-      <div className="bg-brand px-4 py-1 text-[11px] font-medium text-white/90 xl:px-10">
+      <div className="bg-brand px-3 py-0.5 text-[10px] font-medium text-white/90 sm:px-4 sm:py-1 sm:text-[11px] xl:px-10">
         <div className="mx-auto w-full max-w-[1600px] text-center sm:text-left">
           <span className="hidden sm:inline">
             Giao hàng toàn quốc · Hàng chính hãng · Tư vấn Zalo nhanh
@@ -182,49 +159,26 @@ export function Header({
         </div>
       </div>
 
-      <div className="bg-brand px-4 py-3 xl:px-10">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-          <div className="flex shrink-0 items-center gap-3">
-            <Link to="/" className="flex items-center gap-2.5 no-underline">
+      <div className="bg-brand px-3 py-2 sm:px-4 lg:px-4 lg:py-3 xl:px-10">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+          <div className="flex min-w-0 w-full items-center gap-2">
+            <Link to="/" className="flex shrink-0 items-center gap-2 no-underline lg:gap-3">
               <img
                 src="/logo.jpg"
                 alt="Thai Vũ"
-                className="h-12 w-auto max-w-[120px] object-contain"
+                className="h-9 w-auto max-w-[88px] object-contain sm:h-10 sm:max-w-[100px] lg:h-12 lg:max-w-[120px]"
               />
-              <span className="hidden text-left leading-tight text-white sm:block">
+              <span className="hidden max-w-[200px] text-left leading-tight text-white lg:block">
                 <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/90">
                   Thai Vũ
                 </span>
-                <span className="block max-w-[220px] text-xs font-bold uppercase leading-snug">
+                <span className="block text-xs font-bold uppercase leading-snug">
                   Phụ kiện Vespa chuyên nghiệp
                 </span>
               </span>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen((v) => !v)}
-              className="ml-auto flex items-center gap-1.5 rounded-md border border-white/30 px-2.5 py-2 text-xs font-bold uppercase text-white lg:hidden"
-              aria-label="Mở menu"
-            >
-              {mobileMenuOpen ? (
-                <X className="size-5" strokeWidth={2.5} />
-              ) : (
-                <Menu className="size-5" strokeWidth={2.5} />
-              )}
-              Menu
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileSearchOpen((v) => !v)}
-              className="rounded-md border border-white/30 p-2 text-white lg:hidden"
-              aria-label="Mở tìm kiếm"
-            >
-              <Search className="size-5" />
-            </button>
-          </div>
-
-          <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
+            <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
             <div className="relative hidden lg:block" ref={desktopMenuRef}>
               <button
                 type="button"
@@ -270,65 +224,61 @@ export function Header({
               ) : null}
             </div>
 
-            <div className="relative flex min-w-0 flex-1">
-              <div className="relative z-10 flex w-full items-stretch rounded-full bg-white shadow-sm ring-1 ring-black/5">
-                <div className="relative shrink-0" ref={dropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() => setDropdownOpen((o) => !o)}
-                    className="flex h-11 items-center gap-0.5 rounded-l-full border-r border-gray-200 bg-white pl-3 pr-2 text-sm font-semibold text-brand sm:h-12 sm:pl-4 sm:pr-3"
-                    aria-expanded={dropdownOpen}
-                    aria-haspopup="listbox"
-                  >
-                    <span className="max-w-[4.5rem] truncate sm:max-w-none">
-                      {selectedLabel}
-                    </span>
-                    <ChevronDown
-                      className={`size-4 shrink-0 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  {dropdownOpen && (
-                    <ul
-                      className="absolute left-0 top-full z-20 mt-1 min-w-[160px] rounded-lg border border-gray-100 bg-white py-1 shadow-lg"
-                      role="listbox"
-                    >
-                      {BRAND_OPTIONS.map((b) => (
-                        <li key={b.id} role="option">
-                          <button
-                            type="button"
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${brandFilter === b.id ? 'font-semibold text-brand' : 'text-gray-800'}`}
-                            onClick={() => {
-                              onBrandFilterChange(b.id)
-                              setDropdownOpen(false)
-                            }}
-                          >
-                            {b.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+            <div className="relative z-10 min-w-0 flex-1">
+              <div className="flex w-full items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                <span className="flex shrink-0 items-center pl-3 text-gray-400 sm:pl-3.5" aria-hidden>
+                  <Search className="size-5" strokeWidth={2.25} />
+                </span>
                 <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => onSearchQueryChange(e.target.value)}
-                  placeholder="Tìm kiếm sản phẩm, thương hiệu..."
-                  className="min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-gray-400 focus:outline-none focus:ring-0 sm:px-3"
+                  placeholder="Tìm tên phụ tùng, xe tương thích…"
+                  className="h-11 min-w-0 flex-1 border-0 bg-transparent py-2 pl-2 pr-3 text-sm text-ink placeholder:text-gray-400 focus:outline-none focus:ring-0 sm:h-12 sm:pl-2.5 sm:pr-4 sm:text-[15px]"
                   aria-label="Tìm kiếm sản phẩm"
                 />
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center justify-center rounded-r-full px-3 sm:px-4"
-                  aria-label="Tìm kiếm"
-                >
-                  <Search className="size-5 text-ink" strokeWidth={2.25} />
-                </button>
               </div>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-0.5 sm:gap-2 lg:ml-0 lg:gap-3">
+            {!isAdmin ? (
+              <Link
+                to={user ? '/profile#orders' : '/login'}
+                className="inline-flex rounded-md border border-white/35 p-2 text-white lg:hidden"
+                aria-label="Tra cứu đơn hàng"
+              >
+                <ClipboardList className="size-[18px] sm:size-5" strokeWidth={2.25} />
+              </Link>
+            ) : null}
+            {isAdmin ? (
+              <Link
+                to="/admin"
+                className="inline-flex rounded-md border border-white/40 px-2 py-1.5 text-[9px] font-extrabold uppercase leading-none text-white lg:hidden"
+              >
+                Admin
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              className="inline-flex rounded-md border border-white/35 p-2 text-white lg:hidden"
+              aria-label={mobileMenuOpen ? 'Đóng menu' : 'Mở menu'}
+            >
+              {mobileMenuOpen ? (
+                <X className="size-5" strokeWidth={2.5} />
+              ) : (
+                <Menu className="size-5" strokeWidth={2.5} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen((v) => !v)}
+              className="inline-flex rounded-md border border-white/35 p-2 text-white lg:hidden"
+              aria-label="Mở tìm kiếm"
+            >
+              <Search className="size-5" strokeWidth={2.25} />
+            </button>
             <Link
               to="/gioi-thieu"
               className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
@@ -344,7 +294,7 @@ export function Header({
             {!isAdmin ? (
               <Link
                 to={user ? '/profile#orders' : '/login'}
-                className="hidden items-center gap-2 rounded-full bg-brand-dark px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black/20 sm:flex sm:px-4"
+                className="hidden items-center gap-2 rounded-full bg-brand-dark px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black/20 lg:inline-flex lg:px-4"
               >
                 <span aria-hidden>📝</span>
                 <ClipboardList className="size-4 opacity-90" />
@@ -361,19 +311,19 @@ export function Header({
                 <button
                   type="button"
                   onClick={() => setProfileMenuOpen((v) => !v)}
-                  className="inline-flex items-center justify-center rounded-full p-2 text-white transition hover:bg-white/10"
+                  className="inline-flex items-center justify-center rounded-full p-1.5 text-white transition hover:bg-white/10 sm:p-2"
                   aria-label="Tài khoản"
                   aria-expanded={profileMenuOpen}
                 >
-                  <User className="size-6" strokeWidth={2} />
+                  <User className="size-5 sm:size-6" strokeWidth={2} />
                 </button>
               ) : (
                 <Link
                   to="/login"
-                  className="inline-flex items-center justify-center rounded-full p-2 text-white transition hover:bg-white/10"
+                  className="inline-flex items-center justify-center rounded-full p-1.5 text-white transition hover:bg-white/10 sm:p-2"
                   aria-label="Đăng nhập"
                 >
-                  <User className="size-6" strokeWidth={2} />
+                  <User className="size-5 sm:size-6" strokeWidth={2} />
                 </Link>
               )}
               <AnimatePresence>
@@ -421,7 +371,7 @@ export function Header({
             {isAdmin ? (
               <Link
                 to="/admin"
-                className="hidden rounded-md border border-white/40 px-2 py-1 text-[10px] font-extrabold uppercase text-white sm:inline"
+                className="hidden rounded-md border border-white/40 px-2 py-1 text-[10px] font-extrabold uppercase text-white lg:inline"
               >
                 Admin
               </Link>
@@ -429,10 +379,10 @@ export function Header({
             {!isAdmin ? (
               <Link
                 to="/cart"
-                className={`relative rounded-full p-2 text-white transition hover:bg-white/10 ${cartBump ? 'scale-110 bg-white/15' : ''}`}
+                className={`relative rounded-full p-1.5 text-white transition hover:bg-white/10 sm:p-2 ${cartBump ? 'scale-110 bg-white/15' : ''}`}
                 aria-label={`Giỏ hàng${cartCount ? `, ${cartCount} sản phẩm` : ''}`}
               >
-                <ShoppingCart className="size-6" strokeWidth={2} />
+                <ShoppingCart className="size-5 sm:size-6" strokeWidth={2} />
                 {cartCount > 0 && (
                   <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-brand">
                     {cartCount > 99 ? '99+' : cartCount}
@@ -441,26 +391,23 @@ export function Header({
               </Link>
             ) : null}
           </div>
+          </div>
         </div>
 
         {mobileSearchOpen ? (
           <div className="mt-2 lg:hidden">
-            <div className="flex w-full items-stretch rounded-full bg-white shadow-sm ring-1 ring-black/5">
+            <div className="flex w-full items-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-black/5">
+              <span className="flex shrink-0 items-center pl-3 text-gray-400" aria-hidden>
+                <Search className="size-5" strokeWidth={2.25} />
+              </span>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange(e.target.value)}
-                placeholder="Tìm sản phẩm..."
-                className="min-w-0 flex-1 rounded-l-full border-0 bg-transparent px-4 py-2.5 text-sm text-ink placeholder:text-gray-400 focus:outline-none"
+                placeholder="Tìm tên phụ tùng, xe tương thích…"
+                className="min-w-0 flex-1 border-0 bg-transparent py-2.5 pl-2 pr-3 text-sm text-ink placeholder:text-gray-400 focus:outline-none"
                 aria-label="Tìm kiếm sản phẩm"
               />
-              <button
-                type="button"
-                className="flex shrink-0 items-center justify-center rounded-r-full px-4"
-                aria-label="Tìm kiếm"
-              >
-                <Search className="size-5 text-ink" />
-              </button>
             </div>
           </div>
         ) : null}
@@ -493,16 +440,6 @@ export function Header({
               ) : null}
             </div>
           </motion.div>
-        ) : null}
-
-        {!isAdmin ? (
-          <Link
-            to={user ? '/profile#orders' : '/login'}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-brand-dark py-2.5 text-xs font-bold text-white sm:hidden"
-          >
-            <span aria-hidden>📝</span>
-            Tra cứu đơn hàng
-          </Link>
         ) : null}
 
         <AnimatePresence>
@@ -547,15 +484,6 @@ export function Header({
           ) : null}
         </AnimatePresence>
       </div>
-      {!isAdmin ? (
-        <Link
-          to="/cart"
-          className="fixed bottom-4 right-4 z-50 rounded-full bg-brand p-3 text-white shadow-lg lg:hidden"
-          aria-label="Giỏ hàng nổi"
-        >
-          <ShoppingCart className="size-6" />
-        </Link>
-      ) : null}
     </header>
   )
 }

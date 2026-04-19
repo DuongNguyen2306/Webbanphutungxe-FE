@@ -673,17 +673,11 @@ export function ProductDetailPage() {
   const { product, loading, fromApi, error: productError } = useProductDetail(id)
 
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
 
   if (loading) {
     return (
       <div className="min-h-svh bg-page font-sans text-ink">
-        <Header
-          searchQuery={search}
-          onSearchQueryChange={setSearch}
-          brandFilter={brandFilter}
-          onBrandFilterChange={setBrandFilter}
-        />
+        <Header searchQuery={search} onSearchQueryChange={setSearch} />
         <p className="py-20 text-center text-gray-600">Đang tải sản phẩm...</p>
         <SiteFooter />
       </div>
@@ -693,12 +687,7 @@ export function ProductDetailPage() {
   if (!product) {
     return (
       <div className="min-h-svh bg-page font-sans text-ink">
-        <Header
-          searchQuery={search}
-          onSearchQueryChange={setSearch}
-          brandFilter={brandFilter}
-          onBrandFilterChange={setBrandFilter}
-        />
+        <Header searchQuery={search} onSearchQueryChange={setSearch} />
         <div className="mx-auto max-w-[1400px] px-4 py-20 text-center">
           <p className="text-lg font-semibold">
             {productError || 'Không tìm thấy sản phẩm.'}
@@ -714,12 +703,7 @@ export function ProductDetailPage() {
 
   return (
     <div className="min-h-svh bg-white font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
 
       <ProductDetailBody
         key={product.id}

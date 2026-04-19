@@ -22,7 +22,6 @@ export function ProfilePage() {
   const location = useLocation()
   const { user, loading, logout, updateUser } = useAuth()
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [profile, setProfile] = useState(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileSaving, setProfileSaving] = useState(false)
@@ -285,12 +284,7 @@ export function ProfilePage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
       <main className="mx-auto max-w-[1050px] px-4 py-6 md:py-8">
         <div className="rounded-2xl border border-gray-200 bg-[#F3F4F6] p-3 md:p-5">
           <div className="grid gap-4 md:grid-cols-[200px_1fr]">

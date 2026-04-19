@@ -32,7 +32,6 @@ export function CartPage() {
 
   const { user } = useAuth()
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [contact, setContact] = useState({
     name: '',
     email: user?.email ?? '',
@@ -233,8 +232,6 @@ export function CartPage() {
       <Header
         searchQuery={search}
         onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
       />
 
       <main className="mx-auto max-w-[1200px] px-4 py-6">

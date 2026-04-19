@@ -6,7 +6,6 @@ import { getGuides } from '../api/contentApi'
 
 export function GuidesPage() {
   const [search, setSearch] = useState('')
-  const [brandFilter, setBrandFilter] = useState('all')
   const [guides, setGuides] = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -43,12 +42,7 @@ export function GuidesPage() {
 
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
-      <Header
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        brandFilter={brandFilter}
-        onBrandFilterChange={setBrandFilter}
-      />
+      <Header searchQuery={search} onSearchQueryChange={setSearch} />
       <main className="mx-auto w-full max-w-[1200px] px-4 py-8">
         <section className="rounded-2xl border border-[#BC1F26]/20 bg-gradient-to-r from-[#1f2937] via-[#111827] to-[#111827] p-5 text-white shadow-lg md:p-7">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">

@@ -4,6 +4,16 @@ export const SHOP_ZALO_URL = 'https://zalo.me/84932042912'
 export const SHOP_INFO = {
   name: 'Thai Vũ — Phụ kiện Vespa Piaggio',
   address: '15F đường 4F, phường Tân Thuận, Quận 7, TP. Hồ Chí Minh',
+  /**
+   * Ghim đúng một điểm trên Google Maps (lat, lng).
+   * Nên chỉnh lại cho khớp cửa hàng (Google Maps → chuột phải vào điểm → tọa độ).
+   */
+  mapsLatLng: { lat: 10.7501144, lng: 106.7164088 },
+  /**
+   * Tuỳ chọn: dán link "Chia sẻ" từ Google Maps (maps.app.goo.gl / maps.google.com).
+   * Nếu có chuỗi không rỗng, nút mở Maps sẽ dùng link này thay vì tọa độ.
+   */
+  mapsDirectUrl: '',
   /** Số gọi / tel (không dấu chấm) */
   hotline: '0932042912',
   /** Hiển thị cho người xem */
