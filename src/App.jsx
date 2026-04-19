@@ -21,6 +21,7 @@ import { AdminContent } from './pages/admin/AdminContent'
 import { IntroPage } from './pages/IntroPage'
 import { GuidesPage } from './pages/GuidesPage'
 import { FloatingContactRails } from './components/FloatingContactRails'
+import { BlockAdminFromAuthForms, CustomerOnlyRoute } from './components/RouteGuards'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -38,16 +39,33 @@ export default function App() {
       <CartProvider>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/shop" element={<HomePage />} />
-          <Route path="/gioi-thieu" element={<IntroPage />} />
-          <Route path="/huong-dan" element={<GuidesPage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/don-mua/:id" element={<OrderDetailPage />} />
+          <Route element={<CustomerOnlyRoute />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/shop" element={<HomePage />} />
+            <Route path="/gioi-thieu" element={<IntroPage />} />
+            <Route path="/huong-dan" element={<GuidesPage />} />
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/don-mua/:id" element={<OrderDetailPage />} />
+          </Route>
+
+          <Route
+            path="/login"
+            element={
+              <BlockAdminFromAuthForms>
+                <LoginPage />
+              </BlockAdminFromAuthForms>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <BlockAdminFromAuthForms>
+                <SignupPage />
+              </BlockAdminFromAuthForms>
+            }
+          />
 
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="orders" replace />} />

@@ -138,11 +138,10 @@ export function Hero() {
                     Thai Vũ · Phụ kiện & phụ tùng xe máy
                   </p>
                   <h1 className="mt-2 max-w-xl text-2xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
-                    Chính hãng · Giao nhanh · Tư vấn Zalo tức thì
+                    Chính hãng · Giao nhanh · Tư vấn Zalo nhanh
                   </h1>
                   <p className="mt-3 max-w-md text-sm text-white/85 sm:text-base">
-                    Hơn 700 SKU Vespa, Honda, Yamaha, Piaggio — lọc nâng cao theo dòng xe,
-                    danh mục và mức giá.
+                    Rất nhiều mặt hàng dành cho anh em chơi xe và nhiều mức giá.
                   </p>
                 </div>
               )}

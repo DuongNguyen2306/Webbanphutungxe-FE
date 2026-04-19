@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 const linkClass = ({ isActive }) =>
@@ -8,13 +8,9 @@ const linkClass = ({ isActive }) =>
       : 'text-gray-600 hover:bg-white hover:text-gray-900'
   }`
 
-const quickLinkClass = ({ isActive }) =>
-  `text-sm font-semibold transition-colors ${
-    isActive ? 'text-brand' : 'text-gray-600 hover:text-gray-900'
-  }`
-
 export function AdminLayout() {
-  const { user, loading } = useAuth()
+  const { user, loading, logout } = useAuth()
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -60,13 +56,16 @@ export function AdminLayout() {
               Nội dung
             </NavLink>
           </nav>
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `ml-auto ${quickLinkClass({ isActive })}`}
+          <button
+            type="button"
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+            }}
+            className="ml-auto text-sm font-semibold text-gray-600 hover:text-gray-900"
           >
-            Về cửa hàng
-          </NavLink>
+            Đăng xuất
+          </button>
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 py-8">

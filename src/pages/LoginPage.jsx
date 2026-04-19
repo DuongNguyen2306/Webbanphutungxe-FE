@@ -22,7 +22,7 @@ export function LoginPage() {
     try {
       const { data } = await api.post('/api/auth/login', { login, password })
       loginWithToken(data.token, data.user)
-      navigate('/')
+      navigate(data.user?.role === 'admin' ? '/admin' : '/')
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại.')
     } finally {

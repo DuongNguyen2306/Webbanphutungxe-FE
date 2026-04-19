@@ -15,14 +15,16 @@ const supportLinks = [
   { href: '#', label: 'Bảo hành' },
 ]
 
-const STORE_PREVIEW_IMAGE =
-  'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=900&q=80'
-
 export function SiteFooter() {
   const [email, setEmail] = useState('')
   const telHref = `tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`
-  const addressShort = '15F đường 4F, Tân Thuận, Quận 7'
-  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SHOP_INFO.address)}`
+  /** Cùng nội dung với bản đồ / liên kết Google Maps */
+  const addressDisplay = SHOP_INFO.address
+  const mapsQuery = encodeURIComponent(SHOP_INFO.address)
+  /** Mở app / trang Maps đầy đủ, ghim đúng địa chỉ cửa hàng */
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+  /** Bản đồ nhúng Google (không cần API key) — cùng địa chỉ với mapsHref */
+  const mapEmbedSrc = `https://www.google.com/maps?q=${mapsQuery}&output=embed&z=17&hl=vi`
   const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[Thai Vũ] Tư vấn giúp mình với nhé.')}`
 
   return (
@@ -117,7 +119,7 @@ export function SiteFooter() {
             </a>
             <p className="flex items-start gap-2 text-zinc-300">
               <MapPin className="mt-0.5 size-4 shrink-0 text-brand" />
-              {addressShort}
+              {addressDisplay}
             </p>
             <a
               href={mapsHref}
@@ -128,19 +130,23 @@ export function SiteFooter() {
               Mở Google Maps
             </a>
           </div>
-          <a
-            href={mapsHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group mt-4 block overflow-hidden rounded-xl border border-zinc-800"
-          >
-            <img
-              src={STORE_PREVIEW_IMAGE}
-              alt="Xem vị trí cửa hàng trên Google Maps"
-              className="h-32 w-full object-cover transition duration-300 group-hover:scale-105"
+          <div className="group relative mt-4 h-32 w-full overflow-hidden rounded-xl border border-zinc-800">
+            <iframe
+              title="Vị trí cửa hàng Thai Vũ trên Google Maps"
+              src={mapEmbedSrc}
+              className="pointer-events-none h-full w-full min-h-32 border-0 transition duration-300 group-hover:brightness-110"
               loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
             />
-          </a>
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute inset-0 z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4AF37]"
+              aria-label={`Mở Google Maps: ${SHOP_INFO.address}`}
+            />
+          </div>
         </div>
 
         <div>

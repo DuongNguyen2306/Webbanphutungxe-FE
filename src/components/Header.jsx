@@ -176,9 +176,9 @@ export function Header({
       <div className="bg-brand px-4 py-1 text-[11px] font-medium text-white/90 xl:px-10">
         <div className="mx-auto w-full max-w-[1600px] text-center sm:text-left">
           <span className="hidden sm:inline">
-            Miễn phí vận chuyển đơn từ 500k · Hàng chính hãng · Hỗ trợ Zalo 24/7
+            Giao hàng toàn quốc · Hàng chính hãng · Tư vấn Zalo nhanh
           </span>
-          <span className="sm:hidden">Hỗ trợ Zalo 24/7 · Giao nhanh toàn quốc</span>
+          <span className="sm:hidden">Giao toàn quốc · Tư vấn Zalo nhanh</span>
         </div>
       </div>
 
