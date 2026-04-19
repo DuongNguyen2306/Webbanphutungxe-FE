@@ -28,7 +28,7 @@ export function ProductCard({
 
   const inner = (
     <>
-      <div className={`relative overflow-hidden bg-gray-100 ${aspectClass}`}>
+      <div className={`relative shrink-0 overflow-hidden bg-gray-100 ${aspectClass}`}>
         <img
           src={image}
           alt=""
@@ -49,12 +49,18 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-2.5 sm:p-3">
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-left text-xs font-medium leading-snug text-ink">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2.5 sm:p-3">
+        <h3
+          className={`shrink-0 text-left text-xs font-medium leading-snug text-ink ${
+            isShelf
+              ? 'line-clamp-3 h-[4.35rem] sm:h-[4.65rem]'
+              : 'line-clamp-2 h-11 sm:h-12'
+          }`}
+        >
           {name}
         </h3>
 
-        <div className="mt-auto space-y-0.5 text-left">
+        <div className="mt-auto shrink-0 space-y-0.5 text-left">
           {priceFrom && isAvailable && (
             <p className="text-[10px] font-semibold text-gray-500">Giá từ:</p>
           )}
@@ -74,13 +80,16 @@ export function ProductCard({
   )
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
+    <article className="group flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
       {id ? (
-        <Link to={`/product/${id}`} className="block min-h-0 no-underline">
+        <Link
+          to={`/product/${id}`}
+          className="flex min-h-0 flex-1 flex-col no-underline outline-none"
+        >
           {inner}
         </Link>
       ) : (
-        inner
+        <div className="flex min-h-0 flex-1 flex-col">{inner}</div>
       )}
 
       {!isShelf ? (

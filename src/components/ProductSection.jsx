@@ -14,7 +14,7 @@ export function ProductSection({
     <section className="w-full">
       <SectionDivider brandName={brandDisplayName} />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
+      <div className="grid min-h-0 grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
         {products.map((p) => (
           <ProductCard
             key={p.id}

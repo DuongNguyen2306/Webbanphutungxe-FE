@@ -1267,20 +1267,20 @@ export function AdminProductForm() {
                       Xóa dòng
                     </button>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                    <div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+                    <div className="min-w-0">
                       <label className="mb-1 flex items-center text-[11px] font-semibold text-gray-600">
                         Mã SKU
                         <QuickGuide text="Là mã nội bộ để phân biệt từng loại hàng (in tem, tra kho). Có thể bấm ↻ để máy gợi ý mã từ tên sản phẩm + màu/size — bạn vẫn được sửa tay." />
                       </label>
-                      <div className="flex gap-1">
+                      <div className="flex min-w-0 gap-1">
                         <input
                           placeholder="SKU"
                           value={row.sku}
                           onChange={(e) =>
                             updateRow(i, { sku: e.target.value, skuManuallyEdited: true })
                           }
-                          className={`w-full rounded-lg border bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm ${
+                          className={`min-w-0 flex-1 rounded-lg border bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm ${
                             duplicatedSkuSet.has(String(row.sku || '').trim().toUpperCase())
                               ? 'border-red-400'
                               : 'border-gray-300'
@@ -1295,7 +1295,7 @@ export function AdminProductForm() {
                               skuManuallyEdited: false,
                             })
                           }
-                          className="rounded-lg border border-gray-300 px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                          className="shrink-0 rounded-lg border border-gray-300 px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
                         >
                           ↻
                         </button>
@@ -1309,24 +1309,24 @@ export function AdminProductForm() {
                       placeholder="Giá *"
                       value={row.price}
                       onChange={(e) => updateRow(i, { price: e.target.value })}
-                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                     />
                     <input
                       type="number"
                       placeholder="Giá gốc"
                       value={row.originalPrice}
                       onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
-                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                     />
                     <input
                       type="number"
                       placeholder="Không giới hạn số lượng"
                       value={row.stock}
                       onChange={(e) => updateRow(i, { stock: e.target.value })}
-                      className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                       title="Để trống = bán không giới hạn số lượng trong kho"
                     />
-                    <label className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700">
+                    <label className="flex min-h-[34px] w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700">
                       <input
                         type="checkbox"
                         checked={row.isAvailable}

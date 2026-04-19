@@ -305,7 +305,7 @@ export function AdminBanners() {
           </label>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+        <div className="overflow-visible rounded-lg border border-gray-200 bg-gray-50/60 p-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-bold text-gray-800">Các dòng chữ trên banner</p>
             <button
@@ -325,87 +325,131 @@ export function AdminBanners() {
           <p className="mb-3 text-xs text-gray-500">
             Mẹo: dùng "Tiêu đề lớn" cho dòng chính, "Mô tả" cho nội dung ngắn, "Nút kêu gọi" cho chữ trên nút.
           </p>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-visible">
             {form.textLayers.map((layer, index) => (
-              <div key={`new-layer-${index}`} className="rounded-lg border border-gray-200 bg-white p-2.5">
-                <div className="grid gap-2 sm:grid-cols-5">
-                  <select
-                    value={layer.level}
-                    onChange={(e) => updateFormLayer(index, { level: e.target.value })}
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-                  >
-                    {LAYER_LEVEL_OPTIONS.map((lv) => (
-                      <option key={lv} value={lv}>
-                        {LAYER_LEVEL_LABELS[lv]}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={layer.text}
-                    onChange={(e) => updateFormLayer(index, { text: e.target.value })}
-                    placeholder="Nội dung text"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm sm:col-span-2"
-                  />
-                  <input
-                    type="number"
-                    value={layer.order}
-                    onChange={(e) =>
-                      updateFormLayer(index, { order: Number(e.target.value) || index + 1 })
-                    }
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
-                  />
-                  <label className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-2 py-1.5 text-sm font-semibold text-gray-700">
+              <div
+                key={`new-layer-${index}`}
+                className="relative z-0 min-w-0 overflow-visible rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+              >
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,4.5rem)_auto] lg:gap-x-3">
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      Kiểu dòng
+                    </label>
+                    <select
+                      value={layer.level}
+                      onChange={(e) => updateFormLayer(index, { level: e.target.value })}
+                      className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 shadow-sm"
+                    >
+                      {LAYER_LEVEL_OPTIONS.map((lv) => (
+                        <option key={lv} value={lv}>
+                          {LAYER_LEVEL_LABELS[lv]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      Nội dung
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={layer.isActive}
-                      onChange={(e) => updateFormLayer(index, { isActive: e.target.checked })}
+                      value={layer.text}
+                      onChange={(e) => updateFormLayer(index, { text: e.target.value })}
+                      placeholder="Nội dung text"
+                      className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 shadow-sm"
                     />
-                    Hiện dòng này
-                  </label>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      Thứ tự
+                    </label>
+                    <input
+                      type="number"
+                      value={layer.order}
+                      onChange={(e) =>
+                        updateFormLayer(index, { order: Number(e.target.value) || index + 1 })
+                      }
+                      className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 shadow-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      Hiển thị
+                    </span>
+                    <label className="flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm">
+                      <input
+                        type="checkbox"
+                        checked={layer.isActive}
+                        onChange={(e) => updateFormLayer(index, { isActive: e.target.checked })}
+                      />
+                      <span className="min-w-0 truncate">Hiện dòng này</span>
+                    </label>
+                  </div>
                 </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
-                  <input
-                    value={layer.style.color}
-                    onChange={(e) => updateFormLayer(index, { style: { color: e.target.value } })}
-                    placeholder="Màu chữ (#fff)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.fontSize}
-                    onChange={(e) => updateFormLayer(index, { style: { fontSize: e.target.value } })}
-                    placeholder="Cỡ chữ (48px)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.fontWeight}
-                    onChange={(e) => updateFormLayer(index, { style: { fontWeight: e.target.value } })}
-                    placeholder="Độ đậm (700)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.align}
-                    onChange={(e) => updateFormLayer(index, { style: { align: e.target.value } })}
-                    placeholder="Canh chữ (left/center/right)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.x}
-                    onChange={(e) => updateFormLayer(index, { style: { x: e.target.value } })}
-                    placeholder="Cách lề trái (8%)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.y}
-                    onChange={(e) => updateFormLayer(index, { style: { y: e.target.value } })}
-                    placeholder="Cách mép trên (20%)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
-                  <input
-                    value={layer.style.maxWidth}
-                    onChange={(e) => updateFormLayer(index, { style: { maxWidth: e.target.value } })}
-                    placeholder="Độ rộng khối chữ (580px)"
-                    className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
-                  />
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Màu chữ</label>
+                    <input
+                      value={layer.style.color}
+                      onChange={(e) => updateFormLayer(index, { style: { color: e.target.value } })}
+                      placeholder="#ffffff"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Cỡ chữ</label>
+                    <input
+                      value={layer.style.fontSize}
+                      onChange={(e) => updateFormLayer(index, { style: { fontSize: e.target.value } })}
+                      placeholder="48px"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Độ đậm</label>
+                    <input
+                      value={layer.style.fontWeight}
+                      onChange={(e) => updateFormLayer(index, { style: { fontWeight: e.target.value } })}
+                      placeholder="700"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Canh lề</label>
+                    <input
+                      value={layer.style.align}
+                      onChange={(e) => updateFormLayer(index, { style: { align: e.target.value } })}
+                      placeholder="left / center"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Lề trái / X</label>
+                    <input
+                      value={layer.style.x}
+                      onChange={(e) => updateFormLayer(index, { style: { x: e.target.value } })}
+                      placeholder="8%"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Lề trên / Y</label>
+                    <input
+                      value={layer.style.y}
+                      onChange={(e) => updateFormLayer(index, { style: { y: e.target.value } })}
+                      placeholder="20%"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-600">Rộng tối đa</label>
+                    <input
+                      value={layer.style.maxWidth}
+                      onChange={(e) => updateFormLayer(index, { style: { maxWidth: e.target.value } })}
+                      placeholder="580px"
+                      className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                    />
+                  </div>
                 </div>
                 <div className="mt-2 flex justify-end gap-1">
                   <button type="button" onClick={() => moveFormLayer(index, 'up')} className="rounded border border-gray-300 p-1 text-gray-700 hover:bg-gray-50">
@@ -442,11 +486,11 @@ export function AdminBanners() {
       {loading ? (
         <p className="text-sm text-gray-500">Đang tải banner...</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sortedBanners.map((item) => (
             <article
               key={item.id}
-              className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+              className="min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
             >
               <div className="aspect-[16/7] overflow-hidden rounded-lg bg-gray-100">
                 {item.imageUrl ? (
@@ -537,49 +581,148 @@ export function AdminBanners() {
                     </button>
                   </div>
                 </div>
-                <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                <div className="space-y-3 overflow-visible rounded-lg border border-gray-200 bg-gray-50 p-2">
                   {(item.textLayers || []).map((layer, index) => (
-                    <div key={`${item.id}-layer-${index}`} className="rounded border border-gray-200 bg-white p-2">
-                      <div className="grid gap-2 sm:grid-cols-5">
-                        <select
-                          value={layer.level}
-                          onChange={(e) => updateItemLayer(item.id, index, { level: e.target.value })}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs"
-                        >
-                          {LAYER_LEVEL_OPTIONS.map((lv) => (
-                            <option key={lv} value={lv}>
-                              {LAYER_LEVEL_LABELS[lv]}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          value={layer.text}
-                          onChange={(e) => updateItemLayer(item.id, index, { text: e.target.value })}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs sm:col-span-2"
-                        />
-                        <input
-                          type="number"
-                          value={layer.order}
-                          onChange={(e) => updateItemLayer(item.id, index, { order: Number(e.target.value) || index + 1 })}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs"
-                        />
-                        <label className="inline-flex items-center gap-2 rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700">
+                    <div
+                      key={`${item.id}-layer-${index}`}
+                      className="relative z-0 min-w-0 overflow-visible rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,4.5rem)_auto] lg:gap-x-3">
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                            Kiểu dòng
+                          </label>
+                          <select
+                            value={layer.level}
+                            onChange={(e) => updateItemLayer(item.id, index, { level: e.target.value })}
+                            className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          >
+                            {LAYER_LEVEL_OPTIONS.map((lv) => (
+                              <option key={lv} value={lv}>
+                                {LAYER_LEVEL_LABELS[lv]}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                            Nội dung
+                          </label>
                           <input
-                            type="checkbox"
-                            checked={layer.isActive}
-                            onChange={(e) => updateItemLayer(item.id, index, { isActive: e.target.checked })}
+                            value={layer.text}
+                            onChange={(e) => updateItemLayer(item.id, index, { text: e.target.value })}
+                            className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
                           />
-                          Hiện
-                        </label>
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                            Thứ tự
+                          </label>
+                          <input
+                            type="number"
+                            value={layer.order}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, {
+                                order: Number(e.target.value) || index + 1,
+                              })
+                            }
+                            className="h-9 w-full min-w-0 max-w-full rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                            Hiển thị
+                          </span>
+                          <label className="flex h-9 w-full min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 shadow-sm">
+                            <input
+                              type="checkbox"
+                              checked={layer.isActive}
+                              onChange={(e) =>
+                                updateItemLayer(item.id, index, { isActive: e.target.checked })
+                              }
+                            />
+                            <span className="min-w-0 truncate">Hiện</span>
+                          </label>
+                        </div>
                       </div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
-                        <input value={layer.style?.color || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { color: e.target.value } })} placeholder="Màu chữ" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.fontSize || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { fontSize: e.target.value } })} placeholder="Cỡ chữ" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.fontWeight || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { fontWeight: e.target.value } })} placeholder="Độ đậm" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.align || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { align: e.target.value } })} placeholder="Canh chữ" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.x || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { x: e.target.value } })} placeholder="Lề trái" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.y || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { y: e.target.value } })} placeholder="Lề trên" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
-                        <input value={layer.style?.maxWidth || ''} onChange={(e) => updateItemLayer(item.id, index, { style: { maxWidth: e.target.value } })} placeholder="Độ rộng" className="rounded border border-gray-300 px-2 py-1 text-[11px]" />
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Màu chữ</label>
+                          <input
+                            value={layer.style?.color || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { color: e.target.value } })
+                            }
+                            placeholder="#fff"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Cỡ chữ</label>
+                          <input
+                            value={layer.style?.fontSize || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { fontSize: e.target.value } })
+                            }
+                            placeholder="48px"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Độ đậm</label>
+                          <input
+                            value={layer.style?.fontWeight || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { fontWeight: e.target.value } })
+                            }
+                            placeholder="700"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Canh lề</label>
+                          <input
+                            value={layer.style?.align || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { align: e.target.value } })
+                            }
+                            placeholder="center"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Lề trái / X</label>
+                          <input
+                            value={layer.style?.x || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { x: e.target.value } })
+                            }
+                            placeholder="8%"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Lề trên / Y</label>
+                          <input
+                            value={layer.style?.y || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { y: e.target.value } })
+                            }
+                            placeholder="20%"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="mb-1 block text-[10px] font-semibold text-gray-600">Rộng tối đa</label>
+                          <input
+                            value={layer.style?.maxWidth || ''}
+                            onChange={(e) =>
+                              updateItemLayer(item.id, index, { style: { maxWidth: e.target.value } })
+                            }
+                            placeholder="580px"
+                            className="h-9 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-900 shadow-sm"
+                          />
+                        </div>
                       </div>
                       <div className="mt-2 flex justify-end gap-1">
                         <button type="button" onClick={() => moveItemLayer(item.id, index, 'up')} className="rounded border border-gray-300 p-1 text-gray-700 hover:bg-gray-50">

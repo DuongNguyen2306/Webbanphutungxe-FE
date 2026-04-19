@@ -251,7 +251,7 @@ export function Header({
                   {categories.map((category) => (
                     <Link
                       key={category.id}
-                      to={`/shop?category=${encodeURIComponent(category.name)}`}
+                      to={`/shop?categoryId=${encodeURIComponent(category.id)}`}
                       onClick={() => setDesktopMenuOpen(false)}
                       className="block w-full rounded-lg px-2 py-2 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50 hover:text-brand"
                     >
