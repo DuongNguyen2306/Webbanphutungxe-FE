@@ -15,13 +15,17 @@ import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminProducts } from './pages/admin/AdminProducts'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
+import { AdminVariantPricesPage } from './pages/admin/AdminVariantPricesPage'
 import { AdminInventory } from './pages/admin/AdminInventory'
 import { AdminBanners } from './pages/admin/AdminBanners'
 import { AdminContent } from './pages/admin/AdminContent'
 import { IntroPage } from './pages/IntroPage'
 import { GuidesPage } from './pages/GuidesPage'
+import { NewsPage } from './pages/NewsPage'
 import { FloatingContactRails } from './components/FloatingContactRails'
 import { BlockAdminFromAuthForms, CustomerOnlyRoute } from './components/RouteGuards'
+import { NewsEditorPage } from './pages/admin/NewsEditorPage'
+import { GlobalUiToast } from './components/GlobalUiToast'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -44,6 +48,7 @@ export default function App() {
             <Route path="/shop" element={<HomePage />} />
             <Route path="/gioi-thieu" element={<IntroPage />} />
             <Route path="/huong-dan" element={<GuidesPage />} />
+            <Route path="/tin-tuc" element={<NewsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/profile" element={<ProfilePage />} />
@@ -75,11 +80,16 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id/edit" element={<AdminProductForm />} />
+            <Route path="products/:id/prices" element={<AdminVariantPricesPage />} />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="banners" element={<AdminBanners />} />
             <Route path="content" element={<AdminContent />} />
+            <Route path="content/news" element={<NewsEditorPage mode="list" />} />
+            <Route path="content/news/new" element={<NewsEditorPage mode="create" />} />
+            <Route path="content/news/:newsId/edit" element={<NewsEditorPage mode="edit" />} />
           </Route>
         </Routes>
+        <GlobalUiToast />
         <FloatingContactRails />
       </CartProvider>
     </AuthProvider>

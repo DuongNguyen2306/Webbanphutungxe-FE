@@ -21,6 +21,7 @@ import { useProductDetail } from '../hooks/useProductDetail'
 import { ProductReviewsSection } from '../components/ProductReviewsSection'
 import { ProductRelatedShelf } from '../components/ProductRelatedShelf'
 import { useAuth } from '../context/AuthContext'
+import { showUiToast } from '../utils/uiToast'
 
 function ProductDescriptionBody({ text }) {
   const looksLikeHtml = /<\/?[a-z][\s\S]*?>/i.test(text)
@@ -228,6 +229,7 @@ function ProductDetailBody({
       }),
     ).finally(() => {
       setAddCartFeedback((prev) => ({ visible: true, seq: prev.seq + 1 }))
+      showUiToast('Đã thêm sản phẩm vào giỏ hàng')
     })
   }
 

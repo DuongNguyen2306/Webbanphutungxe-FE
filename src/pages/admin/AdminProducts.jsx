@@ -119,6 +119,12 @@ export function AdminProducts() {
                 >
                   Sửa
                 </Link>
+                <Link
+                  to={`/admin/products/${p._id}/prices`}
+                  className="rounded-lg border border-brand/30 bg-brand/5 px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand/10"
+                >
+                  Chỉnh giá
+                </Link>
                 <button
                   type="button"
                   onClick={() => removeProduct(p._id, p.name)}

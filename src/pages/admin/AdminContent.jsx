@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FilePenLine, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   createArticle,
   getAdminArticles,
@@ -122,6 +123,12 @@ export function AdminContent() {
         <p className="mt-1 text-sm text-gray-500">
           Quản lý trang Giới thiệu và Hướng dẫn bằng trình soạn thảo trực quan.
         </p>
+        <div className="mt-3 inline-flex rounded-lg border border-gray-200 bg-white p-1 text-xs font-bold">
+          <span className="rounded-md bg-brand px-3 py-1.5 text-white">Giới thiệu / Hướng dẫn</span>
+          <Link to="/admin/content/news" className="rounded-md px-3 py-1.5 text-gray-700 hover:bg-gray-100">
+            Tin tức
+          </Link>
+        </div>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">

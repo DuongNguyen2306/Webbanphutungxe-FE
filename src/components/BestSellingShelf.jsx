@@ -96,6 +96,7 @@ export function BestSellingShelf({ products = [] }) {
                     discountTag={p.discountTag}
                     image={p.image}
                     isAvailable={p.isAvailable}
+                    variants={p.variants}
                     priceFrom={Boolean(p.variants?.length > 1)}
                     variant="shelf"
                   />

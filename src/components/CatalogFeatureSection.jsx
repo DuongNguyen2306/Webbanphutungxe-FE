@@ -29,6 +29,7 @@ export function CatalogFeatureSection({
             discountTag={p.discountTag}
             image={p.image}
             isAvailable={p.isAvailable}
+            variants={p.variants}
             priceFrom={p.priceFrom}
             imageAspect={imageAspect}
           />

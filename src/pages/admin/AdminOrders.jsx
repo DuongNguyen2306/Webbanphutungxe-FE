@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import {
   FALLBACK_STATUS_OPTIONS,
@@ -10,10 +10,21 @@ import {
 } from '../../constants/orderStatus'
 import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
-import { formatVnd } from '../../utils/format'
+import { AdminOrderStatusTabs } from '../../components/admin/AdminOrderStatusTabs'
+import { AdminOrderList } from '../../components/admin/AdminOrderList'
 import { parseOrderListResponse } from '../../utils/orderListResponse'
+import { normalizeSearch } from '../../utils/string'
 
 const PAGE_LIMIT = 10
+
+const ORDER_FILTER_TABS = [
+  { id: 'ALL', label: 'Tất cả', statusQuery: '' },
+  { id: 'WAITING_CONFIRM', label: 'Chờ xác nhận', statusQuery: 'Chờ xác nhận' },
+  { id: 'WAITING_PICKUP', label: 'Chờ lấy hàng', statusQuery: 'Chờ lấy hàng' },
+  { id: 'SHIPPING', label: 'Đang giao', statusQuery: 'Đang giao' },
+  { id: 'COMPLETED', label: 'Đã giao', statusQuery: 'Đã giao' },
+  { id: 'CANCELLED', label: 'Hủy', statusQuery: 'Hủy' },
+]
 
 const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
   'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
@@ -30,18 +41,41 @@ function getStatusUpdateErrorMessage(err) {
   return 'Có lỗi hệ thống. Vui lòng thử lại.'
 }
 
+function orderMatchesSearch(order, rawQuery) {
+  const q = normalizeSearch(String(rawQuery || '').trim())
+  if (!q) return true
+  const orderId = String(order?._id || '')
+  const shortId = orderId ? `#${orderId.slice(-8)}` : ''
+  const fields = [
+    orderId,
+    shortId,
+    order?.contact?.name,
+    order?.contact?.phone,
+    order?.contact?.email,
+    order?.user?.phone,
+    order?.user?.email,
+    ...(Array.isArray(order?.items) ? order.items.map((it) => it?.name) : []),
+  ]
+    .map((x) => String(x || ''))
+    .join(' ')
+  return normalizeSearch(fields).includes(q)
+}
+
 export function AdminOrders() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [loading, setLoading] = useState(true)
+  const [countsLoading, setCountsLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [ordersTotal, setOrdersTotal] = useState(null)
+  const [tabCounts, setTabCounts] = useState({})
   const [hasNextPage, setHasNextPage] = useState(false)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [activeTabId, setActiveTabId] = useState('ALL')
   const [error, setError] = useState('')
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState({ message: '', tone: 'success' })
   const [updatingId, setUpdatingId] = useState('')
   const [cancelModal, setCancelModal] = useState({
     open: false,
@@ -62,41 +96,91 @@ export function AdminOrders() {
   }, [ordersTotal])
 
   useEffect(() => {
-    if (!toast) return undefined
-    const t = setTimeout(() => setToast(''), 2500)
+    if (!toast.message) return undefined
+    const t = setTimeout(
+      () => setToast({ message: '', tone: 'success' }),
+      2800,
+    )
     return () => clearTimeout(t)
-  }, [toast])
+  }, [toast.message])
+
+  const activeStatusQuery = useMemo(
+    () =>
+      ORDER_FILTER_TABS.find((tab) => tab.id === activeTabId)?.statusQuery || '',
+    [activeTabId],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const safePage = Math.max(1, page)
-    const skip = (safePage - 1) * PAGE_LIMIT
-    const params = { limit: PAGE_LIMIT, skip }
     const q = search.trim()
-    if (q) params.search = q
+    const searching = Boolean(q)
+    const safePage = Math.max(1, page)
+    const skip = searching ? 0 : (safePage - 1) * PAGE_LIMIT
+    const params = {
+      limit: searching ? 500 : PAGE_LIMIT,
+      skip,
+    }
+    if (q) {
+      // Hỗ trợ nhiều backend naming conventions
+      params.search = q
+      params.q = q
+      params.keyword = q
+    }
+    if (activeStatusQuery) params.status = activeStatusQuery
     try {
       const { data } = await api.get('/api/admin/orders', { params })
       const { items, total } = parseOrderListResponse(data)
-      setOrders(items)
-      setOrdersTotal(total)
-      const hasNext =
-        total != null && Number.isFinite(total)
-          ? skip + items.length < total
-          : items.length === PAGE_LIMIT
-      setHasNextPage(hasNext)
+      const filteredItems = searching ? items.filter((order) => orderMatchesSearch(order, q)) : items
+      setOrders(filteredItems)
+      if (searching) {
+        setOrdersTotal(filteredItems.length)
+        setHasNextPage(false)
+      } else {
+        setOrdersTotal(total)
+        const hasNext =
+          total != null && Number.isFinite(total)
+            ? skip + items.length < total
+            : items.length === PAGE_LIMIT
+        setHasNextPage(hasNext)
+      }
     } catch (err) {
       setOrders([])
       setOrdersTotal(null)
       setHasNextPage(false)
-      setError(
+      const message =
         err.response?.data?.message ||
-          'Không tải được đơn hàng từ API /api/admin/orders.',
-      )
+        'Không tải được đơn hàng từ API /api/admin/orders.'
+      setError(message)
+      setToast({ message, tone: 'error' })
     } finally {
       setLoading(false)
     }
-  }, [page, search])
+  }, [activeStatusQuery, page, search])
+
+  const loadTabCounts = useCallback(async () => {
+    setCountsLoading(true)
+    const q = search.trim()
+    try {
+      const entries = await Promise.all(
+        ORDER_FILTER_TABS.map(async (tab) => {
+          const params = { limit: 1, skip: 0 }
+          if (q) params.search = q
+          if (tab.statusQuery) params.status = tab.statusQuery
+          try {
+            const { data } = await api.get('/api/admin/orders', { params })
+            const { items, total } = parseOrderListResponse(data)
+            return [tab.id, total != null ? total : items.length]
+          } catch {
+            return [tab.id, null]
+          }
+        }),
+      )
+      setTabCounts(Object.fromEntries(entries))
+    } finally {
+      setCountsLoading(false)
+    }
+  }, [search])
 
   async function loadStatusOptions() {
     try {
@@ -131,6 +215,10 @@ export function AdminOrders() {
     load()
   }, [load])
 
+  useEffect(() => {
+    loadTabCounts()
+  }, [loadTabCounts])
+
   async function commitStatusChange(id, normalizedStatus, note = '') {
     const previous = orders.find((order) => order._id === id)
     if (!previous) return false
@@ -160,7 +248,9 @@ export function AdminOrders() {
             : order,
         ),
       )
-      setToast('Cập nhật trạng thái thành công')
+      setToast({ message: 'Cập nhật trạng thái thành công', tone: 'success' })
+      await load()
+      loadTabCounts()
       return true
     } catch (err) {
       const status = err?.response?.status
@@ -169,7 +259,10 @@ export function AdminOrders() {
       }
       setError(getStatusUpdateErrorMessage(err))
       if (!status || status >= 500) {
-        setToast('Không thể cập nhật trạng thái. Vui lòng thử lại.')
+        setToast({
+          message: 'Không thể cập nhật trạng thái. Vui lòng thử lại.',
+          tone: 'error',
+        })
       }
       return false
     } finally {
@@ -220,7 +313,12 @@ export function AdminOrders() {
       setCancelModalError('Vui lòng nhập lý do hủy đơn.')
       return
     }
-    await commitStatusChange(cancelModal.orderId, ORDER_STATUS.CANCELLED, reason)
+    const ok = await commitStatusChange(
+      cancelModal.orderId,
+      ORDER_STATUS.CANCELLED,
+      reason,
+    )
+    if (!ok) return
     setCancelModal({ open: false, orderId: '', reason: '' })
     setCancelModalError('')
   }
@@ -283,6 +381,18 @@ export function AdminOrders() {
         </div>
       </div>
 
+      <AdminOrderStatusTabs
+        tabs={ORDER_FILTER_TABS}
+        activeTabId={activeTabId}
+        counts={tabCounts}
+        loading={countsLoading}
+        onChange={(nextTabId) => {
+          if (nextTabId === activeTabId) return
+          setActiveTabId(nextTabId)
+          setPage(1)
+        }}
+      />
+
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           type="search"
@@ -295,7 +405,7 @@ export function AdminOrders() {
               setSearch(searchInput.trim())
             }
           }}
-          placeholder="Tìm mã đơn, SĐT, email, tên khách…"
+          placeholder="Tìm mã đơn, SĐT, tên sản phẩm..."
           className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
           aria-label="Tìm đơn hàng"
         />
@@ -338,129 +448,14 @@ export function AdminOrders() {
           </button>
         </div>
       ) : null}
-      <ul className="mt-6 space-y-4">
-        {orders.map((o) => (
-          (() => {
-            const currentStatus = normalizeOrderStatus(o.status)
-            const ageMs = Date.now() - new Date(o.createdAt).getTime()
-            const urgent = currentStatus === ORDER_STATUS.PENDING && ageMs > 30 * 60 * 1000
-            const shippingHighlight = currentStatus === ORDER_STATUS.SHIPPING
-            return (
-          <li
-            key={o._id}
-            className={`rounded-xl border p-5 shadow-sm ${
-              urgent
-                ? 'animate-pulse border-red-200 bg-red-50/70'
-                : shippingHighlight
-                  ? 'border-emerald-300 bg-emerald-50/40 ring-1 ring-emerald-100'
-                  : 'border-gray-200 bg-white'
-            }`}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-xs text-gray-400">
-                  #{String(o._id).slice(-8)}
-                </p>
-                <p className="mt-2 text-xl font-bold text-brand">
-                  {formatVnd(o.totalAmount)}
-                </p>
-                <p className="mt-2 text-sm text-gray-700">
-                  <span className="font-medium text-gray-500">Liên hệ:</span>{' '}
-                  {o.contact?.name || '—'} · {o.contact?.email || '—'} ·{' '}
-                  {o.contact?.phone || '—'}
-                </p>
-                {o.user ? (
-                  <p className="mt-1 text-xs text-gray-500">
-                    User: {o.user.email || o.user.phone || o.user._id}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-gray-500">Khách vãng lai</p>
-                )}
-                {urgent ? (
-                  <p className="mt-2 text-xs font-bold text-red-700">
-                    ⚠️ Cần xử lý gấp
-                  </p>
-                ) : null}
-                {currentStatus === ORDER_STATUS.SHIPPING ||
-                currentStatus === ORDER_STATUS.CONFIRMED ||
-                currentStatus === ORDER_STATUS.COMPLETED ? (
-                  o.delivery?.carrierName || o.delivery?.trackingNumber ? (
-                    <p className="mt-2 rounded-lg border border-emerald-200 bg-white/90 px-2.5 py-1.5 text-xs text-emerald-900">
-                      <span className="font-bold">Vận chuyển:</span>{' '}
-                      {[o.delivery?.carrierName, o.delivery?.trackingNumber].filter(Boolean).join(' · ')}
-                    </p>
-                  ) : currentStatus === ORDER_STATUS.SHIPPING ? (
-                    <p className="mt-2 text-xs font-medium text-amber-800">
-                      Chưa có mã vận đơn — mở chi tiết đơn để nhập đơn vị và mã.
-                    </p>
-                  ) : null
-                ) : null}
-              </div>
-              <div className="shrink-0">
-                <label className="sr-only" htmlFor={`status-${o._id}`}>
-                  Trạng thái đơn
-                </label>
-                <select
-                  id={`status-${o._id}`}
-                  value={currentStatus}
-                  onChange={(e) => updateStatus(o._id, e.target.value, currentStatus)}
-                  disabled={updatingId === o._id}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                >
-                  {statusOptions
-                    .filter(
-                      (opt) =>
-                        opt.code !== ORDER_STATUS.COMPLETED ||
-                        currentStatus === ORDER_STATUS.COMPLETED,
-                    )
-                    .map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.label || ORDER_STATUS_LABELS[opt.code] || opt.code}
-                    </option>
-                    ))}
-                </select>
-                {updatingId === o._id ? (
-                  <p className="mt-1 text-xs text-gray-500">Đang cập nhật...</p>
-                ) : null}
-                {currentStatus === ORDER_STATUS.SHIPPING ? (
-                  <button
-                    type="button"
-                    onClick={() => openCompleteFlow(o._id, currentStatus)}
-                    disabled={updatingId === o._id}
-                    className="mt-2 block w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Hoàn thành
-                  </button>
-                ) : null}
-                <Link
-                  to={`/admin/orders/${o._id}`}
-                  className="mt-2 inline-block text-xs font-bold text-brand hover:underline"
-                >
-                  Xem chi tiết
-                </Link>
-              </div>
-            </div>
-            <ul className="mt-4 space-y-1.5 border-t border-gray-100 pt-4 text-sm text-gray-700">
-              {o.items?.map((it, i) => (
-                <li key={i}>
-                  <span className="font-medium">{it.name}</span>{' '}
-                  {it.variantLabel ? (
-                    <span className="text-gray-500">({it.variantLabel})</span>
-                  ) : null}{' '}
-                  × {it.quantity} —{' '}
-                  <span className="text-gray-900">{formatVnd(it.price)}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs text-gray-400">
-              {new Date(o.createdAt).toLocaleString('vi-VN')}
-            </p>
-          </li>
-            )
-          })()
-        ))}
-      </ul>
-      {orders.length > 0 ? (
+      <AdminOrderList
+        orders={orders}
+        statusOptions={statusOptions}
+        updatingId={updatingId}
+        onChangeStatus={updateStatus}
+        onOpenComplete={openCompleteFlow}
+      />
+      {orders.length > 0 && !search ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
           <p className="text-xs text-gray-500">
             {adminTotalPages != null ? `Trang ${page} / ${adminTotalPages}` : `Trang ${page}`}
@@ -490,7 +485,11 @@ export function AdminOrders() {
       ) : null}
       {orders.length === 0 && !loading ? (
         <p className="mt-8 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-          {search ? 'Không có đơn khớp tìm kiếm.' : 'Chưa có đơn nào.'}
+          {search
+            ? 'Không có đơn khớp tìm kiếm.'
+            : activeStatusQuery
+              ? 'Không có đơn ở trạng thái đã chọn.'
+              : 'Chưa có đơn nào.'}
         </p>
       ) : null}
       <ReasonInputModal
@@ -525,9 +524,13 @@ export function AdminOrders() {
         loading={Boolean(updatingId)}
         error={completeModalError}
       />
-      {toast ? (
-        <div className="fixed right-4 top-4 z-[120] rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-lg">
-          {toast}
+      {toast.message ? (
+        <div
+          className={`fixed right-4 top-4 z-[120] rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-lg ${
+            toast.tone === 'error' ? 'bg-red-600' : 'bg-gray-900'
+          }`}
+        >
+          {toast.message}
         </div>
       ) : null}
     </div>

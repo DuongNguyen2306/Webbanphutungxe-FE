@@ -9,11 +9,17 @@ import {
   Trash2,
 } from 'lucide-react'
 import {
+  ImagePickerField,
+} from '../../components/ImagePickerField'
+import {
   createBanner,
   getAdminBanners,
   removeBanner,
   updateBanner,
 } from '../../api/contentApi'
+import { isGoogleDriveUrl } from '../../utils/googleDrive'
+import { showUiToast } from '../../utils/uiToast'
+import { useGoogleDrivePicker } from '../../hooks/useGoogleDrivePicker'
 
 const LAYER_LEVEL_OPTIONS = ['h1', 'h2', 'h3', 'body', 'cta']
 const LAYER_LEVEL_LABELS = {
@@ -64,18 +70,25 @@ function normalizeLayers(layers = []) {
     .sort((a, b) => a.order - b.order)
 }
 
+function formatApiError(err, fallback) {
+  return err?.response?.data?.message || err?.message || fallback
+}
+
 export function AdminBanners() {
   const [banners, setBanners] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    imageFile: null,
+    imageItems: [],
     linkTo: '',
     order: 1,
     isActive: true,
     textLayers: [createEmptyLayer(1)],
   })
+  const [updatingImageIds, setUpdatingImageIds] = useState({})
+  const [pickerLoadingIds, setPickerLoadingIds] = useState({})
+  const { pickImages, isCancelledError } = useGoogleDrivePicker()
 
   const sortedBanners = useMemo(
     () => [...banners].sort((a, b) => a.order - b.order),
@@ -89,7 +102,7 @@ export function AdminBanners() {
       const list = await getAdminBanners()
       setBanners(list)
     } catch (err) {
-      setError(err.response?.data?.message || 'Không tải được danh sách banner.')
+      setError(formatApiError(err, 'Không tải được danh sách banner.'))
       setBanners([])
     } finally {
       setLoading(false)
@@ -102,8 +115,8 @@ export function AdminBanners() {
 
   async function handleCreate(e) {
     e.preventDefault()
-    if (!form.imageFile) {
-      setError('Vui lòng chọn ảnh banner.')
+    if (!form.imageItems.length) {
+      setError('Vui lòng thêm ít nhất 1 ảnh banner (từ máy hoặc Google Drive).')
       return
     }
     const textLayers = normalizeLayers(form.textLayers)
@@ -112,18 +125,28 @@ export function AdminBanners() {
     try {
       await createBanner({ ...form, textLayers })
       setForm({
-        imageFile: null,
+        imageItems: [],
         linkTo: '',
         order: Math.max(1, banners.length + 1),
         isActive: true,
         textLayers: [createEmptyLayer(1)],
       })
+      showUiToast('Tạo banner thành công')
       await load()
     } catch (err) {
-      setError(err.response?.data?.message || 'Không tạo được banner.')
+      const msg = formatApiError(err, 'Không tạo được banner.')
+      setError(msg)
+      showUiToast(msg, 'error')
     } finally {
       setSaving(false)
     }
+  }
+
+  async function importCreateBannerImagesFromDrive(pickedFiles) {
+    const urls = (Array.isArray(pickedFiles) ? pickedFiles : [])
+      .map((file) => String(file?.googleDriveUrl || '').trim())
+      .filter(Boolean)
+    return urls
   }
 
   async function handleToggle(item) {
@@ -131,7 +154,59 @@ export function AdminBanners() {
       const updated = await updateBanner(item.id, { isActive: !item.isActive })
       setBanners((prev) => prev.map((x) => (x.id === item.id ? updated : x)))
     } catch (err) {
-      setError(err.response?.data?.message || 'Không cập nhật trạng thái banner.')
+      setError(formatApiError(err, 'Không cập nhật trạng thái banner.'))
+    }
+  }
+
+  async function handleReplaceImageByGoogleDrive(item) {
+    const url = String(item.googleDriveUrlDraft || '').trim()
+    if (!url) {
+      setError('Vui lòng nhập link Google Drive để đổi ảnh.')
+      return
+    }
+    if (!isGoogleDriveUrl(url)) {
+      setError('Link đổi ảnh chưa đúng định dạng Google Drive.')
+      return
+    }
+    setUpdatingImageIds((prev) => ({ ...prev, [item.id]: true }))
+    setError('')
+    try {
+      const updated = await updateBanner(item.id, { googleDriveUrl: url })
+      setBanners((prev) =>
+        prev.map((x) =>
+          x.id === item.id ? { ...updated, googleDriveUrlDraft: '' } : x,
+        ),
+      )
+      showUiToast('Đã cập nhật ảnh banner từ Google Drive')
+    } catch (err) {
+      const msg = formatApiError(err, 'Không cập nhật được ảnh banner từ Google Drive.')
+      setError(msg)
+      showUiToast(msg, 'error')
+    } finally {
+      setUpdatingImageIds((prev) => ({ ...prev, [item.id]: false }))
+    }
+  }
+
+  async function handleReplaceImageByDrivePicker(item) {
+    setPickerLoadingIds((prev) => ({ ...prev, [item.id]: true }))
+    setError('')
+    try {
+      const picked = await pickImages({ multiple: false })
+      const driveUrl = String(picked?.[0]?.googleDriveUrl || '').trim()
+      if (!driveUrl) return
+      const updated = await updateBanner(item.id, { googleDriveUrl: driveUrl })
+      setBanners((prev) => prev.map((x) => (x.id === item.id ? updated : x)))
+      showUiToast('Đã cập nhật ảnh banner từ Google Drive')
+    } catch (err) {
+      if (isCancelledError(err)) {
+        setError('Bạn đã đóng cửa sổ chọn ảnh Google Drive.')
+      } else {
+        const msg = formatApiError(err, 'Không cập nhật được ảnh banner từ Google Drive.')
+        setError(msg)
+        showUiToast(msg, 'error')
+      }
+    } finally {
+      setPickerLoadingIds((prev) => ({ ...prev, [item.id]: false }))
     }
   }
 
@@ -236,8 +311,11 @@ export function AdminBanners() {
         textLayers: normalizeLayers(item.textLayers),
       })
       setBanners((prev) => prev.map((x) => (x.id === item.id ? updated : x)))
+      showUiToast('Đã lưu banner')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không lưu được banner.')
+      const msg = formatApiError(err, 'Không lưu được banner.')
+      setError(msg)
+      showUiToast(msg, 'error')
     }
   }
 
@@ -246,8 +324,11 @@ export function AdminBanners() {
     try {
       await removeBanner(item.id)
       setBanners((prev) => prev.filter((x) => x.id !== item.id))
+      showUiToast('Đã xóa banner')
     } catch (err) {
-      setError(err.response?.data?.message || 'Không xóa được banner.')
+      const msg = formatApiError(err, 'Không xóa được banner.')
+      setError(msg)
+      showUiToast(msg, 'error')
     }
   }
 
@@ -263,18 +344,17 @@ export function AdminBanners() {
       </header>
 
       <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+        <ImagePickerField
+          label="Ảnh banner"
+          hint="Có thể chọn nhiều ảnh từ máy hoặc từ Google Drive."
+          items={form.imageItems}
+          onChange={(next) => setForm((prev) => ({ ...prev, imageItems: next }))}
+          emptyText="Mỗi banner nên có ảnh ngang tỉ lệ 16:7."
+          enableDrivePicker
+          onImportFromDriveFiles={importCreateBannerImagesFromDrive}
+        />
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="text-sm font-semibold text-gray-700">
-            Ảnh banner
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, imageFile: e.target.files?.[0] || null }))
-              }
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </label>
           <label className="text-sm font-semibold text-gray-700">
             Đường dẫn khi bấm vào banner
             <input
@@ -498,6 +578,43 @@ export function AdminBanners() {
                 ) : null}
               </div>
               <div className="mt-3 space-y-2 text-sm">
+                <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-2.5">
+                  <label className="block">
+                    <span className="font-semibold text-gray-700">Đổi ảnh từ Google Drive</span>
+                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={item.googleDriveUrlDraft || ''}
+                        onChange={(e) =>
+                          setBanners((prev) =>
+                            prev.map((x) =>
+                              x.id === item.id
+                                ? { ...x, googleDriveUrlDraft: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        placeholder="https://drive.google.com/file/d/.../view"
+                        className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleReplaceImageByGoogleDrive(item)}
+                        disabled={Boolean(updatingImageIds[item.id])}
+                        className="rounded-lg border border-brand px-3 py-2 text-xs font-bold text-brand hover:bg-brand/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {updatingImageIds[item.id] ? 'Đang đổi...' : 'Đổi ảnh'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleReplaceImageByDrivePicker(item)}
+                        disabled={Boolean(pickerLoadingIds[item.id])}
+                        className="rounded-lg border border-sky-400 px-3 py-2 text-xs font-bold text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pickerLoadingIds[item.id] ? 'Đang mở Drive...' : 'Chọn từ Drive'}
+                      </button>
+                    </div>
+                  </label>
+                </div>
                 <label className="block">
                   <span className="font-semibold text-gray-700">Link</span>
                   <input

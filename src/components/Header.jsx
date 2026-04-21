@@ -173,7 +173,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
                   Thai Vũ
                 </span>
                 <span className="block text-xs font-bold uppercase leading-snug">
-                  Phụ kiện Vespa chuyên nghiệp
+                  Phụ kiện Thái Vũ
                 </span>
               </span>
             </Link>
@@ -290,6 +290,12 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
             >
               Hướng dẫn
+            </Link>
+            <Link
+              to="/tin-tuc"
+              className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
+            >
+              Tin tức
             </Link>
             {!isAdmin ? (
               <Link
@@ -426,6 +432,9 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               </Link>
               <Link to="/huong-dan" className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Hướng dẫn
+              </Link>
+              <Link to="/tin-tuc" className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
+                Tin tức
               </Link>
               <Link to={user ? '/profile' : '/login'} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Thông tin tài khoản

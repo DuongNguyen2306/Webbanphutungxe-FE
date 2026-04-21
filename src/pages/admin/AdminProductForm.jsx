@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
-import { resolveImageItemsToUrls } from '../../api/productUploadApi'
+import {
+  resolveImageItemsToUrls,
+  uploadProductImage,
+  uploadProductImageFromDrive,
+} from '../../api/productUploadApi'
 import {
   ImagePickerField,
   createImageItemsFromUrls,
@@ -145,6 +149,60 @@ const emptyVariant = () => ({
   variantImages: [],
 })
 
+const PRIMARY_ATTRIBUTE_IMAGES_REQUIRED = true
+
+function getPrimaryAttribute(attrs = []) {
+  return Array.isArray(attrs) && attrs.length >= 2 ? attrs[0] : null
+}
+
+function getPrimaryValueFromRow(row, attrs = []) {
+  const primaryAttr = getPrimaryAttribute(attrs)
+  if (!primaryAttr) return ''
+  return String(row?.attributeValues?.[primaryAttr.key] || '').trim()
+}
+
+function collectPrimaryValuesFromRows(rows = [], attrs = []) {
+  const seen = new Set()
+  const out = []
+  rows.forEach((row) => {
+    const value = getPrimaryValueFromRow(row, attrs)
+    if (!value) return
+    const key = value.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(value)
+  })
+  return out
+}
+
+function buildPrimaryImageGroupsFromVariants(rows = [], attrs = []) {
+  const grouped = {}
+  const primaryAttr = getPrimaryAttribute(attrs)
+  if (!primaryAttr) return grouped
+  rows.forEach((row) => {
+    const value = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
+    if (!value) return
+    if (!grouped[value]) {
+      grouped[value] = Array.isArray(row?.variantImages) ? row.variantImages : []
+    }
+  })
+  return grouped
+}
+
+function mapImagesByPrimaryAttribute(rows = [], attrs = [], primaryImageGroups = {}) {
+  const primaryAttr = getPrimaryAttribute(attrs)
+  if (!primaryAttr) return rows
+  let changed = false
+  const next = rows.map((row) => {
+    const value = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
+    const mappedItems = value ? primaryImageGroups[value] || [] : []
+    if (row.variantImages === mappedItems) return row
+    changed = true
+    return { ...row, variantImages: mappedItems }
+  })
+  return changed ? next : rows
+}
+
 function resolveOther(selectVal, otherVal, label) {
   if (selectVal === OTHER) {
     const t = otherVal.trim()
@@ -209,6 +267,7 @@ export function AdminProductForm() {
   const [hasVariants, setHasVariants] = useState(true)
   const [attributes, setAttributes] = useState(buildDefaultAttributes)
   const [variants, setVariants] = useState([emptyVariant()])
+  const [primaryImageGroups, setPrimaryImageGroups] = useState({})
   const [singlePrice, setSinglePrice] = useState('')
   const [singleOriginalPrice, setSingleOriginalPrice] = useState('')
   const [singleStock, setSingleStock] = useState('')
@@ -224,6 +283,7 @@ export function AdminProductForm() {
   const [bootstrapping, setBootstrapping] = useState(isEdit)
   const imagesRef = useRef([])
   const variantsRef = useRef([emptyVariant()])
+  const primaryImageGroupsRef = useRef({})
 
   useEffect(() => {
     imagesRef.current = images
@@ -234,9 +294,16 @@ export function AdminProductForm() {
   }, [variants])
 
   useEffect(() => {
+    primaryImageGroupsRef.current = primaryImageGroups
+  }, [primaryImageGroups])
+
+  useEffect(() => {
     return () => {
       revokePreviewUrls(imagesRef.current)
       variantsRef.current.forEach((row) => revokePreviewUrls(row.variantImages))
+      Object.values(primaryImageGroupsRef.current).forEach((items) => {
+        revokePreviewUrls(Array.isArray(items) ? items : [])
+      })
     }
   }, [])
 
@@ -256,6 +323,9 @@ export function AdminProductForm() {
   function applyProductData(data) {
     revokePreviewUrls(imagesRef.current)
     variantsRef.current.forEach((row) => revokePreviewUrls(row.variantImages))
+    Object.values(primaryImageGroupsRef.current).forEach((items) => {
+      revokePreviewUrls(Array.isArray(items) ? items : [])
+    })
     setName(data.name ?? '')
     setCategoryInput(data.category?.name ?? '')
     setDescription(data.description ?? '')
@@ -318,7 +388,7 @@ export function AdminProductForm() {
       color: attrsForVariant[1]?.key,
       size: attrsForVariant[2]?.key,
     }
-    setVariants(
+    const preparedVariants =
       Array.isArray(data.variants) && data.variants.length
         ? data.variants.map((v) => {
             const fromApiValues =
@@ -349,7 +419,18 @@ export function AdminProductForm() {
               variantImages,
             }
           })
-        : [emptyVariant()],
+        : [emptyVariant()]
+    const initialPrimaryGroups = buildPrimaryImageGroupsFromVariants(
+      preparedVariants,
+      attrsForVariant,
+    )
+    setPrimaryImageGroups(initialPrimaryGroups)
+    setVariants(
+      mapImagesByPrimaryAttribute(
+        preparedVariants,
+        attrsForVariant,
+        initialPrimaryGroups,
+      ),
     )
   }
 
@@ -396,6 +477,21 @@ export function AdminProductForm() {
     [attributesForVariants],
   )
 
+  const usePrimaryImageGrouping = useMemo(
+    () => hasVariants && attributesForVariants.length >= 2,
+    [hasVariants, attributesForVariants.length],
+  )
+
+  const primaryAttribute = useMemo(
+    () => getPrimaryAttribute(attributesForVariants),
+    [attributesForVariants],
+  )
+
+  const primaryValuesInRows = useMemo(
+    () => collectPrimaryValuesFromRows(variants, attributesForVariants),
+    [variants, attributesForVariants],
+  )
+
   const buildSkuForRow = useCallback(
     (row) => {
       const parts = attributesForVariants.map((attr) =>
@@ -405,6 +501,24 @@ export function AdminProductForm() {
     },
     [name, attributesForVariants],
   )
+
+  const handleUploadImageFromGoogleDrive = useCallback(async (googleDriveUrl) => {
+    const secureUrl = await uploadProductImage({ googleDriveUrl })
+    setToast('Đã thêm ảnh từ Google Drive.')
+    return secureUrl
+  }, [])
+
+  const handleImportImagesFromDrivePicker = useCallback(async (pickedFiles) => {
+    const driveUrls = (Array.isArray(pickedFiles) ? pickedFiles : [])
+      .map((file) => String(file?.googleDriveUrl || '').trim())
+      .filter(Boolean)
+    if (!driveUrls.length) return []
+    const uploaded = await Promise.all(
+      driveUrls.map((url) => uploadProductImageFromDrive(url)),
+    )
+    setToast(`Đã import ${uploaded.length} ảnh từ Google Drive.`)
+    return uploaded
+  }, [])
 
   useEffect(() => {
     const keys = attributesForVariants.map((attr) => attr.key)
@@ -438,6 +552,43 @@ export function AdminProductForm() {
     )
   }, [name, buildSkuForRow])
 
+  useEffect(() => {
+    if (!usePrimaryImageGrouping) return
+    setVariants((prev) =>
+      mapImagesByPrimaryAttribute(prev, attributesForVariants, primaryImageGroups),
+    )
+  }, [
+    usePrimaryImageGrouping,
+    attributesForVariants,
+    primaryImageGroups,
+  ])
+
+  useEffect(() => {
+    if (!usePrimaryImageGrouping) {
+      if (Object.keys(primaryImageGroupsRef.current).length) {
+        Object.values(primaryImageGroupsRef.current).forEach((items) => {
+          revokePreviewUrls(Array.isArray(items) ? items : [])
+        })
+        setPrimaryImageGroups({})
+      }
+      return
+    }
+    const allowed = new Set(primaryValuesInRows.map((value) => value.toLowerCase()))
+    setPrimaryImageGroups((prev) => {
+      let changed = false
+      const next = {}
+      Object.entries(prev).forEach(([value, items]) => {
+        if (allowed.has(value.toLowerCase())) {
+          next[value] = items
+        } else {
+          changed = true
+          revokePreviewUrls(Array.isArray(items) ? items : [])
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [usePrimaryImageGrouping, primaryValuesInRows])
+
   function updateRow(i, patch) {
     if (variantErrorRow === i) setVariantErrorRow(-1)
     setVariants((v) => v.map((row, j) => (j === i ? { ...row, ...patch } : row)))
@@ -451,7 +602,14 @@ export function AdminProductForm() {
           ...(row.attributeValues || {}),
           [attrKey]: value,
         }
-        const nextRow = { ...row, attributeValues: nextAttributeValues }
+        let nextRow = { ...row, attributeValues: nextAttributeValues }
+        if (usePrimaryImageGrouping) {
+          nextRow = mapImagesByPrimaryAttribute(
+            [nextRow],
+            attributesForVariants,
+            primaryImageGroups,
+          )[0]
+        }
         if (row.skuManuallyEdited) return nextRow
         return { ...nextRow, sku: buildSkuForRow(nextRow) }
       }),
@@ -463,7 +621,11 @@ export function AdminProductForm() {
     attributesForVariants.forEach((attr) => {
       baseValues[attr.key] = ''
     })
-    const row = { ...emptyVariant(), attributeValues: baseValues }
+    const row = mapImagesByPrimaryAttribute(
+      [{ ...emptyVariant(), attributeValues: baseValues }],
+      attributesForVariants,
+      primaryImageGroups,
+    )[0]
     setVariants((prev) => [
       ...prev,
       {
@@ -577,7 +739,12 @@ export function AdminProductForm() {
         const key = defaultVariantKey(row.attributeValues || {}, attributesForVariants)
         return !generatedKeySet.has(key)
       })
-      return [...generatedRows, ...manualExtras]
+      const mergedRows = [...generatedRows, ...manualExtras]
+      return mapImagesByPrimaryAttribute(
+        mergedRows,
+        attributesForVariants,
+        primaryImageGroups,
+      )
     })
   }
 
@@ -681,6 +848,8 @@ export function AdminProductForm() {
       }
 
       const comboSet = new Set()
+      const missingPrimaryImageValues = new Set()
+      const primaryAttr = getPrimaryAttribute(attributesForVariants)
       for (let idx = 0; idx < variants.length; idx += 1) {
         const row = variants[idx]
         const rowNo = idx + 1
@@ -741,11 +910,36 @@ export function AdminProductForm() {
           image: '',
           images: undefined,
         }
+        const rowPrimaryValue = primaryAttr
+          ? String(row.attributeValues?.[primaryAttr.key] || '').trim()
+          : ''
+        const resolvedImageItems =
+          usePrimaryImageGrouping && rowPrimaryValue
+            ? primaryImageGroups[rowPrimaryValue] || []
+            : row.variantImages
+        if (
+          usePrimaryImageGrouping &&
+          PRIMARY_ATTRIBUTE_IMAGES_REQUIRED &&
+          rowPrimaryValue &&
+          (!Array.isArray(resolvedImageItems) || resolvedImageItems.length === 0)
+        ) {
+          missingPrimaryImageValues.add(rowPrimaryValue)
+        }
         if (row.stock !== '' && row.stock != null && !Number.isNaN(Number(row.stock))) {
           variant.stock = Number(row.stock)
         }
         if (row._id) variant._id = row._id
-        variantPayload.push({ ...variant, __imageItems: row.variantImages })
+        variantPayload.push({ ...variant, __imageItems: resolvedImageItems || [] })
+      }
+      if (missingPrimaryImageValues.size > 0) {
+        const missingList = Array.from(missingPrimaryImageValues).join(', ')
+        setError(
+          `Thiếu ảnh cho ${primaryAttr?.name || 'phân loại 1'}: ${missingList}.`,
+        )
+        setToast(
+          `Vui lòng bổ sung ảnh theo nhóm ${primaryAttr?.name || 'phân loại 1'} trước khi lưu.`,
+        )
+        return
       }
     }
 
@@ -961,6 +1155,10 @@ export function AdminProductForm() {
               label="Ảnh sản phẩm (gallery chung)"
               items={images}
               onChange={setImages}
+              enableUrlUpload
+              onUploadFromUrl={handleUploadImageFromGoogleDrive}
+              enableDrivePicker
+              onImportFromDriveFiles={handleImportImagesFromDrivePicker}
             />
           </>
         ) : null}
@@ -1095,7 +1293,15 @@ export function AdminProductForm() {
               </div>
             </div>
             <div className="mt-4">
-              <ImagePickerField label="Ảnh sản phẩm" items={images} onChange={setImages} />
+              <ImagePickerField
+                label="Ảnh sản phẩm"
+                items={images}
+                onChange={setImages}
+                enableUrlUpload
+                onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                enableDrivePicker
+                onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+              />
             </div>
           </div>
         </div>
@@ -1221,6 +1427,52 @@ export function AdminProductForm() {
                 ))}
               </datalist>
             ))}
+            {usePrimaryImageGrouping ? (
+              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
+                <p className="text-sm font-bold text-blue-900">
+                  Ảnh theo {primaryAttribute?.name || 'Phân loại 1'}
+                </p>
+                <p className="mt-1 text-xs text-blue-800">
+                  Khi có từ 2 phân loại, ảnh sẽ gắn theo {primaryAttribute?.name || 'phân loại 1'}.
+                  Các dòng có cùng giá trị sẽ tự dùng chung bộ ảnh.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {primaryValuesInRows.length ? (
+                    primaryValuesInRows.map((value) => (
+                      <div
+                        key={`primary-image-${value}`}
+                        className="rounded-lg border border-blue-100 bg-white p-3"
+                      >
+                        <ImagePickerField
+                          label={`${primaryAttribute?.name || 'Phân loại 1'}: ${value}`}
+                          items={primaryImageGroups[value] || []}
+                          onChange={(next) =>
+                            setPrimaryImageGroups((prev) => ({
+                              ...prev,
+                              [value]: next,
+                            }))
+                          }
+                          enableUrlUpload
+                          onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                          enableDrivePicker
+                          onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                        />
+                        {PRIMARY_ATTRIBUTE_IMAGES_REQUIRED &&
+                        (!primaryImageGroups[value] || primaryImageGroups[value].length === 0) ? (
+                          <p className="mt-1 text-xs font-medium text-amber-700">
+                            Chưa có ảnh cho nhóm này.
+                          </p>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-blue-800">
+                      Chưa có dòng biến thể hoàn chỉnh để nhóm ảnh.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
             <div className="mt-3 space-y-3">
               {variants.map((row, i) => (
                 <div
@@ -1336,11 +1588,28 @@ export function AdminProductForm() {
                     </label>
                   </div>
                   <div className="mt-2">
-                    <ImagePickerField
-                      label="Ảnh riêng biến thể"
-                      items={row.variantImages}
-                      onChange={(next) => updateRow(i, { variantImages: next })}
-                    />
+                    {usePrimaryImageGrouping ? (
+                      <div className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
+                        Ảnh của dòng này lấy theo{' '}
+                        <span className="font-semibold">
+                          {primaryAttribute?.name || 'Phân loại 1'}
+                        </span>
+                        :{' '}
+                        <span className="font-semibold">
+                          {getPrimaryValueFromRow(row, attributesForVariants) || '(chưa chọn)'}
+                        </span>
+                      </div>
+                    ) : (
+                      <ImagePickerField
+                        label="Ảnh riêng biến thể"
+                        items={row.variantImages}
+                        onChange={(next) => updateRow(i, { variantImages: next })}
+                        enableUrlUpload
+                        onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                        enableDrivePicker
+                        onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                      />
+                    )}
                   </div>
                 </div>
               ))}

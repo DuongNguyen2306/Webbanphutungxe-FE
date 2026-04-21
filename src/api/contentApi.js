@@ -1,4 +1,5 @@
 import { api } from './client'
+import { isGoogleDriveUrl } from '../utils/googleDrive'
 
 function toList(data) {
   if (Array.isArray(data)) return data
@@ -97,9 +98,22 @@ function mapArticle(raw) {
     title: String(raw?.title || '').trim(),
     type: String(raw?.type || 'guide').toLowerCase(),
     content: String(raw?.content || raw?.html || '').trim(),
+    author: String(raw?.author || '').trim(),
+    createdAt: raw?.createdAt || '',
     updatedAt: raw?.updatedAt || raw?.createdAt || '',
   }
 }
+
+/**
+ * @typedef {Object} Article
+ * @property {string} id
+ * @property {string} title
+ * @property {string} type
+ * @property {string} content
+ * @property {string} author
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ */
 
 async function requestFirstSuccess(paths, config) {
   let lastError
@@ -119,19 +133,76 @@ export async function getAdminBanners() {
   return toList(data).map(mapBanner).sort((a, b) => a.order - b.order)
 }
 
-export async function createBanner({ imageFile, imageFiles, linkTo, order, isActive, textLayers }) {
-  const formData = new FormData()
-  if (imageFile) formData.append('image', imageFile)
+export async function createBanner({
+  imageFile,
+  imageFiles,
+  imageItems,
+  googleDriveUrls: inputGoogleDriveUrls = [],
+  imageUrls: directImageUrls = [],
+  linkTo,
+  order,
+  isActive,
+  textLayers,
+}) {
+  const files = []
+  if (imageFile) files.push(imageFile)
   if (Array.isArray(imageFiles)) {
     imageFiles.forEach((file) => {
-      if (file) formData.append('images', file)
+      if (file) files.push(file)
     })
   }
-  formData.append('linkTo', String(linkTo || '').trim())
-  formData.append('order', String(Number(order) || 0))
-  formData.append('isActive', String(isActive !== false))
-  formData.append('textLayers', JSON.stringify(sanitizeTextLayers(textLayers)))
-  const { data } = await api.post('/api/admin/banners', formData)
+  if (Array.isArray(imageItems)) {
+    imageItems.forEach((item) => {
+      if (item?.file) files.push(item.file)
+    })
+  }
+
+  const rawUrls = Array.isArray(imageItems)
+    ? imageItems
+        .map((item) => String(item?.remoteUrl || '').trim())
+        .filter(Boolean)
+    : []
+  const mergedUrls = Array.from(
+    new Set(
+      [...rawUrls, ...inputGoogleDriveUrls, ...directImageUrls]
+        .map((u) => String(u || '').trim())
+        .filter(Boolean),
+    ),
+  )
+  const normalizedGoogleDriveUrls = mergedUrls.filter((url) => isGoogleDriveUrl(url))
+  const imageUrls = mergedUrls.filter((url) => !isGoogleDriveUrl(url))
+
+  const normalizedTextLayers = sanitizeTextLayers(textLayers)
+  const payloadBase = {
+    linkTo: String(linkTo || '').trim(),
+    order: Number(order) || 0,
+    isActive: isActive !== false,
+    textLayers: normalizedTextLayers,
+  }
+  let data
+  if (files.length > 0) {
+    const formData = new FormData()
+    files.forEach((file, index) => {
+      if (index === 0) formData.append('image', file)
+      formData.append('images', file)
+    })
+    formData.append('linkTo', payloadBase.linkTo)
+    formData.append('order', String(payloadBase.order))
+    formData.append('isActive', String(payloadBase.isActive))
+    formData.append('textLayers', JSON.stringify(payloadBase.textLayers))
+    normalizedGoogleDriveUrls.forEach((url) => formData.append('googleDriveUrls', url))
+    imageUrls.forEach((url) => formData.append('imageUrls', url))
+    const res = await api.post('/api/banners', formData)
+    data = res.data
+  } else {
+    const body = { ...payloadBase }
+    if (normalizedGoogleDriveUrls.length === 1) body.googleDriveUrl = normalizedGoogleDriveUrls[0]
+    if (normalizedGoogleDriveUrls.length > 1) body.googleDriveUrls = normalizedGoogleDriveUrls
+    if (imageUrls.length === 1) body.imageUrl = imageUrls[0]
+    if (imageUrls.length > 1) body.imageUrls = imageUrls
+    const res = await api.post('/api/banners', body)
+    data = res.data
+  }
   return mapBanner(data?.item || data?.data || data)
 }
 
@@ -140,7 +211,24 @@ export async function updateBanner(id, payload) {
   if (body.textLayers) {
     body.textLayers = sanitizeTextLayers(body.textLayers)
   }
-  const { data } = await api.put(`/api/admin/banners/${id}`, body)
+  let data
+  if (body.imageFile instanceof File) {
+    const formData = new FormData()
+    formData.append('image', body.imageFile)
+    if (body.linkTo != null) formData.append('linkTo', String(body.linkTo || '').trim())
+    if (body.order != null) formData.append('order', String(Number(body.order) || 0))
+    if (body.isActive != null) formData.append('isActive', String(body.isActive !== false))
+    if (body.textLayers) formData.append('textLayers', JSON.stringify(body.textLayers))
+    if (body.imageUrl) formData.append('imageUrl', String(body.imageUrl).trim())
+    if (body.googleDriveUrl) formData.append('googleDriveUrl', String(body.googleDriveUrl).trim())
+    const res = await api.put(`/api/banners/${id}`, formData)
+    data = res.data
+  } else {
+    const cleanBody = { ...body }
+    delete cleanBody.imageFile
+    const res = await api.put(`/api/banners/${id}`, cleanBody)
+    data = res.data
+  }
   return mapBanner(data?.item || data?.data || data)
 }
 
@@ -206,4 +294,45 @@ export async function getGuides() {
     { params: { type: 'guide' } },
   )
   return toList(data).map(mapArticle)
+}
+
+export async function getNewsArticles() {
+  const { data } = await api.get('/api/articles', {
+    params: { type: 'news' },
+  })
+  return toList(data)
+    .map(mapArticle)
+    .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))
+}
+
+export async function createNewsArticle(payload) {
+  const body = {
+    title: String(payload?.title || '').trim(),
+    content: String(payload?.content || '').trim(),
+    type: 'news',
+  }
+  if (payload?.author != null && String(payload.author).trim()) {
+    body.author = String(payload.author).trim()
+  }
+  const { data } = await api.post('/api/articles', body)
+  return mapArticle(data?.item || data?.data || data)
+}
+
+export async function updateNewsArticle(id, payload) {
+  const body = {
+    title: String(payload?.title || '').trim(),
+    content: String(payload?.content || '').trim(),
+    type: 'news',
+  }
+  if (payload?.author != null && String(payload.author).trim()) {
+    body.author = String(payload.author).trim()
+  } else {
+    body.author = ''
+  }
+  const { data } = await api.put(`/api/articles/${id}`, body)
+  return mapArticle(data?.item || data?.data || data)
+}
+
+export async function deleteNewsArticle(id) {
+  await api.delete(`/api/articles/${id}`)
 }
