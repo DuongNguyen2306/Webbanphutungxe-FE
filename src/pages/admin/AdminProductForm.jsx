@@ -273,6 +273,7 @@ export function AdminProductForm() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [images, setImages] = useState([])
+  const [videoUrl, setVideoUrl] = useState('')
   const [brand, setBrand] = useState('honda')
   const [brandOther, setBrandOther] = useState('')
   const [vehicleType, setVehicleType] = useState('scooter')
@@ -350,6 +351,7 @@ export function AdminProductForm() {
     setName(data.name ?? '')
     setCategoryInput(data.category?.name ?? '')
     setDescription(data.description ?? '')
+    setVideoUrl(data.videoUrl != null ? String(data.videoUrl) : '')
     setImages(createImageItemsFromUrls(data.images))
     const [b, bo] = splitPreset(data.brand, BRAND_PRESET)
     setBrand(b)
@@ -1100,6 +1102,7 @@ export function AdminProductForm() {
         bestSellerEnabled,
         bestSellerOrder: parsedBestSellerOrder,
         soldCount: parsedSoldCount,
+        videoUrl: String(videoUrl || '').trim(),
         isBestSeller: bestSellerEnabled,
         showInBestSellers: bestSellerEnabled,
         bestSellerRank: parsedBestSellerOrder,
@@ -1151,6 +1154,25 @@ export function AdminProductForm() {
 
   const field =
     'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
+
+  const youtubeLinkInput = (
+    <div className="mt-4 space-y-1.5">
+      <label className="text-xs font-semibold text-gray-700">
+        Link video YouTube (tuỳ chọn)
+      </label>
+      <input
+        type="url"
+        inputMode="url"
+        value={videoUrl}
+        onChange={(e) => setVideoUrl(e.target.value)}
+        placeholder="https://www.youtube.com/watch?v=... hoặc https://youtu.be/..."
+        className={field}
+      />
+      <p className="text-xs text-gray-500">
+        Dán link đầy đủ; để trống nếu không có video. Không dùng ô này cho ảnh.
+      </p>
+    </div>
+  )
 
   if (bootstrapping) {
     return (
@@ -1301,6 +1323,7 @@ export function AdminProductForm() {
           rows={3}
           className={field}
         />
+        {youtubeLinkInput}
         {hasVariants ? (
           <>
             <ImagePickerField

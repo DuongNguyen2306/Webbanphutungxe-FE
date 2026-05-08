@@ -199,10 +199,13 @@ export function mapApiProduct(p) {
     reviewCountRaw != null && reviewCountRaw > 0 ? toNullableNumber(p.rating) : null
   const soldCountRaw = toNullableNumber(p.soldCount)
 
+  const videoUrlRaw = p.videoUrl != null ? String(p.videoUrl).trim() : ''
+
   return {
     id: String(p._id),
     name: p.name,
     description: p.description ?? '',
+    videoUrl: videoUrlRaw,
     slug: p.slug,
     image: pickListImage({ images: productImages, variants: rawVariants }),
     images: productImages,

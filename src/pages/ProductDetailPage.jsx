@@ -22,6 +22,44 @@ import { ProductReviewsSection } from '../components/ProductReviewsSection'
 import { ProductRelatedShelf } from '../components/ProductRelatedShelf'
 import { useAuth } from '../context/AuthContext'
 import { showUiToast } from '../utils/uiToast'
+import { parseYouTubeVideoId } from '../utils/youtubeUrl'
+
+function ProductVideoSection({ videoUrl, title }) {
+  const trimmed = String(videoUrl || '').trim()
+  if (!trimmed) return null
+  const id = parseYouTubeVideoId(trimmed)
+  if (id) {
+    return (
+      <div className="mt-5">
+        <p className="mb-2 text-sm font-semibold text-gray-800">Video sản phẩm</p>
+        <div className="relative w-full overflow-hidden rounded-lg border border-gray-200 bg-black pt-[56.25%]">
+          <iframe
+            className="absolute left-0 top-0 h-full w-full"
+            src={`https://www.youtube.com/embed/${id}`}
+            title={title ? `Video: ${title}` : 'Video YouTube sản phẩm'}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+      <span className="text-gray-600">Video: </span>
+      <a
+        href={trimmed}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all font-semibold text-brand underline"
+      >
+        Mở liên kết
+      </a>
+    </div>
+  )
+}
 
 function ProductDescriptionBody({ text }) {
   const looksLikeHtml = /<\/?[a-z][\s\S]*?>/i.test(text)
@@ -363,6 +401,8 @@ function ProductDetailBody({
               ))}
             </div>
           </div>
+
+          <ProductVideoSection videoUrl={product.videoUrl} title={product.name} />
 
           <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4 text-sm text-gray-500">
             <span className="font-medium text-ink">Chia sẻ:</span>

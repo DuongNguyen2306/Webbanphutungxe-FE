@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Boxes,
   ClipboardList,
   Image as ImageIcon,
+  Layers,
   LayoutDashboard,
   Sparkles,
   Menu,
@@ -18,6 +19,14 @@ const ADMIN_MENU = [
   { to: '/admin/orders', label: 'Đơn hàng', icon: ClipboardList },
   { to: '/admin/inventory', label: 'Tồn kho', icon: Boxes },
   { to: '/admin/products', label: 'Sản phẩm', icon: Package },
+  {
+    to: '/admin/variants',
+    label: 'Biến thể',
+    icon: Layers,
+    /** Sáng khi đang ở hub hoặc trang chi tiết /admin/variants/:id */
+    activeMatch: (pathname) =>
+      pathname === '/admin/variants' || pathname.startsWith('/admin/variants/'),
+  },
   { to: '/admin/best-sellers', label: 'Nổi bật', icon: Sparkles },
   { to: '/admin/users', label: 'Khách hàng', icon: Users },
   { to: '/admin/banners', label: 'Banner', icon: ImageIcon },
@@ -34,6 +43,7 @@ const linkClass = ({ isActive }) =>
 export function AdminLayout() {
   const { user, loading, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   if (loading) {
@@ -58,8 +68,15 @@ export function AdminLayout() {
         <nav className="flex-1 space-y-1 px-3 py-4">
           {ADMIN_MENU.map((item) => {
             const Icon = item.icon
+            const pathActive = item.activeMatch?.(location.pathname)
             return (
-              <NavLink key={item.to} to={item.to} className={linkClass}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  linkClass({ isActive: isActive || Boolean(pathActive) })
+                }
+              >
                 <Icon className="size-4" />
                 {item.label}
               </NavLink>
@@ -127,11 +144,14 @@ export function AdminLayout() {
           <nav className="space-y-1 px-3 py-4">
             {ADMIN_MENU.map((item) => {
               const Icon = item.icon
+              const pathActive = item.activeMatch?.(location.pathname)
               return (
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  className={linkClass}
+                  className={({ isActive }) =>
+                    linkClass({ isActive: isActive || Boolean(pathActive) })
+                  }
                   onClick={() => setMobileOpen(false)}
                 >
                   <Icon className="size-4" />

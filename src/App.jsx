@@ -17,6 +17,9 @@ import { AdminProducts } from './pages/admin/AdminProducts'
 import { AdminBestSellersConfig } from './pages/admin/AdminBestSellersConfig'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
 import { AdminVariantPricesPage } from './pages/admin/AdminVariantPricesPage'
+import { AdminProductVariantsPage } from './pages/admin/AdminProductVariantsPage'
+import { AdminVariantsHubPage } from './pages/admin/AdminVariantsHubPage'
+import { RedirectLegacyProductVariants } from './pages/admin/RedirectLegacyProductVariants'
 import { AdminInventory } from './pages/admin/AdminInventory'
 import { AdminBanners } from './pages/admin/AdminBanners'
 import { AdminContent } from './pages/admin/AdminContent'
@@ -83,6 +86,12 @@ export default function App() {
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id/edit" element={<AdminProductForm />} />
             <Route path="products/:id/prices" element={<AdminVariantPricesPage />} />
+            <Route path="variants" element={<AdminVariantsHubPage />} />
+            <Route path="variants/:productId" element={<AdminProductVariantsPage />} />
+            <Route
+              path="products/:productId/variants"
+              element={<RedirectLegacyProductVariants />}
+            />
             <Route path="inventory" element={<AdminInventory />} />
             <Route path="banners" element={<AdminBanners />} />
             <Route path="content" element={<AdminContent />} />

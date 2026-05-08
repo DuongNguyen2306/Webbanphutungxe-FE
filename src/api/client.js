@@ -8,7 +8,11 @@ import axios from 'axios'
 const DEFAULT_API_URL = 'https://thaivu-backend.onrender.com'
 const rawEnvApiUrl = String(import.meta.env.VITE_API_URL || '').trim()
 const hasAbsoluteApiUrl = /^https?:\/\//i.test(rawEnvApiUrl)
-const baseURL = (hasAbsoluteApiUrl ? rawEnvApiUrl : DEFAULT_API_URL).replace(/\/$/, '')
+const baseURL = hasAbsoluteApiUrl
+  ? rawEnvApiUrl.replace(/\/$/, '')
+  : import.meta.env.DEV
+    ? ''
+    : DEFAULT_API_URL
 
 export const api = axios.create({
   baseURL,

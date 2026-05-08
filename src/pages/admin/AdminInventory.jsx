@@ -109,6 +109,7 @@ export function AdminInventory() {
               <tr>
                 <th className="px-4 py-3">Sản phẩm</th>
                 <th className="px-4 py-3">Biến thể</th>
+                <th className="px-4 py-3">SKU</th>
                 <th className="px-4 py-3">Giá</th>
                 <th className="px-4 py-3">Còn hàng</th>
               </tr>
@@ -119,6 +120,7 @@ export function AdminInventory() {
                   [v.typeName, v.color, v.size]
                     .filter((x) => x && String(x).trim())
                     .join(' · ') || 'Mặc định'
+                const sku = String(v?.sku || '').trim()
                 const rowKey = `${p._id || p.id}-${v._id || v.id || v.sku || idx}`
                 const price = v.price != null ? v.price : v.salePrice
                 return (
@@ -127,6 +129,9 @@ export function AdminInventory() {
                       {p.name}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{label}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-800">
+                      {sku || '—'}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-brand">
                       {formatVnd(price)}
                     </td>

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { api } from '../../api/client'
 import { formatVnd } from '../../utils/format'
 
@@ -29,11 +30,27 @@ function getSoldCount(product) {
   return Number.isFinite(n) && n >= 0 ? n : 0
 }
 
+/** Chuỗi hiển thị danh mục (tránh [object Object] khi category là object không có .name) */
+function getCategoryDisplay(product) {
+  const c = product?.category
+  if (c == null) return ''
+  if (typeof c === 'string') return c.trim()
+  if (typeof c?.name === 'string') return c.name.trim()
+  if (c.name != null && typeof c.name === 'object') {
+    const nested = c.name.vi ?? c.name.en ?? c.name.default
+    if (typeof nested === 'string') return nested.trim()
+  }
+  if (typeof c?.title === 'string') return c.title.trim()
+  if (typeof c?.label === 'string') return c.label.trim()
+  return ''
+}
+
 export function AdminProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [bestSellerFilter, setBestSellerFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -51,18 +68,41 @@ export function AdminProducts() {
     load()
   }, [load])
 
-  const filteredProducts = products.filter((p) => {
-    const enabled = getBestSellerEnabled(p)
-    if (bestSellerFilter === 'enabled') return enabled
-    if (bestSellerFilter === 'disabled') return !enabled
-    return true
-  })
+  const filteredProducts = useMemo(() => {
+    let list = products
+    if (bestSellerFilter === 'enabled') list = list.filter((p) => getBestSellerEnabled(p))
+    else if (bestSellerFilter === 'disabled') list = list.filter((p) => !getBestSellerEnabled(p))
+
+    const q = String(searchQuery || '').trim().toLowerCase()
+    if (!q) return list
+
+    return list.filter((p) => {
+      const name = String(p.name || '').toLowerCase()
+      const cat = getCategoryDisplay(p).toLowerCase()
+      const variantBlob = (p.variants || [])
+        .flatMap((v) => [
+          v?.sku,
+          v?.typeName,
+          v?.color,
+          v?.size,
+        ])
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase())
+        .join(' ')
+      const blob = `${name} ${cat} ${variantBlob}`
+      return blob.includes(q)
+    })
+  }, [products, bestSellerFilter, searchQuery])
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
   const pagedProducts = filteredProducts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   useEffect(() => {
     if (page > totalPages) setPage(1)
   }, [page, totalPages])
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery])
 
   async function setStorefront(id, showOnStorefront) {
     try {
@@ -107,24 +147,42 @@ export function AdminProducts() {
           + Thêm sản phẩm
         </Link>
       </div>
-      <div className="mt-4">
-        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Lọc nhanh bán chạy
-        </label>
-        <select
-          value={bestSellerFilter}
-          onChange={(e) => {
-            setBestSellerFilter(e.target.value)
-            setPage(1)
-          }}
-          className="mt-1 w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-        >
-          {Object.entries(BEST_SELLER_FILTERS).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0 sm:max-w-xs">
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Lọc nhanh bán chạy
+          </label>
+          <select
+            value={bestSellerFilter}
+            onChange={(e) => {
+              setBestSellerFilter(e.target.value)
+              setPage(1)
+            }}
+            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+          >
+            {Object.entries(BEST_SELLER_FILTERS).map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0 flex-1 sm:max-w-md">
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Tìm kiếm
+          </label>
+          <div className="relative mt-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tên sản phẩm, danh mục, SKU hoặc biến thể..."
+              className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-800 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              autoComplete="off"
+            />
+          </div>
+        </div>
       </div>
       <ul className="mt-6 space-y-3">
         {pagedProducts.map((p) => {
@@ -145,7 +203,8 @@ export function AdminProducts() {
                   </span>
                 ) : null}
                 <p className="mt-1 text-xs text-gray-500">
-                  {p.category?.name} · {p.variants?.length || 0} biến thể
+                  {getCategoryDisplay(p) || 'Chưa gán danh mục'} ·{' '}
+                  {p.variants?.length || 0} biến thể
                 </p>
                 <div className="mt-2 grid gap-2 text-xs text-gray-600 sm:grid-cols-3">
                   <div>
@@ -195,6 +254,12 @@ export function AdminProducts() {
                   Sửa
                 </Link>
                 <Link
+                  to={`/admin/variants/${p._id}`}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  Biến thể
+                </Link>
+                <Link
                   to={`/admin/products/${p._id}/prices`}
                   className="rounded-lg border border-brand/30 bg-brand/5 px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand/10"
                 >
@@ -239,7 +304,9 @@ export function AdminProducts() {
       ) : null}
       {filteredProducts.length === 0 ? (
         <p className="mt-8 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-          Không có sản phẩm phù hợp bộ lọc.
+          {products.length === 0
+            ? 'Chưa có sản phẩm.'
+            : 'Không có sản phẩm phù hợp bộ lọc hoặc từ khóa tìm kiếm.'}
         </p>
       ) : null}
     </div>
