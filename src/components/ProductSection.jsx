@@ -22,6 +22,7 @@ export function ProductSection({
             name={p.name}
             originalPrice={p.originalPrice}
             salePrice={listPrice(p)}
+            soldCount={p.soldCount}
             discountTag={p.discountTag}
             image={p.image}
             isAvailable={p.isAvailable}

@@ -79,8 +79,12 @@ export function buildGoogleDriveUrl(fileId: string) {
   return `https://drive.google.com/file/d/${fileId}/view`
 }
 
-export function requestGoogleDriveToken(clientId: string, scope = DRIVE_SCOPE) {
-  return new Promise<string>((resolve, reject) => {
+export function requestGoogleDriveToken(
+  clientId: string,
+  scope = DRIVE_SCOPE,
+  opts: { prompt?: string } = {},
+) {
+  return new Promise<{ accessToken: string, expiresIn: number }>((resolve, reject) => {
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope,
@@ -93,13 +97,16 @@ export function requestGoogleDriveToken(clientId: string, scope = DRIVE_SCOPE) {
           reject(new Error('Google không trả access token.'))
           return
         }
-        resolve(String(resp.access_token))
+        resolve({
+          accessToken: String(resp.access_token),
+          expiresIn: Number(resp?.expires_in || 0),
+        })
       },
       error_callback: (err: any) => {
         reject(new Error(err?.message || 'Không mở được xác thực Google.'))
       },
     })
-    tokenClient.requestAccessToken({ prompt: 'consent' })
+    tokenClient.requestAccessToken({ prompt: opts.prompt || '' })
   })
 }
 
@@ -108,6 +115,8 @@ export type PickedDriveImage = {
   name: string
   mimeType: string
   googleDriveUrl: string
+  previewUrl: string
+  oauthToken?: string
 }
 
 export function openGoogleDriveImagePicker({
@@ -123,8 +132,8 @@ export function openGoogleDriveImagePicker({
 }) {
   return new Promise<PickedDriveImage[]>((resolve, reject) => {
     const picker = window.google.picker
-    const docsView = new picker.DocsView(picker.ViewId.DOCS_IMAGES)
-      .setIncludeFolders(false)
+    const docsView = new picker.DocsView(picker.ViewId.DOCS)
+      .setIncludeFolders(true)
       .setOwnedByMe(false)
       .setSelectFolderEnabled(false)
       .setMimeTypes('image/png,image/jpeg,image/jpg,image/webp,image/gif,image/bmp,image/svg+xml')
@@ -144,11 +153,17 @@ export function openGoogleDriveImagePicker({
           .map((doc) => {
             const id = String(doc?.id || '').trim()
             if (!id) return null
+            const previewUrl = String(
+              doc?.thumbnails?.[0]?.url ||
+                doc?.thumbnailUrl ||
+                `https://drive.google.com/thumbnail?id=${id}&sz=w1200`,
+            ).trim()
             return {
               id,
               name: String(doc?.name || '').trim(),
               mimeType: String(doc?.mimeType || '').trim(),
               googleDriveUrl: buildGoogleDriveUrl(id),
+              previewUrl,
             }
           })
           .filter(Boolean) as PickedDriveImage[]
@@ -158,6 +173,9 @@ export function openGoogleDriveImagePicker({
     if (appId) {
       builder = builder.setAppId(appId)
     }
+    builder = builder
+      .setOrigin(window.location.origin)
+      .enableFeature(picker.Feature.SUPPORT_DRIVES)
     if (multiple) {
       builder = builder.enableFeature(picker.Feature.MULTISELECT_ENABLED)
     }

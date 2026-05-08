@@ -37,5 +37,5 @@ export function normalizeGoogleDriveInput(rawInput) {
 export function getGoogleDrivePreviewUrl(url) {
   const id = extractGoogleDriveFileId(url)
   if (!id) return String(url || '').trim()
-  return `https://drive.google.com/thumbnail?id=${id}&sz=w1200`
+  return `https://drive.google.com/uc?export=view&id=${id}`
 }

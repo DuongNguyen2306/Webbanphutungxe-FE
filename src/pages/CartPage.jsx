@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
-import { CheckoutSuccessModal } from '../components/CheckoutSuccessModal'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { formatVnd } from '../utils/format'
 
 export function CartPage() {
+  const navigate = useNavigate()
   const {
     items,
     toggleSelect,
@@ -56,7 +56,6 @@ export function CartPage() {
   const [submitting, setSubmitting] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [error, setError] = useState('')
-  const [successOpen, setSuccessOpen] = useState(false)
   const selectAllRef = useRef(null)
 
   useEffect(() => {
@@ -166,7 +165,7 @@ export function CartPage() {
     }
     if (invalidMongo) {
       setError(
-        'Giỏ có sản phẩm ngoài kho MongoDB (chế độ offline). Khởi động API + seed hoặc thêm SP từ admin.',
+        'Một số sản phẩm trong giỏ hiện không thể đặt hàng trực tuyến. Vui lòng chọn sản phẩm khác hoặc thử lại sau.',
       )
       return
     }
@@ -215,13 +214,10 @@ export function CartPage() {
         })),
       })
       await removeSelectedLines()
-      setSuccessOpen(true)
       setCheckoutOpen(false)
+      navigate('/profile#orders')
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          'Không gửi được đơn. Kiểm tra API MongoDB và thử lại.',
-      )
+      setError('Không gửi được đơn hàng. Vui lòng thử lại sau ít phút.')
     } finally {
       setSubmitting(false)
     }
@@ -317,7 +313,7 @@ export function CartPage() {
                             ) : null}
                             {!line.mongoOk ? (
                               <p className="mt-1 text-xs font-semibold text-amber-700">
-                                Offline — không đặt qua MongoDB
+                                Tạm thời chưa hỗ trợ đặt online
                               </p>
                             ) : null}
                           </div>
@@ -534,10 +530,6 @@ export function CartPage() {
       </main>
 
       <SiteFooter />
-      <CheckoutSuccessModal
-        open={successOpen}
-        onClose={() => setSuccessOpen(false)}
-      />
     </div>
   )
 }

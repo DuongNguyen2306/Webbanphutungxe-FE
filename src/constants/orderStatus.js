@@ -16,6 +16,16 @@ export const ORDER_STATUS_LABELS = {
   [ORDER_STATUS.CANCELLED]: 'Đã hủy',
 }
 
+/** Tailwind classes for list/card status pills (single source for admin + customer). */
+export const ORDER_STATUS_BADGE_CLASSES = {
+  [ORDER_STATUS.PENDING]: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80',
+  [ORDER_STATUS.CONTACTING]: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80',
+  [ORDER_STATUS.CONFIRMED]: 'bg-blue-50 text-blue-800 ring-1 ring-blue-200/80',
+  [ORDER_STATUS.SHIPPING]: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200/80',
+  [ORDER_STATUS.COMPLETED]: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80',
+  [ORDER_STATUS.CANCELLED]: 'bg-rose-50 text-rose-800 ring-1 ring-rose-200/80',
+}
+
 export const FALLBACK_STATUS_OPTIONS = Object.values(ORDER_STATUS).map((code) => ({
   code,
   label: ORDER_STATUS_LABELS[code] || code,

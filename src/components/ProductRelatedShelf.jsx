@@ -113,6 +113,7 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
                     name={p.name}
                     originalPrice={p.originalPrice}
                     salePrice={p.salePrice}
+                    soldCount={p.soldCount}
                     discountTag={p.discountTag}
                     image={p.image}
                     isAvailable={p.isAvailable}

@@ -11,6 +11,30 @@ function nextId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+async function createDriveObjectPreview(file) {
+  const fileId = String(file?.id || '').trim()
+  const token = String(file?.oauthToken || '').trim()
+  if (!fileId || !token) return { objectUrl: '', blobFile: null }
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
+    if (!res.ok) return { objectUrl: '', blobFile: null }
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const filename = String(file?.name || fileId || 'drive-image').trim()
+    const blobFile = new File([blob], filename, {
+      type: blob.type || String(file?.mimeType || 'image/jpeg'),
+    })
+    return { objectUrl, blobFile }
+  } catch {
+    return { objectUrl: '', blobFile: null }
+  }
+}
+
 /** @typedef {{ id: string, previewUrl: string, remoteUrl: string, file: File | null, objectUrl: string }} ImageSlot */
 
 /**
@@ -173,12 +197,56 @@ export function ImagePickerField({
       const picked = await pickImages({ multiple: drivePickerMultiple })
       if (!picked?.length) return
       setDriveImporting(true)
+      const previewResults = await Promise.all(
+        picked.map(async (file) => {
+          const { objectUrl, blobFile } = await createDriveObjectPreview(file)
+          return { objectUrl, blobFile, file }
+        }),
+      )
+      const previewPairs = previewResults.map((entry) => [
+        String(entry?.file?.googleDriveUrl || '').trim().toLowerCase(),
+        entry,
+      ])
+      const enrichedPicked = previewResults.map((entry) => ({
+        ...(entry?.file || {}),
+        file:
+          entry?.blobFile instanceof File
+            ? entry.blobFile
+            : entry?.file?.file instanceof File
+              ? entry.file.file
+              : null,
+        blobFile: entry?.blobFile instanceof File ? entry.blobFile : null,
+        objectUrl: String(entry?.objectUrl || '').trim(),
+      }))
       const uploadedUrls =
         typeof onImportFromDriveFiles === 'function'
-          ? await onImportFromDriveFiles(picked)
+          ? await onImportFromDriveFiles(enrichedPicked)
           : picked.map((item) => item.googleDriveUrl)
       if (!Array.isArray(uploadedUrls) || !uploadedUrls.length) return
-      onChange(appendImageUrls(items, uploadedUrls))
+      const existing = new Set(
+        items
+          .map((it) => String(it?.remoteUrl || '').trim().toLowerCase())
+          .filter(Boolean),
+      )
+      const drivePreviewByUrl = new Map(previewPairs)
+      const added = uploadedUrls
+        .map((url) => String(url || '').trim())
+        .filter(Boolean)
+        .filter((url) => !existing.has(url.toLowerCase()))
+        .map((url) => {
+          const matched = drivePreviewByUrl.get(url.toLowerCase())
+          const previewFromPicker = String(matched?.objectUrl || matched?.file?.previewUrl || '').trim()
+          const isDrive = isGoogleDriveUrl(url)
+          return {
+            id: nextId(),
+            previewUrl: previewFromPicker || (isDrive ? getGoogleDrivePreviewUrl(url) : url),
+            remoteUrl: url,
+            file: matched?.blobFile instanceof File ? matched.blobFile : null,
+            objectUrl: matched?.objectUrl || '',
+          }
+        })
+      if (!added.length) return
+      onChange([...items, ...added])
       showUiToast(`Đã thêm ${uploadedUrls.length} ảnh từ Drive`)
     } catch (err) {
       if (isCancelledError(err)) {

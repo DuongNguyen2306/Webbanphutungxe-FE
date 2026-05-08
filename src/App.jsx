@@ -14,6 +14,7 @@ import { AdminOrders } from './pages/admin/AdminOrders'
 import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminProducts } from './pages/admin/AdminProducts'
+import { AdminBestSellersConfig } from './pages/admin/AdminBestSellersConfig'
 import { AdminProductForm } from './pages/admin/AdminProductForm'
 import { AdminVariantPricesPage } from './pages/admin/AdminVariantPricesPage'
 import { AdminInventory } from './pages/admin/AdminInventory'
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="orders/:id" element={<AdminOrderDetailPage />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="products" element={<AdminProducts />} />
+            <Route path="best-sellers" element={<AdminBestSellersConfig />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/:id/edit" element={<AdminProductForm />} />
             <Route path="products/:id/prices" element={<AdminVariantPricesPage />} />

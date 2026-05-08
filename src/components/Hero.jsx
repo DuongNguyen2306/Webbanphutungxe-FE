@@ -106,7 +106,7 @@ export function Hero() {
   if (banners == null) {
     return (
       <section className="relative w-full overflow-hidden bg-ink" aria-busy="true" aria-label="Đang tải banner">
-        <div className="relative aspect-[21/9] min-h-[200px] max-h-[420px] w-full animate-pulse bg-neutral-900 sm:aspect-[2.4/1] md:max-h-[480px]" />
+        <div className="relative h-[clamp(220px,34vw,480px)] w-full animate-pulse bg-neutral-900" />
       </section>
     )
   }
@@ -123,43 +123,44 @@ export function Hero() {
       >
         {banners.map((item) => (
           <SwiperSlide key={item.id || item.imageUrl}>
-            <div className="relative aspect-[21/9] min-h-[200px] max-h-[420px] w-full sm:aspect-[2.4/1] md:max-h-[480px]">
-              {item.linkTo ? (
-                <a href={item.linkTo} className="block h-full w-full">
-                  <img
-                    src={item.imageUrl}
-                    alt=""
-                    className="h-full w-full object-cover opacity-90"
-                  />
-                </a>
-              ) : (
-                <img
-                  src={item.imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover opacity-90"
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-              {Array.isArray(item.textLayers) && item.textLayers.length > 0 ? (
-                <div className="absolute inset-0 mx-auto w-full max-w-[1600px] px-4 sm:px-8 xl:px-10">
-                  {item.textLayers
-                    .filter((layer) => layer.isActive !== false && String(layer.text || '').trim())
-                    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-                    .map((layer, index) => renderLayer(layer, item, index))}
-                </div>
-              ) : (
-                <div className="absolute inset-0 mx-auto flex w-full max-w-[1600px] flex-col justify-center px-4 sm:px-8 xl:px-10">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/80 sm:text-sm">
-                    Thai Vũ · Phụ kiện & phụ tùng xe máy
-                  </p>
-                  <h1 className="mt-2 max-w-xl text-2xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
-                    Chính hãng · Giao nhanh · Tư vấn Zalo nhanh
-                  </h1>
-                  <p className="mt-3 max-w-md text-sm text-white/85 sm:text-base">
-                    Rất nhiều mặt hàng dành cho anh em chơi xe và nhiều mức giá.
-                  </p>
-                </div>
-              )}
+            <div className="relative h-[clamp(220px,34vw,480px)] w-full">
+              {/*
+                Chỉ phủ gradient + crop cover khi banner có text layer thật.
+                Không có text thì hiển thị nguyên ảnh để đúng thiết kế người dùng upload.
+              */}
+                {(() => {
+                  const hasActiveTextLayers =
+                    Array.isArray(item.textLayers) &&
+                    item.textLayers.some(
+                      (layer) =>
+                        layer?.isActive !== false && String(layer?.text || '').trim(),
+                    )
+                  const imageClass = hasActiveTextLayers
+                    ? 'h-full w-full object-cover opacity-90'
+                    : 'h-full w-full object-cover'
+                  return item.linkTo ? (
+                    <a href={item.linkTo} className="block h-full w-full">
+                      <img src={item.imageUrl} alt="" className={imageClass} />
+                    </a>
+                  ) : (
+                    <img src={item.imageUrl} alt="" className={imageClass} />
+                  )
+                })()}
+                {Array.isArray(item.textLayers) &&
+                item.textLayers.some(
+                  (layer) =>
+                    layer?.isActive !== false && String(layer?.text || '').trim(),
+                ) ? (
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
+                ) : null}
+                {Array.isArray(item.textLayers) && item.textLayers.length > 0 ? (
+                  <div className="absolute inset-0 mx-auto w-full max-w-[1600px] px-4 sm:px-8 xl:px-10">
+                    {item.textLayers
+                      .filter((layer) => layer.isActive !== false && String(layer.text || '').trim())
+                      .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+                      .map((layer, index) => renderLayer(layer, item, index))}
+                  </div>
+                ) : null}
             </div>
           </SwiperSlide>
         ))}

@@ -2,6 +2,18 @@ import { api } from './client'
 import { compressImageToWebp800 } from '../utils/compressImageToWebp800'
 import { isGoogleDriveUrl } from '../utils/googleDrive'
 
+function isTimeoutLikeError(err) {
+  const status = Number(err?.response?.status || 0)
+  const httpCode = Number(err?.response?.data?.http_code || 0)
+  const message = String(err?.response?.data?.message || err?.message || '').toLowerCase()
+  return (
+    status === 499 ||
+    status >= 500 ||
+    httpCode === 499 ||
+    message.includes('timeout')
+  )
+}
+
 /**
  * Upload một ảnh lên Cloudinary qua BE.
  * POST /api/products/upload — multipart, field: image
@@ -14,12 +26,28 @@ export async function uploadProductImage(input) {
     const processed = await compressImageToWebp800(input)
     const fd = new FormData()
     fd.append('image', processed)
-    res = await api.post('/api/products/upload', fd)
+    try {
+      res = await api.post('/api/products/upload', fd, { timeout: 45_000 })
+    } catch (err) {
+      if (!isTimeoutLikeError(err)) throw err
+      // Retry 1 lần với file gốc để giảm lỗi timeout ngắt quãng từ upstream.
+      const retryFd = new FormData()
+      retryFd.append('image', input)
+      res = await api.post('/api/products/upload', retryFd, { timeout: 60_000 })
+    }
   } else if (input?.file instanceof File) {
-    const processed = await compressImageToWebp800(input.file)
+    const sourceFile = input.file
+    const processed = await compressImageToWebp800(sourceFile)
     const fd = new FormData()
     fd.append('image', processed)
-    res = await api.post('/api/products/upload', fd)
+    try {
+      res = await api.post('/api/products/upload', fd, { timeout: 45_000 })
+    } catch (err) {
+      if (!isTimeoutLikeError(err)) throw err
+      const retryFd = new FormData()
+      retryFd.append('image', sourceFile)
+      res = await api.post('/api/products/upload', retryFd, { timeout: 60_000 })
+    }
   } else {
     const googleDriveUrl = String(input?.googleDriveUrl || '').trim()
     const imageUrl = String(input?.imageUrl || '').trim()
@@ -32,7 +60,7 @@ export async function uploadProductImage(input) {
     const body = {}
     if (googleDriveUrl) body.googleDriveUrl = googleDriveUrl
     if (imageUrl) body.imageUrl = imageUrl
-    res = await api.post('/api/products/upload', body)
+    res = await api.post('/api/products/upload', body, { timeout: 60_000 })
   }
   const { data, status } = res
   if (status !== 201 && status !== 200) {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import { api } from '../../api/client'
 import { formatVnd } from '../../utils/format'
 
@@ -15,6 +16,7 @@ export function AdminInventory() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -42,16 +44,33 @@ export function AdminInventory() {
     return out
   }, [products])
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const filteredRows = useMemo(() => {
+    const q = String(query || '').trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(({ product: p, variant: v }) => {
+      const label = [v?.typeName, v?.color, v?.size, v?.sku]
+        .filter((x) => x && String(x).trim())
+        .join(' · ')
+        .toLowerCase()
+      const productName = String(p?.name || '').toLowerCase()
+      return productName.includes(q) || label.includes(q)
+    })
+  }, [rows, query])
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
 
   const pagedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return rows.slice(start, start + PAGE_SIZE)
-  }, [rows, page])
+    return filteredRows.slice(start, start + PAGE_SIZE)
+  }, [filteredRows, page])
 
   useEffect(() => {
     if (page > totalPages) setPage(1)
   }, [page, totalPages])
+
+  useEffect(() => {
+    setPage(1)
+  }, [query])
 
   async function toggleAvailability(productId, variantId, isAvailable) {
     await api.patch(
@@ -74,6 +93,15 @@ export function AdminInventory() {
         Bật/tắt <span className="font-semibold text-gray-800">còn hàng</span> cho
         từng biến thể một chạm — không cần mở form chỉnh sửa đầy đủ.
       </p>
+      <div className="relative mt-4 max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm theo tên sản phẩm, biến thể hoặc SKU..."
+          className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        />
+      </div>
       <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -128,10 +156,10 @@ export function AdminInventory() {
           </table>
         </div>
       </div>
-      {rows.length > 0 ? (
+      {filteredRows.length > 0 ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-gray-500">
-            Trang {page} / {totalPages} · {rows.length} biến thể
+            Trang {page} / {totalPages} · {filteredRows.length}/{rows.length} biến thể
           </p>
           <div className="flex gap-2">
             <button
@@ -153,9 +181,9 @@ export function AdminInventory() {
           </div>
         </div>
       ) : null}
-      {rows.length === 0 ? (
+      {filteredRows.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-          Chưa có biến thể.
+          {rows.length === 0 ? 'Chưa có biến thể.' : 'Không có kết quả phù hợp từ khóa tìm kiếm.'}
         </p>
       ) : null}
     </div>

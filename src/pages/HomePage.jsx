@@ -12,6 +12,7 @@ import { SiteFooter } from '../components/SiteFooter'
 import { BestSellingShelf } from '../components/BestSellingShelf'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
+import { useBestSellers } from '../hooks/useBestSellers'
 import { normalizeSearch } from '../utils/string'
 
 const BRAND_SECTION_LABEL = {
@@ -65,6 +66,11 @@ export function HomePage() {
       priceMin: adv.priceMin,
       priceMax: adv.priceMax,
     })
+  const {
+    items: bestSellerItems,
+    loading: bestSellerLoading,
+    error: bestSellerError,
+  } = useBestSellers({ page: 1, limit: 10 })
   const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
 
   const isSingleBrandView = adv.brands.length === 1
@@ -217,10 +223,7 @@ export function HomePage() {
       {catalogError ? (
         <div className="mx-auto w-full max-w-[1600px] px-4 pt-3 xl:px-10">
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-900">
-            {catalogError}{' '}
-            <span className="font-normal text-red-800">
-              (API: <code className="rounded bg-red-100 px-1">/api/products</code>)
-            </span>
+            {catalogError}
           </p>
         </div>
       ) : null}
@@ -344,7 +347,11 @@ export function HomePage() {
           )}
       </>
 
-      <BestSellingShelf products={products} />
+      <BestSellingShelf
+        items={bestSellerItems}
+        loading={bestSellerLoading}
+        error={bestSellerError}
+      />
 
       <SiteFooter />
     </div>

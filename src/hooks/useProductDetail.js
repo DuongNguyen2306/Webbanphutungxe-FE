@@ -32,10 +32,7 @@ export function useProductDetail(id) {
         if (e.response?.status === 404) {
           setError('Không tìm thấy sản phẩm.')
         } else {
-          setError(
-            e.response?.data?.message ||
-              'Không tải được sản phẩm. Kiểm tra backend và thử lại.',
-          )
+          setError('Không tải được thông tin sản phẩm. Vui lòng thử lại sau.')
         }
       } finally {
         if (!cancel) setLoading(false)

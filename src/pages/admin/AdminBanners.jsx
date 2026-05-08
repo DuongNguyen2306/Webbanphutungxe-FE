@@ -120,10 +120,20 @@ export function AdminBanners() {
       return
     }
     const textLayers = normalizeLayers(form.textLayers)
+    const safeOrderInput = Math.max(1, Number(form.order) || 1)
+    const usedOrderSet = new Set(banners.map((item) => Number(item.order)).filter(Number.isFinite))
+    const resolvedOrder = usedOrderSet.has(safeOrderInput)
+      ? Math.max(1, ...banners.map((item) => Number(item.order) || 0)) + 1
+      : safeOrderInput
     setSaving(true)
     setError('')
     try {
-      await createBanner({ ...form, textLayers })
+      await createBanner({ ...form, order: resolvedOrder, textLayers })
+      if (resolvedOrder !== safeOrderInput) {
+        showUiToast(
+          `Thứ tự ${safeOrderInput} đã tồn tại, hệ thống tự chuyển sang ${resolvedOrder}.`,
+        )
+      }
       setForm({
         imageItems: [],
         linkTo: '',
@@ -346,10 +356,10 @@ export function AdminBanners() {
       <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
         <ImagePickerField
           label="Ảnh banner"
-          hint="Có thể chọn nhiều ảnh từ máy hoặc từ Google Drive."
+          hint="Có thể chọn nhiều ảnh từ máy hoặc từ Google Drive. Khuyến nghị Canva: 1600×700 (tỉ lệ 16:7)."
           items={form.imageItems}
           onChange={(next) => setForm((prev) => ({ ...prev, imageItems: next }))}
-          emptyText="Mỗi banner nên có ảnh ngang tỉ lệ 16:7."
+          emptyText="Nên dùng ảnh ngang tỉ lệ 16:7 (ví dụ 1600×700 hoặc 1920×840). 1920×1080 (16:9) sẽ bị che/cắt."
           enableDrivePicker
           onImportFromDriveFiles={importCreateBannerImagesFromDrive}
         />

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, ShoppingCart } from 'lucide-react'
-import { formatVnd } from '../utils/format'
+import { formatCompactCount, formatVnd } from '../utils/format'
 import { useCart } from '../context/CartContext'
 import { showUiToast } from '../utils/uiToast'
 
@@ -14,6 +14,7 @@ export function ProductCard({
   isAvailable,
   variants = [],
   priceFrom = false,
+  soldCount = null,
   imageAspect = 'square',
   /** 'default' | 'shelf' — shelf: ẩn cụm nút thao tác (carousel gọn) */
   variant = 'default',
@@ -27,6 +28,7 @@ export function ProductCard({
     imageAspect === 'tire' ? 'aspect-[4/5]' : 'aspect-square'
 
   const isShelf = variant === 'shelf'
+  const hasSoldCount = Number.isFinite(Number(soldCount)) && Number(soldCount) > 0
   const primaryVariant = variants.find((v) => v?.available) || variants[0] || null
   const canQuickAction = Boolean(
     id &&
@@ -118,6 +120,11 @@ export function ProductCard({
               {formatVnd(displaySale)}
             </span>
           </div>
+          {hasSoldCount ? (
+            <p className="text-[11px] font-medium text-gray-500">
+              Đã bán: {formatCompactCount(soldCount)}
+            </p>
+          ) : null}
         </div>
       </div>
     </>

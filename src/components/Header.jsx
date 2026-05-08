@@ -151,7 +151,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
   return (
     <header className="sticky top-0 z-50 shadow-md">
       <div className="bg-brand px-3 py-0.5 text-[10px] font-medium text-white/90 sm:px-4 sm:py-1 sm:text-[11px] xl:px-10">
-        <div className="mx-auto w-full max-w-[1600px] text-center sm:text-left">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center gap-2 text-center sm:justify-between sm:text-left">
           <span className="hidden sm:inline">
             Giao hàng toàn quốc · Hàng chính hãng · Tư vấn Zalo nhanh
           </span>

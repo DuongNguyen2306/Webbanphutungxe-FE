@@ -14,6 +14,19 @@ function toSafeNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
+function normalizeArticleType(raw) {
+  const value = String(raw || '').trim().toLowerCase()
+  if (!value) return 'guide'
+  if (['intro', 'introduction', 'about', 'gioi-thieu', 'gioithieu'].includes(value)) {
+    return 'intro'
+  }
+  if (['guide', 'guides', 'tutorial', 'huong-dan', 'huongdan'].includes(value)) {
+    return 'guide'
+  }
+  if (['news', 'tin-tuc', 'tintuc'].includes(value)) return 'news'
+  return value
+}
+
 function normalizeTextLayers(raw) {
   const fromRawArray = Array.isArray(raw) ? raw : []
   const normalized = fromRawArray
@@ -93,10 +106,12 @@ function mapBanner(raw) {
 }
 
 function mapArticle(raw) {
+  const typeSource =
+    raw?.type ?? raw?.articleType ?? raw?.kind ?? raw?.category ?? raw?.group
   return {
     id: String(raw?._id || raw?.id || ''),
     title: String(raw?.title || '').trim(),
-    type: String(raw?.type || 'guide').toLowerCase(),
+    type: normalizeArticleType(typeSource),
     content: String(raw?.content || raw?.html || '').trim(),
     author: String(raw?.author || '').trim(),
     createdAt: raw?.createdAt || '',
@@ -171,6 +186,9 @@ export async function createBanner({
   )
   const normalizedGoogleDriveUrls = mergedUrls.filter((url) => isGoogleDriveUrl(url))
   const imageUrls = mergedUrls.filter((url) => !isGoogleDriveUrl(url))
+  const primaryFile = files[0] || null
+  const primaryGoogleDriveUrl = normalizedGoogleDriveUrls[0] || ''
+  const primaryImageUrl = imageUrls[0] || ''
 
   const normalizedTextLayers = sanitizeTextLayers(textLayers)
   const payloadBase = {
@@ -180,27 +198,20 @@ export async function createBanner({
     textLayers: normalizedTextLayers,
   }
   let data
-  if (files.length > 0) {
+  if (primaryFile) {
     const formData = new FormData()
-    files.forEach((file, index) => {
-      if (index === 0) formData.append('image', file)
-      formData.append('images', file)
-    })
+    formData.append('image', primaryFile)
     formData.append('linkTo', payloadBase.linkTo)
     formData.append('order', String(payloadBase.order))
     formData.append('isActive', String(payloadBase.isActive))
     formData.append('textLayers', JSON.stringify(payloadBase.textLayers))
-    normalizedGoogleDriveUrls.forEach((url) => formData.append('googleDriveUrls', url))
-    imageUrls.forEach((url) => formData.append('imageUrls', url))
-    const res = await api.post('/api/banners', formData)
+    const res = await api.post('/api/admin/banners', formData)
     data = res.data
   } else {
     const body = { ...payloadBase }
-    if (normalizedGoogleDriveUrls.length === 1) body.googleDriveUrl = normalizedGoogleDriveUrls[0]
-    if (normalizedGoogleDriveUrls.length > 1) body.googleDriveUrls = normalizedGoogleDriveUrls
-    if (imageUrls.length === 1) body.imageUrl = imageUrls[0]
-    if (imageUrls.length > 1) body.imageUrls = imageUrls
-    const res = await api.post('/api/banners', body)
+    if (primaryGoogleDriveUrl) body.googleDriveUrl = primaryGoogleDriveUrl
+    if (primaryImageUrl) body.imageUrl = primaryImageUrl
+    const res = await api.post('/api/admin/banners', body)
     data = res.data
   }
   return mapBanner(data?.item || data?.data || data)
@@ -221,12 +232,12 @@ export async function updateBanner(id, payload) {
     if (body.textLayers) formData.append('textLayers', JSON.stringify(body.textLayers))
     if (body.imageUrl) formData.append('imageUrl', String(body.imageUrl).trim())
     if (body.googleDriveUrl) formData.append('googleDriveUrl', String(body.googleDriveUrl).trim())
-    const res = await api.put(`/api/banners/${id}`, formData)
+    const res = await api.put(`/api/admin/banners/${id}`, formData)
     data = res.data
   } else {
     const cleanBody = { ...body }
     delete cleanBody.imageFile
-    const res = await api.put(`/api/banners/${id}`, cleanBody)
+    const res = await api.put(`/api/admin/banners/${id}`, cleanBody)
     data = res.data
   }
   return mapBanner(data?.item || data?.data || data)
@@ -250,6 +261,7 @@ export async function getPublicBanners() {
 }
 
 export async function getAdminArticles(type) {
+  const normalizedType = normalizeArticleType(type)
   const data = await requestFirstSuccess(
     [
       '/api/admin/articles',
@@ -258,19 +270,46 @@ export async function getAdminArticles(type) {
       '/api/admin/content/article',
     ],
     {
-      params: type ? { type } : undefined,
+      params: normalizedType ? { type: normalizedType } : undefined,
     },
   )
-  return toList(data).map(mapArticle)
+  let list = toList(data).map(mapArticle)
+  if (!list.length && normalizedType) {
+    const fallbackData = await requestFirstSuccess(
+      [
+        '/api/admin/articles',
+        '/api/admin/article',
+        '/api/admin/content/articles',
+        '/api/admin/content/article',
+      ],
+      undefined,
+    )
+    list = toList(fallbackData).map(mapArticle)
+  }
+  return normalizedType ? list.filter((item) => item.type === normalizedType) : list
 }
 
 export async function createArticle(payload) {
-  const { data } = await api.post('/api/admin/articles', payload)
+  const normalizedType = normalizeArticleType(payload?.type)
+  const body = {
+    ...payload,
+    type: normalizedType,
+    articleType: normalizedType,
+    category: normalizedType,
+  }
+  const { data } = await api.post('/api/admin/articles', body)
   return mapArticle(data?.item || data?.data || data)
 }
 
 export async function updateArticle(id, payload) {
-  const { data } = await api.put(`/api/admin/articles/${id}`, payload)
+  const normalizedType = normalizeArticleType(payload?.type)
+  const body = {
+    ...payload,
+    type: normalizedType,
+    articleType: normalizedType,
+    category: normalizedType,
+  }
+  const { data } = await api.put(`/api/admin/articles/${id}`, body)
   return mapArticle(data?.item || data?.data || data)
 }
 

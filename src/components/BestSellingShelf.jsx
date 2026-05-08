@@ -3,41 +3,26 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProductCard } from './ProductCard'
 
-/**
- * Thanh sản phẩm bán chạy — ưu tiên sort theo soldCount (API); nếu không có dữ liệu thì giữ thứ tử catalog.
- */
-export function BestSellingShelf({ products = [] }) {
+export function BestSellingShelf({ items = [], loading = false, error = null }) {
   const railRef = useRef(null)
 
-  const items = useMemo(() => {
-    if (!products.length) return []
-    const ranked = [...products].sort((a, b) => {
-      const sa = Number(a.soldCount)
-      const sb = Number(b.soldCount)
-      const ha = Number.isFinite(sa) && sa > 0
-      const hb = Number.isFinite(sb) && sb > 0
-      if (ha && hb && sb !== sa) return sb - sa
-      if (ha && !hb) return -1
-      if (!ha && hb) return 1
-      return 0
-    })
+  const rows = useMemo(() => {
+    if (!items.length) return []
     const seen = new Set()
     const out = []
-    for (const p of ranked) {
-      if (out.length >= 16) break
+    for (const entry of items) {
+      const p = entry?.product
       if (!p?.id || seen.has(p.id)) continue
       seen.add(p.id)
-      out.push(p)
+      out.push(entry)
     }
-    return out.length ? out : products.slice(0, 16)
-  }, [products])
+    return out
+  }, [items])
 
   function scrollRail(delta) {
     const el = railRef.current
     if (el) el.scrollBy({ left: delta, behavior: 'smooth' })
   }
-
-  if (!items.length) return null
 
   return (
     <section className="border-t border-gray-200 bg-white py-8">
@@ -48,7 +33,7 @@ export function BestSellingShelf({ products = [] }) {
               Sản phẩm bán chạy
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Gợi ý theo lượt bán (dữ liệu từ cửa hàng); kéo ngang để xem thêm.
+              Gợi ý những sản phẩm được khách hàng mua nhiều.
             </p>
           </div>
           <Link
@@ -78,32 +63,44 @@ export function BestSellingShelf({ products = [] }) {
             <ChevronRight className="size-5 text-gray-700" />
           </button>
 
-          <div
-            ref={railRef}
-            className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin] md:px-10"
-          >
-            {items.map((p) => (
-              <div
-                key={p.id}
-                className="flex min-h-0 w-[150px] shrink-0 flex-col self-stretch sm:w-[168px]"
-              >
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <ProductCard
-                    productId={p.id}
-                    name={p.name}
-                    originalPrice={p.originalPrice}
-                    salePrice={p.salePrice}
-                    discountTag={p.discountTag}
-                    image={p.image}
-                    isAvailable={p.isAvailable}
-                    variants={p.variants}
-                    priceFrom={Boolean(p.variants?.length > 1)}
-                    variant="shelf"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          {loading ? (
+            <p className="px-2 py-4 text-sm text-gray-500">Đang tải sản phẩm bán chạy...</p>
+          ) : error ? (
+            <p className="px-2 py-4 text-sm text-red-600">{error}</p>
+          ) : !rows.length ? (
+            <p className="px-2 py-4 text-sm text-gray-500">Chưa có dữ liệu bán chạy.</p>
+          ) : (
+            <div
+              ref={railRef}
+              className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin] md:px-10"
+            >
+              {rows.map((entry) => {
+                const p = entry.product
+                return (
+                  <div
+                    key={p.id}
+                    className="flex min-h-0 w-[150px] shrink-0 flex-col self-stretch sm:w-[168px]"
+                  >
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <ProductCard
+                        productId={p.id}
+                        name={p.name}
+                        originalPrice={p.originalPrice}
+                        salePrice={p.salePrice}
+                        soldCount={entry.soldQuantity}
+                        discountTag={p.discountTag}
+                        image={p.image}
+                        isAvailable={p.isAvailable}
+                        variants={p.variants}
+                        priceFrom={Boolean(p.variants?.length > 1)}
+                        variant="shelf"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>

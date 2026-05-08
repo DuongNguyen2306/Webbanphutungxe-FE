@@ -4,7 +4,6 @@ import { api } from '../../api/client'
 import {
   resolveImageItemsToUrls,
   uploadProductImage,
-  uploadProductImageFromDrive,
 } from '../../api/productUploadApi'
 import {
   ImagePickerField,
@@ -218,6 +217,24 @@ function formatApiError(err) {
   return err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.'
 }
 
+function resolveBestSellerEnabled(data) {
+  if (typeof data?.bestSellerEnabled === 'boolean') return data.bestSellerEnabled
+  if (typeof data?.isBestSeller === 'boolean') return data.isBestSeller
+  if (typeof data?.showInBestSellers === 'boolean') return data.showInBestSellers
+  return false
+}
+
+function resolveBestSellerOrder(data) {
+  const raw = data?.bestSellerOrder ?? data?.bestSellerRank ?? data?.bestSellerPosition ?? 0
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? String(n) : '0'
+}
+
+function resolveSoldCount(data) {
+  const n = Number(data?.soldCount ?? 0)
+  return Number.isFinite(n) && n >= 0 ? String(n) : '0'
+}
+
 /** Rê chuột hoặc Tab + focus vào dấu ? để xem hướng dẫn nhanh (tiếng Việt dễ hiểu). */
 function QuickGuide({ text }) {
   return (
@@ -264,9 +281,13 @@ export function AdminProductForm() {
   const [partCategoryOther, setPartCategoryOther] = useState('')
   const [homeFeature, setHomeFeature] = useState('')
   const [showOnStorefront, setShowOnStorefront] = useState(true)
+  const [bestSellerEnabled, setBestSellerEnabled] = useState(false)
+  const [bestSellerOrder, setBestSellerOrder] = useState('0')
+  const [soldCount, setSoldCount] = useState('0')
   const [hasVariants, setHasVariants] = useState(true)
   const [attributes, setAttributes] = useState(buildDefaultAttributes)
   const [variants, setVariants] = useState([emptyVariant()])
+  const [dismissedAutoVariantKeys, setDismissedAutoVariantKeys] = useState([])
   const [primaryImageGroups, setPrimaryImageGroups] = useState({})
   const [singlePrice, setSinglePrice] = useState('')
   const [singleOriginalPrice, setSingleOriginalPrice] = useState('')
@@ -341,6 +362,9 @@ export function AdminProductForm() {
     setPartCategoryOther(pco)
     setHomeFeature(data.homeFeature ?? '')
     setShowOnStorefront(data.showOnStorefront !== false)
+    setBestSellerEnabled(resolveBestSellerEnabled(data))
+    setBestSellerOrder(resolveBestSellerOrder(data))
+    setSoldCount(resolveSoldCount(data))
     const apiHasVariants =
       typeof data?.hasVariants === 'boolean'
         ? data.hasVariants
@@ -477,6 +501,23 @@ export function AdminProductForm() {
     [attributesForVariants],
   )
 
+  const autoComboKeySet = useMemo(() => {
+    if (!comboAttributes.length || comboSourcesIncomplete) return new Set()
+    const combos = comboAttributes.reduce(
+      (acc, attr) => {
+        const next = []
+        acc.forEach((base) => {
+          attr.values.forEach((value) => {
+            next.push({ ...base, [attr.key]: value })
+          })
+        })
+        return next
+      },
+      [{}],
+    )
+    return new Set(combos.map((attributeValues) => defaultVariantKey(attributeValues, attributesForVariants)))
+  }, [comboAttributes, comboSourcesIncomplete, attributesForVariants])
+
   const usePrimaryImageGrouping = useMemo(
     () => hasVariants && attributesForVariants.length >= 2,
     [hasVariants, attributesForVariants.length],
@@ -509,15 +550,23 @@ export function AdminProductForm() {
   }, [])
 
   const handleImportImagesFromDrivePicker = useCallback(async (pickedFiles) => {
-    const driveUrls = (Array.isArray(pickedFiles) ? pickedFiles : [])
-      .map((file) => String(file?.googleDriveUrl || '').trim())
-      .filter(Boolean)
-    if (!driveUrls.length) return []
-    const uploaded = await Promise.all(
-      driveUrls.map((url) => uploadProductImageFromDrive(url)),
-    )
-    setToast(`Đã import ${uploaded.length} ảnh từ Google Drive.`)
-    return uploaded
+    const driveItems = Array.isArray(pickedFiles) ? pickedFiles : []
+    if (!driveItems.length) return []
+    const uploaded = []
+    for (const item of driveItems) {
+      if (item?.file instanceof File || item?.blobFile instanceof File) {
+        const url = await uploadProductImage(item.file || item.blobFile)
+        if (url) uploaded.push(url)
+        continue
+      }
+      throw new Error(
+        'Không lấy được file ảnh từ Google Drive. Vui lòng chọn lại ảnh trong Drive hoặc thử ảnh khác.',
+      )
+    }
+    const urls = uploaded.filter(Boolean)
+    if (!urls.length) return []
+    setToast(`Đã import ${urls.length} ảnh từ Google Drive.`)
+    return urls
   }, [])
 
   useEffect(() => {
@@ -636,9 +685,16 @@ export function AdminProductForm() {
   }
 
   function removeVariantRow(index) {
+    const target = variants[index]
+    const targetKey = defaultVariantKey(target?.attributeValues || {}, attributesForVariants)
+    if (autoComboKeySet.has(targetKey)) {
+      setDismissedAutoVariantKeys((prev) =>
+        prev.includes(targetKey) ? prev : [...prev, targetKey],
+      )
+    }
     setVariants((prev) => {
-      const target = prev[index]
-      if (target?.variantImages?.length) revokePreviewUrls(target.variantImages)
+      const current = prev[index]
+      if (current?.variantImages?.length) revokePreviewUrls(current.variantImages)
       return prev.filter((_, i) => i !== index)
     })
   }
@@ -648,6 +704,8 @@ export function AdminProductForm() {
       const next = !prev
       if (next) {
         setVariants((rows) => (rows.length ? rows : [emptyVariant()]))
+      } else {
+        setDismissedAutoVariantKeys([])
       }
       return next
     })
@@ -690,63 +748,95 @@ export function AdminProductForm() {
     })
   }
 
-  function generateVariantRowsFromAttributes() {
-    if (!comboAttributes.length) {
-      setToast('Mỗi cột phân loại cần có ít nhất một lựa chọn (ô màu đỏ, xanh…) rồi mới tạo danh sách nhanh được nhé.')
-      return
-    }
-    if (comboSourcesIncomplete) {
-      setToast('Còn cột phân loại chưa có lựa chọn nào — thêm tag hoặc xóa cột thừa. Hoặc bấm «Thêm một loại thủ công».')
-      return
-    }
-    const combos = comboAttributes.reduce(
-      (acc, attr) => {
-        const next = []
-        acc.forEach((base) => {
-          attr.values.forEach((value) => {
-            next.push({ ...base, [attr.key]: value })
+  const syncVariantRowsFromAttributes = useCallback(
+    ({ silent = false, respectDismissed = true } = {}) => {
+      if (!comboAttributes.length) {
+        if (!silent) {
+          setToast('Mỗi cột phân loại cần có ít nhất một lựa chọn (ô màu đỏ, xanh…) rồi mới tạo danh sách nhanh được nhé.')
+        }
+        return
+      }
+      if (comboSourcesIncomplete) {
+        if (!silent) {
+          setToast('Còn cột phân loại chưa có lựa chọn nào — thêm tag hoặc xóa cột thừa. Hoặc bấm «Thêm một loại thủ công».')
+        }
+        return
+      }
+
+      const combos = comboAttributes.reduce(
+        (acc, attr) => {
+          const next = []
+          acc.forEach((base) => {
+            attr.values.forEach((value) => {
+              next.push({ ...base, [attr.key]: value })
+            })
           })
+          return next
+        },
+        [{}],
+      )
+
+      setVariants((prev) => {
+        const byCombo = new Map(
+          prev.map((row) => [defaultVariantKey(row.attributeValues || {}, attributesForVariants), row]),
+        )
+        const dismissedSet =
+          respectDismissed && dismissedAutoVariantKeys.length
+            ? new Set(dismissedAutoVariantKeys)
+            : null
+
+        const generatedRows = combos
+          .map((attributeValues) => {
+            const comboKey = defaultVariantKey(attributeValues, attributesForVariants)
+            const existed = byCombo.get(comboKey)
+            const nextRow = { ...emptyVariant(), attributeValues, keyPreview: comboKey }
+            if (existed) {
+              return {
+                ...existed,
+                attributeValues,
+                keyPreview: comboKey,
+                sku: existed.skuManuallyEdited ? existed.sku : buildSkuForRow({ ...existed, attributeValues }),
+              }
+            }
+            return {
+              ...nextRow,
+              sku: buildSkuForRow(nextRow),
+            }
+          })
+          .filter((row) => !dismissedSet?.has(defaultVariantKey(row.attributeValues || {}, attributesForVariants)))
+
+        const generatedKeySet = new Set(
+          generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, attributesForVariants)),
+        )
+        const manualExtras = prev.filter((row) => {
+          const key = defaultVariantKey(row.attributeValues || {}, attributesForVariants)
+          return !generatedKeySet.has(key)
         })
-        return next
-      },
-      [{}],
+        const mergedRows = [...generatedRows, ...manualExtras]
+        return mapImagesByPrimaryAttribute(mergedRows, attributesForVariants, primaryImageGroups)
+      })
+    },
+    [
+      attributesForVariants,
+      buildSkuForRow,
+      comboAttributes,
+      comboSourcesIncomplete,
+      dismissedAutoVariantKeys,
+      primaryImageGroups,
+    ],
+  )
+
+  useEffect(() => {
+    if (!hasVariants) return
+    syncVariantRowsFromAttributes({ silent: true, respectDismissed: true })
+  }, [hasVariants, syncVariantRowsFromAttributes])
+
+  useEffect(() => {
+    if (!dismissedAutoVariantKeys.length) return
+    setDismissedAutoVariantKeys((prev) =>
+      prev.filter((key) => autoComboKeySet.has(key)),
     )
-    setVariants((prev) => {
-      const byCombo = new Map(
-        prev.map((row) => [defaultVariantKey(row.attributeValues || {}, attributesForVariants), row]),
-      )
-      const generatedRows = combos.map((attributeValues) => {
-        const comboKey = defaultVariantKey(attributeValues, attributesForVariants)
-        const existed = byCombo.get(comboKey)
-        const nextRow = { ...emptyVariant(), attributeValues, keyPreview: comboKey }
-        if (existed) {
-          return {
-            ...existed,
-            attributeValues,
-            keyPreview: comboKey,
-            sku: existed.skuManuallyEdited ? existed.sku : buildSkuForRow({ ...existed, attributeValues }),
-          }
-        }
-        return {
-          ...nextRow,
-          sku: buildSkuForRow(nextRow),
-        }
-      })
-      const generatedKeySet = new Set(
-        generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, attributesForVariants)),
-      )
-      const manualExtras = prev.filter((row) => {
-        const key = defaultVariantKey(row.attributeValues || {}, attributesForVariants)
-        return !generatedKeySet.has(key)
-      })
-      const mergedRows = [...generatedRows, ...manualExtras]
-      return mapImagesByPrimaryAttribute(
-        mergedRows,
-        attributesForVariants,
-        primaryImageGroups,
-      )
-    })
-  }
+  }, [autoComboKeySet, dismissedAutoVariantKeys.length])
 
   useEffect(() => {
     if (!name.trim()) return
@@ -798,6 +888,18 @@ export function AdminProductForm() {
       return
     }
 
+    const parsedSoldCount = Number(soldCount)
+    if (!Number.isFinite(parsedSoldCount) || parsedSoldCount < 0) {
+      setError('Số lượng đã bán hiển thị phải là số không âm.')
+      return
+    }
+
+    const parsedBestSellerOrder = Number(bestSellerOrder)
+    if (!Number.isFinite(parsedBestSellerOrder) || parsedBestSellerOrder < 0) {
+      setError('Thứ tự bán chạy phải là số không âm.')
+      return
+    }
+
     let brandFinal
     let vehicleTypeFinal
     let partCategoryFinal
@@ -839,7 +941,7 @@ export function AdminProductForm() {
         return
       }
       if (!variants.length) {
-        setError('Chưa có dòng hàng nào. Bấm «Tạo nhanh danh sách» hoặc «+ Thêm một loại thủ công».')
+        setError('Chưa có dòng hàng nào. Hãy nhập lựa chọn ở phần phân loại phía trên hoặc bấm «+ Thêm một loại thủ công».')
         return
       }
       if (duplicatedSkuSet.size > 0) {
@@ -995,6 +1097,13 @@ export function AdminProductForm() {
         partCategory: partCategoryFinal,
         homeFeature: homeFeature || null,
         showOnStorefront,
+        bestSellerEnabled,
+        bestSellerOrder: parsedBestSellerOrder,
+        soldCount: parsedSoldCount,
+        isBestSeller: bestSellerEnabled,
+        showInBestSellers: bestSellerEnabled,
+        bestSellerRank: parsedBestSellerOrder,
+        bestSellerPosition: parsedBestSellerOrder,
         hasVariants,
         price: !hasVariants ? Number(singlePrice) : undefined,
         originalPrice:
@@ -1110,6 +1219,49 @@ export function AdminProductForm() {
             </span>
           </span>
         </label>
+
+        <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 sm:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
+              checked={bestSellerEnabled}
+              onChange={(e) => setBestSellerEnabled(e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">Hiển thị trong sản phẩm bán chạy</span>
+              <span className="mt-0.5 block text-xs text-gray-600">
+                Tắt mục này thì sản phẩm không xuất hiện ở danh sách bán chạy dù vẫn lưu số bán và thứ tự.
+              </span>
+            </span>
+          </label>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">
+              Thứ tự bán chạy
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={bestSellerOrder}
+              onChange={(e) => setBestSellerOrder(e.target.value)}
+              className={field}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">
+              Số lượng đã bán hiển thị
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={soldCount}
+              onChange={(e) => setSoldCount(e.target.value)}
+              className={field}
+              placeholder="0"
+            />
+          </div>
+        </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
@@ -1394,16 +1546,19 @@ export function AdminProductForm() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="flex flex-wrap items-center text-sm font-bold text-gray-900">
                 Chi tiết loại hàng (từng dòng bán)
-                <QuickGuide text="Mỗi dòng là một loại bán ra: một màu + một size chẳng hạn. Nút «Tạo nhanh danh sách» sẽ ghép hết các lựa chọn ở trên thành nhiều dòng; còn «Thêm thủ công» là tự thêm từng dòng một." />
+                <QuickGuide text="Mỗi dòng là một loại bán ra: một màu + một size chẳng hạn. Khi bạn thêm lựa chọn ở phần phân loại phía trên, danh sách bên dưới sẽ tự tạo/cập nhật. Nếu không cần dòng nào, chỉ việc bấm xóa dòng đó." />
               </span>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <span className="text-xs text-gray-500">{variants.length} dòng</span>
                 <button
                   type="button"
-                  onClick={generateVariantRowsFromAttributes}
+                  onClick={() => {
+                    setDismissedAutoVariantKeys([])
+                    syncVariantRowsFromAttributes({ silent: false, respectDismissed: false })
+                  }}
                   className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900 shadow-sm hover:bg-emerald-100"
                 >
-                  Tạo nhanh danh sách
+                  Làm mới từ phân loại
                 </button>
                 <button
                   type="button"
@@ -1416,8 +1571,8 @@ export function AdminProductForm() {
             </div>
             {comboSourcesIncomplete ? (
               <p className="mt-2 text-xs leading-relaxed text-amber-800">
-                Còn cột phân loại chưa có ô lựa chọn nào — bạn vẫn có thể «Thêm một loại thủ công». Để dùng «Tạo
-                nhanh danh sách», hãy thêm đủ lựa chọn (tag) cho mỗi cột cần ghép.
+                Còn cột phân loại chưa có ô lựa chọn nào — bạn vẫn có thể «Thêm một loại thủ công». Khi mỗi cột có đủ
+                lựa chọn, danh sách bên dưới sẽ tự cập nhật.
               </p>
             ) : null}
             {attributesForVariants.map((attr) => (

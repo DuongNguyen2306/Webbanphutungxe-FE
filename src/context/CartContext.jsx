@@ -197,7 +197,10 @@ export function CartProvider({ children }) {
     }
   }, [items, token, cartReady])
 
-  const isServerMode = Boolean(token)
+  const serverCartEnabled =
+    String(import.meta.env.VITE_ENABLE_SERVER_CART || '').trim().toLowerCase() ===
+    'true'
+  const isServerMode = Boolean(token) && serverCartEnabled
 
   const setLineLoading = useCallback((lineId, loading) => {
     setLineLoadingMap((prev) => {
@@ -232,7 +235,7 @@ export function CartProvider({ children }) {
   }, [applyServerCart])
 
   const retryMergeGuestCart = useCallback(async () => {
-    if (!token) return true
+    if (!isServerMode) return true
     const guestItems = loadGuestCart()
     if (!guestItems.length) {
       setNeedsMergeRetry(false)
@@ -263,7 +266,7 @@ export function CartProvider({ children }) {
     } finally {
       setHydrating(false)
     }
-  }, [token, fetchServerCart, applyServerCart, handleAuthExpired])
+  }, [isServerMode, fetchServerCart, applyServerCart, handleAuthExpired])
 
   useEffect(() => {
     let cancelled = false
@@ -274,17 +277,11 @@ export function CartProvider({ children }) {
     setMergeError('')
     setCartReady(false)
 
-    if (!token) {
-      const wasLoggedIn = Boolean(prevTokenRef.current)
+    if (!isServerMode) {
       prevTokenRef.current = token
       setNeedsMergeRetry(false)
       setHydrating(false)
-      if (wasLoggedIn && !skipGuestClearOnNextLogoutRef.current) {
-        clearGuestCart()
-        setItems([])
-      } else {
-        setItems(loadGuestCart())
-      }
+      setItems(loadGuestCart())
       skipGuestClearOnNextLogoutRef.current = false
       setCartReady(true)
       return undefined
@@ -342,7 +339,7 @@ export function CartProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [authLoading, token, user?._id, applyServerCart, handleAuthExpired])
+  }, [authLoading, token, user?._id, isServerMode, applyServerCart, handleAuthExpired])
 
   const callAuthCartApi = useCallback(
     async ({ lineId, action, fallbackMessage }) => {

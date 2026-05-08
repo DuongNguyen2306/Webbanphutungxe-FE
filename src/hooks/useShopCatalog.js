@@ -54,10 +54,7 @@ export function useShopCatalog({ priceMin = 0, priceMax = null } = {}) {
         setProducts([])
         setAbsoluteMaxPrice(PRICE_SLIDER_MAX)
         setFromApi(false)
-        setError(
-          e.response?.data?.message ||
-            'Không tải được danh sách sản phẩm. Hãy chạy backend (vd. port 5000) và thử lại.',
-        )
+        setError('Không tải được danh sách sản phẩm. Vui lòng thử lại sau ít phút.')
       } finally {
         if (!cancel) setLoading(false)
       }
