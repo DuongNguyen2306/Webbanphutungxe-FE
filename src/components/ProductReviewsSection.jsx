@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { Star, StarHalf, Trash2 } from 'lucide-react'
+import { Star, StarHalf, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { parseYouTubeVideoId } from '../utils/youtubeUrl'
 
 /**
  * @typedef {Object} ReviewSummary
@@ -14,6 +16,12 @@ import { useAuth } from '../context/AuthContext'
  */
 
 /**
+ * @typedef {Object} ReviewAuthor
+ * @property {string} [mask]
+ * @property {boolean} [isStoreReview]
+ */
+
+/**
  * @typedef {Object} ReviewItem
  * @property {string} _id
  * @property {number} rating
@@ -21,21 +29,311 @@ import { useAuth } from '../context/AuthContext'
  * @property {string} [comment]
  * @property {string} [qualityNote]
  * @property {string} [matchDescriptionNote]
+ * @property {string} [productQuality]
+ * @property {string} [isCorrectDescription]
  * @property {string[]} [images]
+ * @property {string} [video]
  * @property {{url: string, durationSec?: number}[]} [videos]
  * @property {number} [likes]
  * @property {string} createdAt
- * @property {{ mask: string }} author
+ * @property {boolean} [isStoreReview]
+ * @property {ReviewAuthor} [author]
  */
 
-function StarDisplay({ value }) {
-  const v = Math.round(Number(value) || 0)
+/** Sao đầy + tối đa một nửa + sao trống (0.5 bước). Không dùng Math.round(rating). */
+function RatingStars({ rating, className = '', iconClass = 'size-4 sm:size-5', ariaLabel }) {
+  const r = Number(rating)
+  const safe = Number.isFinite(r) ? Math.min(5, Math.max(0, r)) : 0
+  const fullStars = Math.floor(safe)
+  const halfStar = safe - fullStars >= 0.5 ? 1 : 0
+  const empty = Math.max(0, 5 - fullStars - halfStar)
+  const label =
+    ariaLabel ??
+    `Đánh giá ${Number.isInteger(safe) ? String(safe) : safe.toFixed(1).replace(/\.0$/, '')} trên 5 sao`
+
+  const starCls = `${iconClass} shrink-0 text-amber-500`
+  const emptyCls = `${iconClass} shrink-0 text-gray-300`
+
   return (
-    <span className="text-amber-500" aria-hidden>
-      {Array.from({ length: 5 }, (_, i) => (
-        <span key={i}>{i < v ? '★' : '☆'}</span>
+    <span className={`inline-flex items-center gap-0.5 ${className}`} role="img" aria-label={label}>
+      {Array.from({ length: fullStars }, (_, i) => (
+        <Star key={`f-${i}`} className={starCls} fill="currentColor" strokeWidth={1.5} aria-hidden />
+      ))}
+      {halfStar ? (
+        <StarHalf key="h" className={starCls} fill="currentColor" strokeWidth={1.5} aria-hidden />
+      ) : null}
+      {Array.from({ length: empty }, (_, i) => (
+        <Star key={`e-${i}`} className={emptyCls} fill="none" strokeWidth={1.5} aria-hidden />
       ))}
     </span>
+  )
+}
+
+function reviewerDisplayName(rev) {
+  const m = String(rev?.author?.mask ?? '').trim()
+  if (m) return m
+  return 'Khách'
+}
+
+function isStoreReviewRev(rev) {
+  return rev?.isStoreReview === true || rev?.author?.isStoreReview === true
+}
+
+/** Giờ VN + relative ngắn nếu gần đây */
+function formatReviewDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = Date.now()
+  const diff = Math.max(0, now - d.getTime())
+  const min = Math.floor(diff / 60_000)
+  const hr = Math.floor(min / 60)
+  const days = Math.floor(hr / 24)
+  if (days > 14) {
+    return d.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    })
+  }
+  if (days >= 1) return `${days} ngày trước`
+  if (hr >= 1) return `${hr} giờ trước`
+  if (min >= 1) return `${min} phút trước`
+  return 'Vừa xong'
+}
+
+/** Vimeo: chỉ id số */
+function parseVimeoId(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return null
+  try {
+    const u = new URL(s, 'https://vimeo.com')
+    const host = (u.hostname || '').replace(/^www\./i, '').toLowerCase()
+    if (host !== 'vimeo.com' && host !== 'player.vimeo.com') return null
+    const parts = u.pathname.split('/').filter(Boolean)
+    if (parts[0] === 'video' && parts[1] && /^\d+$/.test(parts[1])) return parts[1]
+    if (parts.length === 1 && /^\d+$/.test(parts[0])) return parts[0]
+  } catch {
+    return null
+  }
+  return null
+}
+
+/** Chia comment thành đoạn text / link — chỉ mở khi người dùng bấm (target=_blank) */
+function CommentBody({ text }) {
+  const raw = String(text || '')
+  if (!raw.trim()) return null
+  const URL_REGEX = /(https?:\/\/[^\s]+)/gi
+  const parts = []
+  let last = 0
+  let m
+  while ((m = URL_REGEX.exec(raw)) !== null) {
+    if (m.index > last) parts.push({ type: 'text', value: raw.slice(last, m.index) })
+    parts.push({ type: 'link', value: m[1] })
+    last = m.index + m[0].length
+  }
+  if (last < raw.length) parts.push({ type: 'text', value: raw.slice(last) })
+  if (!parts.length) parts.push({ type: 'text', value: raw })
+
+  return (
+    <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800">
+      {parts.map((p, i) =>
+        p.type === 'link' ? (
+          <a
+            key={i}
+            href={p.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:decoration-brand"
+          >
+            {p.value}
+          </a>
+        ) : (
+          <span key={i}>{p.value}</span>
+        ),
+      )}
+    </div>
+  )
+}
+
+function ImageLightbox({ urls, index, onClose, onPrev, onNext }) {
+  if (!urls?.length || index < 0) return null
+  const src = urls[Math.min(index, urls.length - 1)]
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Xem ảnh đánh giá"
+    >
+      <button type="button" className="absolute inset-0 cursor-zoom-out" aria-label="Đóng" onClick={onClose} />
+      <div className="relative z-10 flex max-h-[90vh] max-w-[min(100vw-2rem,56rem)] flex-col items-center gap-3">
+        <div className="relative flex max-h-[80vh] w-full items-center justify-center">
+          {urls.length > 1 ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onPrev()
+              }}
+              className="absolute left-0 z-20 flex size-10 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow hover:bg-white"
+              aria-label="Ảnh trước"
+            >
+              <ChevronLeft className="size-6" />
+            </button>
+          ) : null}
+          <img
+            src={src}
+            alt=""
+            className="max-h-[80vh] max-w-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {urls.length > 1 ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onNext()
+              }}
+              className="absolute right-0 z-20 flex size-10 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow hover:bg-white"
+              aria-label="Ảnh sau"
+            >
+              <ChevronRight className="size-6" />
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex size-10 items-center justify-center rounded-full bg-white/90 text-gray-900 shadow hover:bg-white"
+          aria-label="Đóng"
+        >
+          <X className="size-5" />
+        </button>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+function ReviewVideoBlock({ videoUrl, videos }) {
+  const single = String(videoUrl || '').trim()
+  const list = Array.isArray(videos) ? videos : []
+  const ytId = single ? parseYouTubeVideoId(single) : null
+  const vmId = single ? parseVimeoId(single) : null
+
+  if (ytId) {
+    return (
+      <div className="mt-3 aspect-video w-full max-w-lg overflow-hidden rounded-lg border border-gray-200 bg-black">
+        <iframe
+          title="Video đánh giá"
+          className="h-full w-full"
+          src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(ytId)}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+    )
+  }
+  if (vmId) {
+    return (
+      <div className="mt-3 aspect-video w-full max-w-lg overflow-hidden rounded-lg border border-gray-200 bg-black">
+        <iframe
+          title="Video đánh giá"
+          className="h-full w-full"
+          src={`https://player.vimeo.com/video/${encodeURIComponent(vmId)}`}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      </div>
+    )
+  }
+  if (single) {
+    return (
+      <a
+        href={single}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-3 inline-flex rounded-lg border border-brand bg-brand/5 px-4 py-2 text-sm font-bold text-brand hover:bg-brand/10"
+      >
+        Xem video
+      </a>
+    )
+  }
+  if (!list.length) return null
+  return (
+    <div className="mt-3 space-y-2">
+      {list.map((v, i) => {
+        const url = String(v?.url || '').trim()
+        if (!url) return null
+        const y = parseYouTubeVideoId(url)
+        const vm = parseVimeoId(url)
+        if (y) {
+          return (
+            <div key={i} className="aspect-video w-full max-w-lg overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <iframe
+                title={`Video ${i + 1}`}
+                className="h-full w-full"
+                src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(y)}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+          )
+        }
+        if (vm) {
+          return (
+            <div key={i} className="aspect-video w-full max-w-lg overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <iframe
+                title={`Video ${i + 1}`}
+                className="h-full w-full"
+                src={`https://player.vimeo.com/video/${encodeURIComponent(vm)}`}
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+          )
+        }
+        return (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex rounded-lg border border-brand bg-brand/5 px-4 py-2 text-sm font-bold text-brand hover:bg-brand/10"
+          >
+            Xem video {i + 1}
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+function SummarySkeleton() {
+  return (
+    <div className="mt-4 animate-pulse space-y-3 rounded-lg bg-page px-4 py-4">
+      <div className="h-10 w-24 rounded bg-gray-200" />
+      <div className="h-4 w-48 rounded bg-gray-200" />
+    </div>
+  )
+}
+
+function ReviewCardSkeleton() {
+  return (
+    <div className="animate-pulse rounded-xl border border-gray-100 bg-page/50 px-4 py-4">
+      <div className="h-4 w-32 rounded bg-gray-200" />
+      <div className="mt-2 h-3 w-40 rounded bg-gray-200" />
+      <div className="mt-3 h-16 w-full rounded bg-gray-200" />
+    </div>
   )
 }
 
@@ -56,6 +354,7 @@ export function ProductReviewsSection({
   /** @type {[ReviewSummary | null, Function]} */
   const [summary, setSummary] = useState(null)
   const [summaryErr, setSummaryErr] = useState(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
 
   /** 'all' | '1'..'5' | 'comment' | 'media' */
   const [filterKey, setFilterKey] = useState('all')
@@ -65,6 +364,8 @@ export function ProductReviewsSection({
   const [listData, setListData] = useState(null)
   const [listLoading, setListLoading] = useState(true)
   const [listErr, setListErr] = useState(null)
+
+  const [gallery, setGallery] = useState(null)
 
   const [rating, setRating] = useState(5)
   const [hoverRating, setHoverRating] = useState(0)
@@ -86,25 +387,38 @@ export function ProductReviewsSection({
   }, [filterKey, page, limit])
 
   const loadSummary = useCallback(async () => {
+    const pid = String(productId || '').trim()
+    if (!pid) {
+      setSummary(null)
+      setSummaryErr('Thiếu mã sản phẩm.')
+      setSummaryLoading(false)
+      return
+    }
+    setSummaryLoading(true)
     setSummaryErr(null)
     try {
-      const { data } = await api.get(
-        `/api/products/${productId}/reviews/summary`,
-      )
+      const { data } = await api.get(`/api/products/${encodeURIComponent(pid)}/reviews/summary`)
       setSummary(data)
     } catch (e) {
       setSummary(null)
-      setSummaryErr(
-        e.response?.data?.message || 'Không tải được thống kê đánh giá.',
-      )
+      setSummaryErr(e.response?.data?.message || 'Không tải được thống kê đánh giá.')
+    } finally {
+      setSummaryLoading(false)
     }
   }, [productId])
 
   const loadList = useCallback(async () => {
+    const pid = String(productId || '').trim()
+    if (!pid) {
+      setListData(null)
+      setListErr('Thiếu mã sản phẩm.')
+      setListLoading(false)
+      return
+    }
     setListLoading(true)
     setListErr(null)
     try {
-      const { data } = await api.get(`/api/products/${productId}/reviews`, {
+      const { data } = await api.get(`/api/products/${encodeURIComponent(pid)}/reviews`, {
         params: queryParams,
       })
       setListData(data)
@@ -116,6 +430,16 @@ export function ProductReviewsSection({
     }
   }, [productId, queryParams])
 
+  const retryAll = useCallback(async () => {
+    await Promise.all([loadSummary(), loadList()])
+  }, [loadSummary, loadList])
+
+  useEffect(() => {
+    setPage(1)
+    setFilterKey('all')
+    setGallery(null)
+  }, [productId])
+
   useEffect(() => {
     loadSummary()
   }, [loadSummary])
@@ -123,6 +447,20 @@ export function ProductReviewsSection({
   useEffect(() => {
     loadList()
   }, [loadList])
+
+  useEffect(() => {
+    if (!gallery) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setGallery(null)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [gallery])
 
   async function handleSubmitReview(e) {
     e.preventDefault()
@@ -140,7 +478,7 @@ export function ProductReviewsSection({
         .map((s) => s.trim())
         .filter(Boolean)
       const videos = videoLines.map((url) => ({ url, durationSec: 0 }))
-      await api.post(`/api/products/${productId}/reviews`, {
+      await api.post(`/api/products/${encodeURIComponent(productId)}/reviews`, {
         rating,
         variantId: variantId || undefined,
         variantLabel: variantLabel || undefined,
@@ -156,8 +494,7 @@ export function ProductReviewsSection({
       setMatchNote('')
       setFormImages('')
       setFormVideos('')
-      loadSummary()
-      loadList()
+      await Promise.all([loadSummary(), loadList()])
     } catch (err) {
       setFormErr(
         err.response?.data?.message ||
@@ -170,13 +507,16 @@ export function ProductReviewsSection({
     }
   }
 
-  async function handleDeleteReview(reviewId) {
+  async function handleDeleteReview(reviewId, opts = {}) {
     if (!isAdmin) return
-    if (!window.confirm('Xóa đánh giá này?')) return
+    const msg =
+      typeof opts.confirmMessage === 'string' && opts.confirmMessage.trim()
+        ? opts.confirmMessage.trim()
+        : 'Xóa đánh giá này?'
+    if (!window.confirm(msg)) return
     try {
-      await api.delete(`/api/admin/reviews/${reviewId}`)
-      loadSummary()
-      loadList()
+      await api.delete(`/api/admin/reviews/${encodeURIComponent(reviewId)}`)
+      await Promise.all([loadSummary(), loadList()])
     } catch {
       window.alert('Không xóa được.')
     }
@@ -200,41 +540,68 @@ export function ProductReviewsSection({
   }, [listData, limit])
 
   const totalReviews = Number(listData?.total ?? listData?.count ?? NaN)
-
-  const itemsLen = listData?.items?.length ?? 0
+  const items = listData?.items
+  const itemsLen = items?.length ?? 0
   const canGoPrev = page > 1
-  const canGoNext =
-    totalPages > 0 ? page < totalPages : itemsLen >= limit
+  const canGoNext = totalPages > 0 ? page < totalPages : itemsLen >= limit
+
+  const summaryTotal = Number(summary?.total ?? 0)
+  const listTotal = Number(listData?.total ?? listData?.count ?? 0)
+  const hasActiveFilter = filterKey !== 'all'
+
+  const emptyMessage = useMemo(() => {
+    if (listLoading || listErr) return null
+    if (itemsLen > 0) return null
+    if (hasActiveFilter && summaryTotal > 0 && listTotal === 0) {
+      return 'Không có đánh giá nào thỏa bộ lọc. Thử đổi tab hoặc xóa lọc.'
+    }
+    if (!hasActiveFilter && summaryTotal === 0) {
+      return 'Chưa có đánh giá nào cho sản phẩm này. Hãy là người đầu tiên chia sẻ trải nghiệm!'
+    }
+    return 'Không có đánh giá trên trang này.'
+  }, [listLoading, listErr, itemsLen, hasActiveFilter, summaryTotal, listTotal])
+
+  const avg = Number(summary?.average)
+  const avgSafe = Number.isFinite(avg) ? avg : 0
 
   return (
     <section
       id="danh-gia"
       className="mx-auto max-w-[1200px] border-t border-gray-200 px-3 py-10 sm:px-4"
     >
-      <h2 className="text-lg font-extrabold text-ink sm:text-xl">
-        Đánh giá sản phẩm
-      </h2>
+      <h2 className="text-lg font-extrabold text-ink sm:text-xl">Đánh giá sản phẩm</h2>
 
-      {summaryErr ? (
-        <p className="mt-2 text-sm text-red-600">{summaryErr}</p>
-      ) : summary ? (
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg bg-page px-4 py-3">
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-brand">
-              {summary.average?.toFixed(1) ?? '0.0'}
-            </span>
-            <span className="text-sm text-gray-600">/5</span>
-          </div>
-          <StarDisplay value={Math.round(summary.average || 0)} />
-          <span className="text-sm text-gray-600">
-            ({summary.total ?? 0} đánh giá)
-          </span>
+      {(summaryErr || listErr) && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-800">
+          <p className="font-semibold">Có lỗi khi tải đánh giá</p>
+          {summaryErr ? <p className="mt-1">{summaryErr}</p> : null}
+          {listErr ? <p className="mt-1">{listErr}</p> : null}
+          <button
+            type="button"
+            onClick={() => retryAll()}
+            className="mt-3 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-dark"
+          >
+            Thử lại
+          </button>
         </div>
-      ) : (
-        <p className="mt-2 text-sm text-gray-500">Đang tải thống kê...</p>
       )}
 
-      {summary ? (
+      {summaryLoading ? (
+        <SummarySkeleton />
+      ) : summary && !summaryErr ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-page px-4 py-3 sm:gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-black text-brand">{summary.average?.toFixed(1) ?? '0.0'}</span>
+            <span className="text-sm text-gray-600">/5</span>
+          </div>
+          <RatingStars rating={avgSafe} iconClass="size-5 sm:size-6" />
+          <span className="text-sm text-gray-600">({summary.total ?? 0} đánh giá)</span>
+        </div>
+      ) : !summaryErr ? (
+        <p className="mt-2 text-sm text-gray-500">Không có dữ liệu thống kê.</p>
+      ) : null}
+
+      {summary && !summaryLoading && !summaryErr ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <FilterChip
             active={filterKey === 'all'}
@@ -246,7 +613,7 @@ export function ProductReviewsSection({
               key={n}
               active={filterKey === String(n)}
               onClick={() => selectFilter(String(n))}
-              label={`${n} sao (${byRating[n] ?? 0})`}
+              label={`${n} sao (${byRating[n] ?? byRating[String(n)] ?? 0})`}
             />
           ))}
           <FilterChip
@@ -269,9 +636,7 @@ export function ProductReviewsSection({
         >
           <p className="text-base font-extrabold text-ink">Viết đánh giá</p>
           {variantLabel ? (
-            <p className="mt-1 text-xs text-gray-500">
-              Phân loại: {variantLabel}
-            </p>
+            <p className="mt-1 text-xs text-gray-500">Phân loại: {variantLabel}</p>
           ) : null}
           <div className="mt-4">
             <label className="text-sm font-semibold text-gray-700">Đánh giá sao</label>
@@ -317,26 +682,19 @@ export function ProductReviewsSection({
             placeholder="Video URL"
             className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
-          {formErr ? (
-            <p className="mt-2 text-sm font-semibold text-red-600">{formErr}</p>
-          ) : null}
-          {formOk ? (
-            <p className="mt-2 text-sm font-semibold text-emerald-700">
-              {formOk}
-            </p>
-          ) : null}
+          {formErr ? <p className="mt-2 text-sm font-semibold text-red-600">{formErr}</p> : null}
+          {formOk ? <p className="mt-2 text-sm font-semibold text-emerald-700">{formOk}</p> : null}
           <button
             type="submit"
             disabled={submitting}
-            className="mt-4 rounded-lg px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-            style={{ backgroundColor: '#BC1F26' }}
+            className="mt-4 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
           </button>
         </form>
       ) : isAdmin ? (
         <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-          Chế độ Quản trị viên - Không thể đánh giá sản phẩm.
+          Chế độ Quản trị viên — không thể đánh giá sản phẩm.
         </div>
       ) : (
         <p className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -349,39 +707,49 @@ export function ProductReviewsSection({
 
       <div className="mt-8 space-y-4">
         {listLoading ? (
-          <p className="text-sm text-gray-500">Đang tải đánh giá...</p>
-        ) : listErr ? (
-          <p className="text-sm text-red-600">{listErr}</p>
-        ) : listData?.items?.length ? (
-          listData.items.map((rev) => (
+          <>
+            <ReviewCardSkeleton />
+            <ReviewCardSkeleton />
+            <ReviewCardSkeleton />
+          </>
+        ) : listErr ? null : itemsLen ? (
+          items.map((rev) => (
             <article
               key={rev._id}
-              className="rounded-xl border border-gray-100 bg-page/50 px-4 py-3"
+              className="rounded-xl border border-gray-100 bg-page/50 px-4 py-4 shadow-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-ink">
-                    {rev.author?.mask ?? '***'}
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-2 text-sm">
-                    <StarDisplay value={rev.rating} />
-                    <span className="text-xs text-gray-500">
-                      {rev.createdAt
-                        ? new Date(rev.createdAt).toLocaleString('vi-VN')
-                        : ''}
-                    </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-ink">{reviewerDisplayName(rev)}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                    <RatingStars
+                      rating={rev.rating}
+                      iconClass="size-4"
+                      ariaLabel={(() => {
+                        const rr = Number(rev.rating)
+                        if (!Number.isFinite(rr)) return undefined
+                        const t = Number.isInteger(rr) ? String(rr) : rr.toFixed(1)
+                        return `Đánh giá ${t} trên 5 sao`
+                      })()}
+                    />
+                    <span className="text-xs text-gray-500">{formatReviewDate(rev.createdAt)}</span>
                   </div>
                   {rev.variantLabel ? (
-                    <p className="mt-1 text-xs text-gray-600">
-                      Phân loại: {rev.variantLabel}
-                    </p>
+                    <p className="mt-1 text-xs text-gray-600">Phân loại: {rev.variantLabel}</p>
                   ) : null}
                 </div>
                 {isAdmin ? (
                   <button
                     type="button"
-                    onClick={() => handleDeleteReview(rev._id)}
-                    className="inline-flex items-center gap-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    onClick={() =>
+                      handleDeleteReview(rev._id, {
+                        confirmMessage:
+                          isStoreReviewRev(rev)
+                            ? 'Xóa đánh giá do cửa hàng nhập?'
+                            : 'Đây là đánh giá của khách. Xóa vĩnh viễn?',
+                      })
+                    }
+                    className="inline-flex shrink-0 items-center gap-1 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
                     title="Xóa (admin)"
                   >
                     <Trash2 className="size-3.5" />
@@ -389,67 +757,85 @@ export function ProductReviewsSection({
                   </button>
                 ) : null}
               </div>
-              {(rev.qualityNote || rev.matchDescriptionNote) && (
-                <p className="mt-2 text-xs text-gray-600">
-                  {rev.qualityNote ? (
-                    <span>Chất lượng: {rev.qualityNote} · </span>
+
+              {(rev.productQuality ||
+                rev.isCorrectDescription ||
+                rev.qualityNote ||
+                rev.matchDescriptionNote) && (
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {rev.productQuality || rev.qualityNote ? (
+                    <span className="rounded-full border border-gray-200 bg-white px-2.5 py-1 font-medium text-gray-700">
+                      Chất lượng: {String(rev.productQuality || rev.qualityNote).trim()}
+                    </span>
                   ) : null}
-                  {rev.matchDescriptionNote ? (
-                    <span>Đúng mô tả: {rev.matchDescriptionNote}</span>
+                  {rev.isCorrectDescription || rev.matchDescriptionNote ? (
+                    <span className="rounded-full border border-gray-200 bg-white px-2.5 py-1 font-medium text-gray-700">
+                      Đúng mô tả: {String(rev.isCorrectDescription || rev.matchDescriptionNote).trim()}
+                    </span>
                   ) : null}
-                </p>
+                </div>
               )}
-              {rev.comment ? (
-                <p className="mt-2 text-sm text-gray-800">{rev.comment}</p>
-              ) : null}
+
+              {rev.comment ? <CommentBody text={rev.comment} /> : null}
+
               {rev.images?.length ? (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:max-w-xl">
                   {rev.images.map((url, i) => (
-                    <a
+                    <button
                       key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block size-20 overflow-hidden rounded border border-gray-200 bg-white"
+                      type="button"
+                      onClick={() => setGallery({ urls: rev.images, index: i })}
+                      className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
                     >
-                      <img
-                        src={url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    </a>
+                      <img src={url} alt="" className="h-full w-full object-cover object-center" loading="lazy" />
+                    </button>
                   ))}
                 </div>
               ) : null}
-              {rev.videos?.length ? (
-                <div className="mt-2 space-y-1 text-xs">
-                  {rev.videos.map((v, i) => (
-                    <a
-                      key={i}
-                      href={v.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-brand underline"
-                    >
-                      Video {i + 1}
-                      {v.durationSec ? ` (${v.durationSec}s)` : ''}
-                    </a>
-                  ))}
-                </div>
-              ) : null}
+
+              <ReviewVideoBlock videoUrl={rev.video} videos={rev.videos} />
+
               {rev.likes != null && rev.likes > 0 ? (
-                <p className="mt-2 text-xs text-gray-400">
-                  Hữu ích ({rev.likes})
-                </p>
+                <p className="mt-2 text-xs text-gray-400">Hữu ích ({rev.likes})</p>
               ) : null}
             </article>
           ))
-        ) : (
-          <p className="text-sm text-gray-500">Chưa có đánh giá nào.</p>
-        )}
+        ) : emptyMessage ? (
+          <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/80 px-4 py-6 text-center text-sm text-gray-600">
+            {emptyMessage}
+          </p>
+        ) : null}
       </div>
 
-      {!listLoading && !listErr && itemsLen > 0 ? (
+      {gallery ? (
+        <ImageLightbox
+          urls={gallery.urls}
+          index={gallery.index}
+          onClose={() => setGallery(null)}
+          onPrev={() =>
+            setGallery((g) =>
+              g
+                ? {
+                    ...g,
+                    index: (g.index - 1 + g.urls.length) % g.urls.length,
+                  }
+                : null,
+            )
+          }
+          onNext={() =>
+            setGallery((g) =>
+              g
+                ? {
+                    ...g,
+                    index: (g.index + 1) % g.urls.length,
+                  }
+                : null,
+            )
+          }
+        />
+      ) : null}
+
+      {!listLoading && !listErr && (itemsLen > 0 || totalPages > 1) ? (
         <div className="mt-8 border-t border-gray-100 pt-6">
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
@@ -465,11 +851,7 @@ export function ProductReviewsSection({
               <div className="flex flex-wrap items-center justify-center gap-1">
                 {buildPaginationWindow(page, totalPages).map((entry, idx) =>
                   entry === '…' ? (
-                    <span
-                      key={`e-${idx}`}
-                      className="px-2 text-sm font-medium text-gray-400"
-                      aria-hidden
-                    >
+                    <span key={`e-${idx}`} className="px-2 text-sm font-medium text-gray-400" aria-hidden>
                       …
                     </span>
                   ) : (
@@ -501,14 +883,16 @@ export function ProductReviewsSection({
               ›
             </button>
           </div>
-          {totalPages > 1 ? (
-            <p className="mt-2 text-center text-xs text-gray-500">
-              Trang {page} / {totalPages}
-              {Number.isFinite(totalReviews) && totalReviews > 0
-                ? ` · ${totalReviews} đánh giá`
-                : null}
-            </p>
-          ) : null}
+          <p className="mt-2 text-center text-xs text-gray-500">
+            {totalPages > 0 ? (
+              <>
+                Trang {page} / {totalPages}
+                {Number.isFinite(totalReviews) && totalReviews > 0 ? ` · ${totalReviews} đánh giá` : null}
+              </>
+            ) : (
+              <>Trang {page}</>
+            )}
+          </p>
         </div>
       ) : null}
     </section>

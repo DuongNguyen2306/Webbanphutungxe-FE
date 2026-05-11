@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Check,
   MessageCircle,
+  X,
 } from 'lucide-react'
 import { SHOP_ZALO_URL } from '../data/products'
 import { Header } from '../components/Header'
@@ -18,8 +19,9 @@ import { formatVnd } from '../utils/format'
 import { api } from '../api/client'
 import { useCart } from '../context/CartContext'
 import { useProductDetail } from '../hooks/useProductDetail'
+import { useProductRelated } from '../hooks/useProductRelated'
 import { ProductReviewsSection } from '../components/ProductReviewsSection'
-import { ProductRelatedShelf } from '../components/ProductRelatedShelf'
+import { ProductDetailRelatedSections } from '../components/ProductDetailRelatedSections'
 import { useAuth } from '../context/AuthContext'
 import { showUiToast } from '../utils/uiToast'
 import { parseYouTubeVideoId } from '../utils/youtubeUrl'
@@ -97,6 +99,7 @@ function ProductDetailBody({
   mongoOk,
   isAdmin,
   user,
+  related,
 }) {
   const [selectedAttrs, setSelectedAttrs] = useState(() => {
     const out = {}
@@ -122,6 +125,7 @@ function ProductDetailBody({
     visible: false,
     seq: 0,
   })
+  const [imageZoomOpen, setImageZoomOpen] = useState(false)
 
   const variantById = useMemo(() => {
     if (!product.variants?.length) return null
@@ -221,6 +225,20 @@ function ProductDetailBody({
     }, 1100)
     return () => clearTimeout(timer)
   }, [addCartFeedback.visible, addCartFeedback.seq])
+
+  useEffect(() => {
+    if (!imageZoomOpen) return undefined
+    const onKey = (e) => {
+      if (e.key === 'Escape') setImageZoomOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [imageZoomOpen])
 
   const mainSrc =
     galleryImages.length > 0
@@ -354,25 +372,46 @@ function ProductDetailBody({
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
-        <div>
-          <div className="relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50">
+        <div className="min-w-0">
+        {/* Mobile: chỉ khối ảnh full-bleed ngang màn hình */}
+        <div className="max-lg:relative max-lg:left-1/2 max-lg:w-screen max-lg:max-w-[100vw] max-lg:-translate-x-1/2 lg:static lg:left-auto lg:w-full lg:max-w-none lg:translate-x-0">
+          <button
+            type="button"
+            disabled={!mainSrc}
+            onClick={() => mainSrc && setImageZoomOpen(true)}
+            aria-label={mainSrc ? 'Phóng to ảnh sản phẩm' : undefined}
+            className={`relative aspect-square w-full overflow-hidden border border-gray-200 bg-gray-50 text-left max-lg:rounded-none lg:rounded-xl ${mainSrc ? 'cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40' : ''}`}
+          >
             {mainSrc ? (
-              <img
-                src={mainSrc}
-                alt=""
-                className={`h-full w-full object-cover ${!available ? 'opacity-50 grayscale' : ''}`}
-              />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={mainSrc}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+                >
+                  <img
+                    src={mainSrc}
+                    alt=""
+                    decoding="async"
+                    draggable={false}
+                    className={`w-full h-full object-cover object-center ${!available ? 'opacity-50 grayscale' : ''}`}
+                  />
+                </motion.div>
+              </AnimatePresence>
             ) : (
               <div className="flex h-full min-h-[200px] items-center justify-center px-4 text-center text-sm text-gray-400">
                 Chưa có ảnh
               </div>
             )}
-          </div>
-          <div className="relative mt-3">
+          </button>
+          <div className="relative mt-3 max-lg:px-4">
             <button
               type="button"
               onClick={() => thumbScroll(-1)}
-              className="absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-gray-200 bg-white p-1 shadow sm:block"
+              className="absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-gray-200 bg-white p-1 shadow sm:left-2 sm:block lg:left-0"
               aria-label="Ảnh trước"
             >
               <ChevronLeft className="size-4" />
@@ -380,28 +419,36 @@ function ProductDetailBody({
             <button
               type="button"
               onClick={() => thumbScroll(1)}
-              className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-gray-200 bg-white p-1 shadow sm:block"
+              className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full border border-gray-200 bg-white p-1 shadow sm:right-2 sm:block lg:right-0"
               aria-label="Ảnh sau"
             >
               <ChevronRight className="size-4" />
             </button>
             <div
               id="pdp-thumbs"
-              className="flex gap-2 overflow-x-auto scroll-smooth px-0 sm:px-8 [scrollbar-width:thin]"
+              className="flex gap-2 overflow-x-auto scroll-smooth px-4 [scrollbar-width:thin] sm:px-8 lg:px-6"
             >
               {galleryImages.map((src, i) => (
                 <button
                   key={`${src}-${i}`}
                   type="button"
                   onClick={() => setImgIdx(i)}
-                  className={`relative size-16 shrink-0 overflow-hidden rounded border-2 sm:size-20 ${imgIdx === i ? 'border-brand' : 'border-gray-200'}`}
+                  onMouseEnter={() => setImgIdx(i)}
+                  className={`relative aspect-square size-16 shrink-0 overflow-hidden rounded-lg border-2 ring-brand/0 transition-shadow duration-200 sm:size-20 ${imgIdx === i ? 'border-brand ring-2 ring-brand/35' : 'border-gray-200 hover:border-gray-400'}`}
                 >
-                  <img src={src} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={src}
+                    alt=""
+                    className="w-full h-full object-cover object-center"
+                    draggable={false}
+                  />
                 </button>
               ))}
             </div>
           </div>
+        </div>
 
+        <div className="max-lg:px-4 lg:px-0">
           <ProductVideoSection videoUrl={product.videoUrl} title={product.name} />
 
           <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4 text-sm text-gray-500">
@@ -433,8 +480,9 @@ function ProductDetailBody({
             ) : null}
           </div>
         </div>
+        </div>
 
-        <div>
+        <div className="min-w-0">
           <span className="inline-block rounded bg-discount px-2 py-0.5 text-xs font-bold text-white">
             Yêu thích
           </span>
@@ -694,9 +742,54 @@ function ProductDetailBody({
         </section>
       ) : null}
     </main>
-    <ProductRelatedShelf
+
+    {imageZoomOpen && mainSrc ? (
+      <div
+        className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Xem ảnh lớn"
+      >
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/80"
+          aria-label="Đóng"
+          onClick={() => setImageZoomOpen(false)}
+        />
+        <div
+          className="relative z-10 overflow-hidden rounded-2xl border border-white/15 bg-gray-100 shadow-2xl"
+          style={{
+            width: 'min(90vw, 42rem, 85dvh)',
+            height: 'min(90vw, 42rem, 85dvh)',
+          }}
+        >
+          <div className="relative h-full min-h-0 w-full min-w-0">
+            <img
+              src={mainSrc}
+              alt=""
+              decoding="async"
+              draggable={false}
+              className={`w-full h-full object-cover object-center ${!available ? 'opacity-50 grayscale' : ''}`}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setImageZoomOpen(false)}
+            className="absolute right-2 top-2 z-20 flex size-10 items-center justify-center rounded-full bg-black/70 text-white shadow-md transition hover:bg-black/85"
+            aria-label="Đóng"
+          >
+            <X className="size-5" strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+    ) : null}
+
+    <ProductDetailRelatedSections
       excludeProductId={product.id}
-      categoryId={product.categoryId}
+      relatedByCategory={related?.relatedByCategory}
+      relatedByBrand={related?.relatedByBrand}
+      loading={related?.loading}
+      errorKind={related?.errorKind}
     />
     <ProductReviewsSection
       productId={product.id}
@@ -713,6 +806,7 @@ export function ProductDetailPage() {
   const { addItem } = useCart()
   const { user } = useAuth()
   const { product, loading, fromApi, error: productError } = useProductDetail(id)
+  const related = useProductRelated(id)
 
   const [search, setSearch] = useState('')
 
@@ -755,6 +849,7 @@ export function ProductDetailPage() {
         mongoOk={fromApi === true}
         isAdmin={user?.role === 'admin'}
         user={user}
+        related={related}
       />
 
       <SiteFooter />

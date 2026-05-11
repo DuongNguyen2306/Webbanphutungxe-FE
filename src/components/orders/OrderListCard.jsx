@@ -9,6 +9,24 @@ import { formatVnd } from '../../utils/format'
 import { normalizeOrderDelivery } from '../../utils/orderDelivery'
 import { resolveOrderItemImage } from '../../utils/orderItemImage'
 
+function resolveItemUnitPrice(item) {
+  const candidates = [
+    item?.price,
+    item?.salePrice,
+    item?.unitPrice,
+    item?.amount,
+    item?.selectedVariant?.salePrice,
+    item?.selectedVariant?.price,
+    item?.variant?.salePrice,
+    item?.variant?.price,
+  ]
+  for (const v of candidates) {
+    const n = Number(v)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return 0
+}
+
 function orderAddressLine(order) {
   if (order?.shippingAddressText) return String(order.shippingAddressText).trim()
   const addr = order?.shippingAddress
@@ -73,43 +91,53 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
     ? `Đặt lúc: ${new Date(order.createdAt).toLocaleString('vi-VN')}`
     : null
 
+  /**
+   * Flat-design trên mobile (chỉ có border-b làm divider, không bóng, không bo góc),
+   * vẫn giữ card style từ md trở lên để desktop không bị mất cảm giác phân vùng.
+   */
   const shellClass =
     edgeHighlight === 'urgent'
-      ? 'animate-pulse border-red-200 bg-red-50/60 shadow-[0_4px_20px_rgba(185,28,28,0.08)] ring-1 ring-red-100'
+      ? 'border-red-200 bg-red-50/60 md:animate-pulse md:rounded-2xl md:border md:shadow-[0_4px_20px_rgba(185,28,28,0.08)] md:ring-1 md:ring-red-100'
       : edgeHighlight === 'shipping'
-        ? 'border-brand/30 bg-white shadow-[0_4px_20px_rgba(188,31,38,0.07)] ring-1 ring-brand/15'
-        : 'border-gray-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)]'
+        ? 'border-brand/30 bg-white md:rounded-2xl md:border md:shadow-[0_4px_20px_rgba(188,31,38,0.07)] md:ring-1 md:ring-brand/15'
+        : 'border-gray-200 bg-white md:rounded-2xl md:border md:shadow-[0_4px_18px_rgba(15,23,42,0.06)]'
 
   const hideContactOnMobile = variant === 'customer'
 
   return (
-    <li className={`overflow-hidden rounded-2xl border ${shellClass}`}>
+    <li
+      className={`overflow-hidden border-b border-gray-200 last:border-b-0 md:overflow-hidden md:border-b-0 ${shellClass}`}
+    >
       <div className="flex flex-col md:flex-row md:min-h-[140px]">
         {/* —— Meta đơn: mobile = hàng mã + trạng thái + giá; desktop = cột như cũ —— */}
-        <aside className="flex shrink-0 flex-col border-b border-brand/10 bg-gradient-to-b from-brand/[0.07] to-brand/[0.03] md:w-[min(12.5rem,100%)] md:border-b-0 md:border-r md:border-brand/10 lg:w-[min(13.5rem,100%)] xl:w-[min(14rem,100%)]">
-          <div className="p-4 md:hidden">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                  Mã đơn hàng
-                </p>
-                <p className="mt-0.5 truncate font-mono text-sm font-bold text-gray-900">
+        <aside className="flex shrink-0 flex-col md:w-[min(12.5rem,100%)] md:border-r md:border-brand/10 md:bg-gradient-to-b md:from-brand/[0.07] md:to-brand/[0.03] lg:w-[min(13.5rem,100%)] xl:w-[min(14rem,100%)]">
+          <div className="px-3 pb-2 pt-3 md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Mã đơn
+                </span>
+                <span className="truncate font-mono text-[13px] font-bold text-gray-900">
                   #{shortId}
-                </p>
+                </span>
               </div>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold leading-tight ${badgeClass}`}
+                className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold leading-tight ${badgeClass}`}
               >
                 {statusLabel}
               </span>
             </div>
-            <p className="mt-3 text-2xl font-extrabold tracking-tight text-brand">
-              {formatVnd(order?.totalAmount)}
-            </p>
+            <div className="mt-1.5 flex items-baseline justify-between gap-2">
+              <p className="text-lg font-extrabold tracking-tight text-brand">
+                {formatVnd(order?.totalAmount)}
+              </p>
+              {dateStr ? (
+                <p className="truncate text-[11px] text-gray-500">{dateStr}</p>
+              ) : null}
+            </div>
             {edgeHighlight === 'urgent' ? (
-              <p className="mt-2 text-xs font-bold text-red-700">Cần xử lý gấp</p>
+              <p className="mt-1 text-[11px] font-bold text-red-700">Cần xử lý gấp</p>
             ) : null}
-            {dateStr ? <p className="mt-3 text-[11px] text-gray-500">{dateStr}</p> : null}
           </div>
 
           <div className="hidden min-h-0 flex-1 flex-col justify-between p-4 sm:p-5 md:flex md:min-h-[140px] lg:p-5">
@@ -134,7 +162,7 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1 bg-gray-50/40 p-4 sm:p-5 md:p-6">
+        <div className="min-w-0 flex-1 bg-transparent px-3 pb-3 pt-0 md:bg-gray-50/40 md:p-6">
           {/* Cột SP chiếm phần lớn chiều ngang; cột khách tối đa ~40% để địa chỉ dài không nuốt chỗ hiển thị SP */}
           <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,40%)_minmax(0,1fr)] xl:items-start xl:gap-x-8 xl:gap-y-4 2xl:gap-x-10">
             <div
@@ -193,30 +221,49 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
                   Sản phẩm
                 </p>
                 {variant === 'customer' ? (
-                  /* Một cột trên md/lg để mỗi SP đủ rộng; 2 cột chỉ khi viewport rất rộng */
-                  <div className="mt-2 grid grid-cols-1 gap-3">
+                  /* Mobile: list 1 dòng/SP với thumb nhỏ + tên & giá cùng hàng (tiết kiệm chiều dọc).
+                     md+: card mềm như cũ, không phá layout desktop. */
+                  <div className="mt-2 divide-y divide-gray-200/70 md:grid md:grid-cols-1 md:gap-3 md:divide-y-0">
                     {(order?.items || []).slice(0, 3).map((it, i) => {
                       const itemImage = resolveOrderItemImage(it)
+                      const unitPrice = resolveItemUnitPrice(it)
+                      const qty = Math.max(1, Number(it?.quantity) || 1)
+                      const lineTotal = unitPrice * qty
                       return (
                         <div
                           key={i}
-                          className="flex min-w-0 gap-3 rounded-xl border border-gray-200/80 bg-white/80 p-3 shadow-sm"
+                          className="flex min-w-0 gap-2.5 py-2.5 md:gap-3 md:rounded-xl md:border md:border-gray-200/80 md:bg-white/80 md:p-3 md:shadow-sm"
                         >
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100 sm:h-[4.5rem] sm:w-[4.5rem]">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100 md:h-[4.5rem] md:w-[4.5rem] md:rounded-lg">
                             {itemImage ? (
                               <img
                                 src={itemImage}
                                 alt={it.name || 'Sản phẩm'}
                                 className="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
                               />
                             ) : null}
                           </div>
-                          <div className="min-w-0 flex-1 py-0.5">
-                            <p className="text-sm font-semibold leading-snug text-gray-800 [overflow-wrap:anywhere] max-md:line-clamp-2 md:text-[0.9375rem]">
-                              {it.name}
-                            </p>
-                            <p className="mt-1 text-xs text-gray-500">
-                              {it.variantLabel || 'Mặc định'} × {it.quantity}
+                          <div className="min-w-0 flex-1 md:py-0.5">
+                            <div className="flex min-w-0 items-start gap-2">
+                              <p className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug text-gray-800 [overflow-wrap:anywhere] md:text-[0.9375rem]">
+                                {it.name}
+                              </p>
+                              {lineTotal > 0 ? (
+                                <span className="shrink-0 text-[13px] font-bold text-brand md:text-sm">
+                                  {formatVnd(lineTotal)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-gray-500 md:mt-1 md:text-xs">
+                              {it.variantLabel || 'Mặc định'} × {qty}
+                              {unitPrice > 0 && qty > 1 ? (
+                                <span className="text-gray-400">
+                                  {' '}
+                                  · {formatVnd(unitPrice)}/SP
+                                </span>
+                              ) : null}
                             </p>
                           </div>
                         </div>

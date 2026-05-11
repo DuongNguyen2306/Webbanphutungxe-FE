@@ -23,8 +23,60 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Cuộn ngang danh mục mobile — ẩn thanh cuộn */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 #root {
   min-height: 100svh;
+}
+
+/* Chừa chỗ cho MobileBottomNav (mobile <lg). Không áp dụng cho admin (mobile nav đã ẩn). */
+@media (max-width: 1023.98px) {
+  body:has(nav[aria-label='Liên hệ nhanh']) {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/**
+ * Ảnh phủ đầy khung (PDP, admin biến thể, thẻ SP).
+ * Dùng #root để thắng mọi preflight / utility Tailwind trên img (max-width:100%; height:auto → letterbox).
+ */
+#root img.img-cover-fill {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
+
+/* Khối media thẻ SP: đảm bảo ô có chiều ngang cột + ảnh luôn cover */
+.product-card-media {
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+}
+
+.product-card-media img.img-cover-fill {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  object-position: center !important;
 }
 
 /* Hai thanh range chồng nhau — chỉ kéo được nút thumb */
@@ -64,3 +116,4 @@ body {
   height: 8px;
   background: transparent;
 }
+

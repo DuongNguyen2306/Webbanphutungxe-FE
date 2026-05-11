@@ -14,8 +14,12 @@ const baseURL = hasAbsoluteApiUrl
     ? ''
     : DEFAULT_API_URL
 
+/** Mặc định dài: upload ảnh lớn + BE Render cold start; gọi thường vẫn kết thúc sớm khi có response. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 300_000
+
 export const api = axios.create({
   baseURL,
+  timeout: DEFAULT_REQUEST_TIMEOUT_MS,
 })
 
 api.interceptors.request.use((config) => {

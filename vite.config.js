@@ -11,6 +11,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
+        // Dev: proxy mặc định có thể ngắn hơn upload nặng — nới socket giống timeout Axios (phút).
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.setTimeout(600_000)
+          })
+        },
       },
     },
   },

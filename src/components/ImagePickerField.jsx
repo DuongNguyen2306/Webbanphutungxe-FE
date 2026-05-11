@@ -37,6 +37,20 @@ async function createDriveObjectPreview(file) {
 
 /** @typedef {{ id: string, previewUrl: string, remoteUrl: string, file: File | null, objectUrl: string }} ImageSlot */
 
+/** Inline để luôn thắng preflight/Tailwind — preview ô admin phải cover (phóng đầy khung), không letterbox. */
+const ADMIN_THUMB_COVER_STYLE = {
+  position: 'absolute',
+  inset: 0,
+  display: 'block',
+  boxSizing: 'border-box',
+  width: '100%',
+  height: '100%',
+  maxWidth: 'none',
+  maxHeight: 'none',
+  objectFit: 'cover',
+  objectPosition: 'center',
+}
+
 /**
  * @param {string[]} urls
  * @returns {ImageSlot[]}
@@ -271,10 +285,10 @@ export function ImagePickerField({
           : 'Chọn từ Drive'
 
   return (
-    <div>
+    <div className="min-w-0 w-full">
       <label className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}</label>
       <div
-        className="mt-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/70 p-4"
+        className="mt-2 min-w-0 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/70 p-4"
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
@@ -371,17 +385,35 @@ export function ImagePickerField({
         {hint ? <p className="mt-1 text-[11px] text-gray-500">{hint}</p> : null}
 
         {items.length ? (
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {items.map((img) => (
-              <div key={img.id} className="relative overflow-hidden rounded-md border border-gray-200 bg-white">
-                <img src={img.previewUrl} alt="" className="h-20 w-full object-cover" />
+              <div
+                key={img.id}
+                className="group relative aspect-square w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-100"
+              >
+                {img.previewUrl ? (
+                  <img
+                    src={img.previewUrl}
+                    alt=""
+                    decoding="async"
+                    loading="lazy"
+                    draggable={false}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{
+                      ...ADMIN_THUMB_COVER_STYLE,
+                      objectFit: 'cover',
+                      objectPosition: 'center',
+                    }}
+                  />
+                ) : null}
+
                 <button
                   type="button"
                   onClick={() => removeItem(img.id)}
-                  className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/70 text-xs font-bold text-white"
+                  className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-black/70 text-sm font-bold leading-none text-white shadow opacity-0 transition group-hover:opacity-100"
                   aria-label="Xóa ảnh"
                 >
-                  X
+                  ×
                 </button>
               </div>
             ))}

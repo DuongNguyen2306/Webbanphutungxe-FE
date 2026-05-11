@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
-import { BrandScroller } from '../components/BrandScroller'
 import { ProductSection } from '../components/ProductSection'
 import { CatalogFeatureSection } from '../components/CatalogFeatureSection'
-import { FilterPanelSidebar, FilterPanelContent } from '../components/FilterPanel'
+import { FilterPanelContent } from '../components/FilterPanel'
+import { FilterPanelAccordionSidebar } from '../components/FilterPanelAccordion'
+import { CatalogMobileCategoryRail } from '../components/catalog/CatalogMobileCategoryRail'
+import { CatalogFilterBottomSheet } from '../components/catalog/CatalogFilterBottomSheet'
+import { DesktopCategoryNav } from '../components/catalog/DesktopCategoryNav'
 import { PRICE_SLIDER_MAX, createDefaultFilterState } from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
 import { BestSellingShelf } from '../components/BestSellingShelf'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
 import { useBestSellers } from '../hooks/useBestSellers'
+import { useShopCategories } from '../hooks/useShopCategories'
 import { normalizeSearch } from '../utils/string'
+import { sortCatalogProducts } from '../utils/sortCatalogProducts'
 
 const BRAND_SECTION_LABEL = {
   vespa: 'VESPA',
@@ -31,13 +35,13 @@ function HomeCatalogSkeleton() {
       {[0, 1].map((block) => (
         <div key={block} className="w-full">
           <div className="mb-4 h-8 max-w-[220px] animate-pulse rounded-md bg-gray-200" />
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
                 className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm"
               >
-                <div className="aspect-square animate-pulse bg-gray-200" />
+                <div className="aspect-[5/6] animate-pulse bg-gray-200" />
                 <div className="space-y-2 p-3">
                   <div className="h-3 animate-pulse rounded bg-gray-200" />
                   <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
@@ -54,6 +58,8 @@ function HomeCatalogSkeleton() {
 
 export function HomePage() {
   const location = useLocation()
+  const [, setSearchParams] = useSearchParams()
+  const { categories, loading: categoriesLoading } = useShopCategories()
   const [searchQuery, setSearchQuery] = useState('')
   const [adv, setAdv] = useState(() => createDefaultFilterState())
   const [priceDraft, setPriceDraft] = useState(() => ({
@@ -61,6 +67,7 @@ export function HomePage() {
     priceMax: PRICE_SLIDER_MAX,
   }))
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [sortBy, setSortBy] = useState('default')
   const { products, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
     useShopCatalog({
       priceMin: adv.priceMin,
@@ -72,6 +79,15 @@ export function HomePage() {
     error: bestSellerError,
   } = useBestSellers({ page: 1, limit: 10 })
   const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
+
+  const bestSellerIdSet = useMemo(() => {
+    const ids = new Set()
+    for (const row of bestSellerItems) {
+      const id = row?.product?.id
+      if (id != null && id !== '') ids.add(String(id))
+    }
+    return ids
+  }, [bestSellerItems])
 
   const isSingleBrandView = adv.brands.length === 1
   const categoryQuery = useMemo(() => {
@@ -124,25 +140,26 @@ export function HomePage() {
     (p.brand || '').toLowerCase() === (b || '').toLowerCase()
 
   const sections = useMemo(() => {
+    const sortItems = (items) => sortCatalogProducts(items, sortBy)
     if (adv.brands.length === 1) {
       const key = adv.brands[0]
       const label = BRAND_SECTION_LABEL[key] ?? key.toUpperCase()
-      return [{ key, label, items: filtered }]
+      return [{ key, label, items: sortItems(filtered) }]
     }
     const main = BRAND_ORDER.map((b) => ({
       key: b,
       label: BRAND_SECTION_LABEL[b],
-      items: filtered.filter((p) => brandMatches(p, b)),
+      items: sortItems(filtered.filter((p) => brandMatches(p, b))),
     }))
-    const otherItems = filtered.filter(
-      (p) => !BRAND_ORDER.some((b) => brandMatches(p, b)),
+    const otherItems = sortItems(
+      filtered.filter((p) => !BRAND_ORDER.some((b) => brandMatches(p, b))),
     )
     const out = main.filter((s) => s.items.length > 0)
     if (otherItems.length > 0) {
       out.push({ key: 'other', label: 'Hãng khác', items: otherItems })
     }
     return out
-  }, [filtered, adv.brands])
+  }, [filtered, adv.brands, sortBy])
 
   const replacementProducts = useMemo(
     () => filtered.filter((p) => p.homeFeature === 'replacement').slice(0, 8),
@@ -199,6 +216,29 @@ export function HomePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [absoluteMaxPrice])
 
+  /** Danh mục theo BE — đồng bộ query ?categoryId= (đã dùng trong filtered). */
+  const handleCategorySelect = useCallback(
+    (categoryId) => {
+      setAdv((prev) => ({ ...prev, brands: [], parts: [] }))
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (categoryId == null || categoryId === '') {
+            next.delete('categoryId')
+            next.delete('category')
+          } else {
+            next.set('categoryId', String(categoryId))
+            next.delete('category')
+          }
+          return next
+        },
+        { replace: true },
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    },
+    [setSearchParams],
+  )
+
   const applyTiresFilter = useCallback(() => {
     const next = {
       ...createDefaultFilterState(absoluteMaxPrice),
@@ -218,6 +258,14 @@ export function HomePage() {
     <div className="min-h-svh bg-page font-sans text-ink">
       <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
 
+      <CatalogMobileCategoryRail
+        categories={categories}
+        loading={categoriesLoading}
+        selectedCategoryId={categoryIdQuery}
+        onCategorySelect={handleCategorySelect}
+        onOpenFilters={() => setMobileFilterOpen(true)}
+      />
+
       <Hero />
 
       {catalogError ? (
@@ -229,34 +277,37 @@ export function HomePage() {
       ) : null}
 
       <>
-          <div className="mx-auto w-full max-w-[1600px] space-y-4 px-4 py-5 xl:px-10">
-            <BrandScroller />
-
-            <button
-              type="button"
-              onClick={() => setMobileFilterOpen(true)}
-              className="w-full rounded-lg border-2 border-brand bg-white py-3 text-sm font-extrabold uppercase text-brand xl:hidden"
-            >
-              Mở bộ lọc nâng cao
-            </button>
-          </div>
-
-          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-6 px-4 pb-12 xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-8 xl:px-10">
-            <div className="hidden xl:block">
-              <div className="sticky top-28">
-                <FilterPanelSidebar
+          <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 gap-4 px-2 pb-12 pt-2 md:grid-cols-[230px_minmax(0,1fr)] md:gap-6 md:px-5 md:pt-4 xl:px-10">
+            <div className="hidden md:flex md:w-[230px] md:shrink-0 md:flex-col">
+              <div className="sticky top-28 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                <DesktopCategoryNav
+                  categories={categories}
+                  loading={categoriesLoading}
+                  selectedCategoryId={categoryIdQuery}
+                  onCategorySelect={handleCategorySelect}
+                />
+                <FilterPanelAccordionSidebar
                   filters={adv}
                   priceDraft={priceDraft}
                   absoluteMaxPrice={absoluteMaxPrice}
                   onChange={setAdv}
-                  onPriceChange={(priceMin, priceMax) => setPriceDraft({ priceMin, priceMax })}
+                  onPriceChange={(priceMin, priceMax) =>
+                    setPriceDraft({ priceMin, priceMax })
+                  }
                   onApplyPrice={applyPriceFilter}
                   onReset={resetAdv}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
                 />
               </div>
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
+              <div className="mb-3 md:mb-4">
+                <h2 className="text-base font-extrabold tracking-tight text-ink md:text-xl">
+                  Danh sách sản phẩm
+                </h2>
+              </div>
               {catalogLoading && products.length === 0 ? (
                 <HomeCatalogSkeleton />
               ) : sections.length === 0 ? (
@@ -285,6 +336,7 @@ export function HomePage() {
                     products={s.items}
                     onViewMore={() => handleViewMoreSection(s.key)}
                     showViewMore={adv.brands.length !== 1}
+                    bestSellerIds={bestSellerIdSet}
                   />
                 ))
               )}
@@ -294,57 +346,47 @@ export function HomePage() {
                   <CatalogFeatureSection
                     title="Phụ tùng thay thế"
                     products={replacementProducts}
-                    onViewAll={applyReplacementFilter}
                     imageAspect="square"
+                    bestSellerIds={bestSellerIdSet}
                   />
                   <CatalogFeatureSection
                     title="Vỏ xe máy (Lốp xe)"
                     products={tireProducts}
-                    onViewAll={applyTiresFilter}
                     imageAspect="tire"
+                    bestSellerIds={bestSellerIdSet}
                   />
                 </div>
               ) : null}
 
             </div>
           </div>
-          {mobileFilterOpen && (
-            <div
-              className="fixed inset-0 z-[60] flex flex-col bg-black/40 xl:hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Bộ lọc"
-            >
-              <div className="mt-auto max-h-[88vh] overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-base font-extrabold">Bộ lọc</span>
-                  <button
-                    type="button"
-                    onClick={() => setMobileFilterOpen(false)}
-                    className="rounded-full p-2 hover:bg-page"
-                    aria-label="Đóng"
-                  >
-                    <X className="size-5" />
-                  </button>
-                </div>
-                <FilterPanelContent
-                  filters={adv}
-                  priceDraft={priceDraft}
-                  absoluteMaxPrice={absoluteMaxPrice}
-                  onChange={setAdv}
-                  onPriceChange={(priceMin, priceMax) => setPriceDraft({ priceMin, priceMax })}
-                  onReset={() => {
-                    resetAdv()
-                    setMobileFilterOpen(false)
-                  }}
-                  onApplyPrice={() => {
-                    applyPriceFilter()
-                    setMobileFilterOpen(false)
-                  }}
-                />
-              </div>
-            </div>
-          )}
+          <CatalogFilterBottomSheet
+            open={mobileFilterOpen}
+            onClose={() => setMobileFilterOpen(false)}
+            title="Lọc & sắp xếp"
+          >
+            <FilterPanelContent
+              filters={adv}
+              priceDraft={priceDraft}
+              absoluteMaxPrice={absoluteMaxPrice}
+              onChange={setAdv}
+              onPriceChange={(priceMin, priceMax) =>
+                setPriceDraft({ priceMin, priceMax })
+              }
+              sortBy={sortBy}
+              onSortChange={(v) => {
+                setSortBy(v)
+              }}
+              onReset={() => {
+                resetAdv()
+                setMobileFilterOpen(false)
+              }}
+              onApplyPrice={() => {
+                applyPriceFilter()
+                setMobileFilterOpen(false)
+              }}
+            />
+          </CatalogFilterBottomSheet>
       </>
 
       <BestSellingShelf

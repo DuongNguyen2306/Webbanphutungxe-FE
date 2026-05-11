@@ -83,7 +83,7 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
         <div className="relative">
           <button
             type="button"
-            onClick={() => scrollRail(-320)}
+            onClick={() => scrollRail(-380)}
             className="absolute left-0 top-1/2 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md transition hover:bg-gray-50 md:flex"
             aria-label="Cuộn trái"
           >
@@ -91,7 +91,7 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
           </button>
           <button
             type="button"
-            onClick={() => scrollRail(320)}
+            onClick={() => scrollRail(380)}
             className="absolute right-0 top-1/2 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md transition hover:bg-gray-50 md:flex"
             aria-label="Cuộn phải"
           >
@@ -105,7 +105,7 @@ export function ProductRelatedShelf({ excludeProductId, categoryId }) {
             {items.map((p) => (
               <div
                 key={p.id}
-                className="flex min-h-0 w-[150px] shrink-0 flex-col self-stretch sm:w-[168px]"
+                className="flex min-h-0 w-[178px] shrink-0 flex-col self-stretch sm:w-[200px]"
               >
                 <div className="flex min-h-0 flex-1 flex-col">
                   <ProductCard

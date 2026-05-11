@@ -10,6 +10,7 @@ import {
   createImageItemsFromUrls,
   revokePreviewUrls,
 } from '../../components/ImagePickerField'
+import { AdminProductStoreReviewsSection } from '../../components/admin/AdminProductStoreReviewsSection'
 
 const OTHER = '__other__'
 
@@ -174,16 +175,26 @@ function collectPrimaryValuesFromRows(rows = [], attrs = []) {
   return out
 }
 
+/**
+ * Gom ảnh theo phân loại 1 khi load từ API — cùng cách đặt key như UI (canonical theo dòng đầu / không phân biệt hoa thường).
+ * Luôn lấy danh sách slot «đầy» nhất trong các dòng cùng màu (tránh dòng S trống che mất ảnh ở dòng M/L).
+ */
 function buildPrimaryImageGroupsFromVariants(rows = [], attrs = []) {
-  const grouped = {}
   const primaryAttr = getPrimaryAttribute(attrs)
-  if (!primaryAttr) return grouped
+  if (!primaryAttr) return {}
+  const canonicalList = collectPrimaryValuesFromRows(rows, attrs)
+  const canonicalByLower = new Map(canonicalList.map((v) => [String(v).toLowerCase(), v]))
+  const grouped = {}
+  for (const canon of canonicalList) {
+    grouped[canon] = []
+  }
   rows.forEach((row) => {
-    const value = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
-    if (!value) return
-    if (!grouped[value]) {
-      grouped[value] = Array.isArray(row?.variantImages) ? row.variantImages : []
-    }
+    const raw = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
+    if (!raw) return
+    const canon = canonicalByLower.get(raw.toLowerCase()) || raw
+    if (!(canon in grouped)) grouped[canon] = []
+    const imgs = Array.isArray(row?.variantImages) ? row.variantImages : []
+    if (imgs.length > grouped[canon].length) grouped[canon] = imgs
   })
   return grouped
 }
@@ -191,10 +202,21 @@ function buildPrimaryImageGroupsFromVariants(rows = [], attrs = []) {
 function mapImagesByPrimaryAttribute(rows = [], attrs = [], primaryImageGroups = {}) {
   const primaryAttr = getPrimaryAttribute(attrs)
   if (!primaryAttr) return rows
+  const canonicalByLower = new Map()
+  for (const v of collectPrimaryValuesFromRows(rows, attrs)) {
+    canonicalByLower.set(String(v).toLowerCase(), v)
+  }
   let changed = false
   const next = rows.map((row) => {
-    const value = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
-    const mappedItems = value ? primaryImageGroups[value] || [] : []
+    const valueRaw = String(row?.attributeValues?.[primaryAttr.key] || '').trim()
+    if (!valueRaw) {
+      const mappedItems = []
+      if (row.variantImages === mappedItems) return row
+      changed = true
+      return { ...row, variantImages: mappedItems }
+    }
+    const canon = canonicalByLower.get(valueRaw.toLowerCase()) || valueRaw
+    const mappedItems = primaryImageGroups[canon] || primaryImageGroups[valueRaw] || []
     if (row.variantImages === mappedItems) return row
     changed = true
     return { ...row, variantImages: mappedItems }
@@ -253,6 +275,26 @@ function QuickGuide({ text }) {
 
 function countPendingFiles(items = []) {
   return items.filter((it) => it?.file instanceof File).length
+}
+
+/** Ảnh theo phân loại 1: một nhóm màu = một lần đếm / upload, không nhân theo số dòng (size/SKU). */
+function countPendingVariantUploadsUnified({
+  hasVariants,
+  usePrimaryImageGrouping,
+  attributesForVariants,
+  variants,
+  primaryImageGroups,
+  variantPayload,
+}) {
+  if (!hasVariants) return 0
+  const primaryAttr = getPrimaryAttribute(attributesForVariants)
+  if (usePrimaryImageGrouping && primaryAttr) {
+    return collectPrimaryValuesFromRows(variants, attributesForVariants).reduce(
+      (sum, pv) => sum + countPendingFiles(primaryImageGroups[pv] || []),
+      0,
+    )
+  }
+  return variantPayload.reduce((s, v) => s + countPendingFiles(v.__imageItems || []), 0)
 }
 
 function emptyAttributeRow() {
@@ -954,6 +996,12 @@ export function AdminProductForm() {
       const comboSet = new Set()
       const missingPrimaryImageValues = new Set()
       const primaryAttr = getPrimaryAttribute(attributesForVariants)
+      const canonicalPrimaryByLower = new Map(
+        collectPrimaryValuesFromRows(variants, attributesForVariants).map((v) => [
+          String(v).toLowerCase(),
+          v,
+        ]),
+      )
       for (let idx = 0; idx < variants.length; idx += 1) {
         const row = variants[idx]
         const rowNo = idx + 1
@@ -1014,12 +1062,16 @@ export function AdminProductForm() {
           image: '',
           images: undefined,
         }
-        const rowPrimaryValue = primaryAttr
-          ? String(row.attributeValues?.[primaryAttr.key] || '').trim()
-          : ''
+        const rowPrimaryRaw = primaryAttr ? String(row.attributeValues?.[primaryAttr.key] || '').trim() : ''
+        const rowPrimaryValue =
+          usePrimaryImageGrouping && rowPrimaryRaw
+            ? canonicalPrimaryByLower.get(rowPrimaryRaw.toLowerCase()) || rowPrimaryRaw
+            : rowPrimaryRaw
         const resolvedImageItems =
           usePrimaryImageGrouping && rowPrimaryValue
-            ? primaryImageGroups[rowPrimaryValue] || []
+            ? primaryImageGroups[rowPrimaryValue] ||
+                (rowPrimaryRaw ? primaryImageGroups[rowPrimaryRaw] : undefined) ||
+                []
             : row.variantImages
         if (
           usePrimaryImageGrouping &&
@@ -1052,7 +1104,14 @@ export function AdminProductForm() {
 
     const totalUploads =
       countPendingFiles(images) +
-      (hasVariants ? variantPayload.reduce((s, v) => s + countPendingFiles(v.__imageItems || []), 0) : 0)
+      countPendingVariantUploadsUnified({
+        hasVariants,
+        usePrimaryImageGrouping,
+        attributesForVariants,
+        variants,
+        primaryImageGroups,
+        variantPayload,
+      })
 
     let doneUploads = 0
     setUploadProgress(totalUploads > 0 ? { current: 0, total: totalUploads } : null)
@@ -1066,8 +1125,35 @@ export function AdminProductForm() {
       const productImages = await resolveImageItemsToUrls(images, {
         onFileUploaded: bumpUpload,
       })
-      const variantsWithImages = hasVariants
-        ? await Promise.all(
+
+      let variantsWithImages = []
+      if (hasVariants) {
+        const primaryAttrUpload = getPrimaryAttribute(attributesForVariants)
+        if (usePrimaryImageGrouping && primaryAttrUpload) {
+          const primaryValuesInOrder = collectPrimaryValuesFromRows(variants, attributesForVariants)
+          const canonicalPrimaryByLower = new Map(
+            primaryValuesInOrder.map((v) => [String(v).toLowerCase(), v]),
+          )
+          const urlsByPrimary = {}
+          for (const pv of primaryValuesInOrder) {
+            urlsByPrimary[pv] = await resolveImageItemsToUrls(primaryImageGroups[pv] || [], {
+              onFileUploaded: bumpUpload,
+            })
+          }
+          variantsWithImages = variantPayload.map((variant, idx) => {
+            const row = variants[idx]
+            const pvRaw = String(row.attributeValues?.[primaryAttrUpload.key] || '').trim()
+            const pv = canonicalPrimaryByLower.get(pvRaw.toLowerCase()) || pvRaw
+            const uploadedImages = urlsByPrimary[pv] || []
+            const { __imageItems, ...cleanVariant } = variant
+            return {
+              ...cleanVariant,
+              images: uploadedImages,
+              image: uploadedImages[0] || '',
+            }
+          })
+        } else {
+          variantsWithImages = await Promise.all(
             variantPayload.map(async (variant) => {
               const uploadedImages = await resolveImageItemsToUrls(variant.__imageItems || [], {
                 onFileUploaded: bumpUpload,
@@ -1080,7 +1166,8 @@ export function AdminProductForm() {
               }
             }),
           )
-        : []
+        }
+      }
 
       setUploadProgress(null)
       setSubmitPhase('save')
@@ -1284,6 +1371,15 @@ export function AdminProductForm() {
             />
           </div>
         </div>
+
+        {isEdit && editId ? (
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+              Đánh giá cửa hàng
+            </p>
+            <AdminProductStoreReviewsSection productId={editId} />
+          </div>
+        ) : null}
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
@@ -1619,7 +1715,7 @@ export function AdminProductForm() {
                     primaryValuesInRows.map((value) => (
                       <div
                         key={`primary-image-${value}`}
-                        className="rounded-lg border border-blue-100 bg-white p-3"
+                        className="min-w-0 overflow-hidden rounded-lg border border-blue-100 bg-white p-3"
                       >
                         <ImagePickerField
                           label={`${primaryAttribute?.name || 'Phân loại 1'}: ${value}`}

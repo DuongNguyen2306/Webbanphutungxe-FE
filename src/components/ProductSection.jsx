@@ -7,14 +7,20 @@ export function ProductSection({
   products,
   onViewMore,
   showViewMore = true,
+  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6',
+  compactCardsOnMobile = true,
+  bestSellerIds = null,
 }) {
   if (!products.length) return null
+
+  const bs =
+    bestSellerIds instanceof Set ? bestSellerIds : bestSellerIds ? new Set(bestSellerIds) : null
 
   return (
     <section className="w-full">
       <SectionDivider brandName={brandDisplayName} />
 
-      <div className="grid min-h-0 grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6">
+      <div className={gridClassName}>
         {products.map((p) => (
           <ProductCard
             key={p.id}
@@ -28,6 +34,8 @@ export function ProductSection({
             isAvailable={p.isAvailable}
             variants={p.variants}
             priceFrom={p.priceFrom}
+            compactOnMobile={compactCardsOnMobile}
+            bestseller={bs ? bs.has(String(p.id)) || bs.has(p.id) : false}
           />
         ))}
       </div>

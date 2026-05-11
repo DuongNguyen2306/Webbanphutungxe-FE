@@ -14,7 +14,7 @@ export function FloatingContactRails() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-28 right-2 z-[45] flex flex-col gap-3 sm:bottom-32 sm:right-4"
+      className="pointer-events-none fixed bottom-28 right-2 z-[45] hidden flex-col gap-3 sm:bottom-32 sm:right-4 lg:flex"
       aria-label="Liên hệ nhanh"
     >
       <a

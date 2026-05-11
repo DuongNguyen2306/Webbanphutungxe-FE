@@ -12,6 +12,10 @@ export const PART_TYPES = [
   { id: 'accessories', label: 'Phụ kiện & đồ chơi' },
 ]
 
+/** Lối tắt danh mục: Phụ kiện vs Phụ tùng (các nhóm phụ tùng chính) */
+export const QUICK_ACCESSORY_PART_IDS = ['accessories']
+export const QUICK_SPARE_PART_IDS = ['shock', 'lighting', 'tires_wheels', 'engine']
+
 export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 
 /** Nhóm hãng: ưu tiên Vespa — phù hợp shop chuyên Vespa, ít hàng xe khác */

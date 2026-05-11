@@ -51,6 +51,19 @@ export function ProfilePage() {
   const [cancelModalError, setCancelModalError] = useState('')
   const [section, setSection] = useState('profile')
   const [statusTab, setStatusTab] = useState(ORDER_STATUS_TAB.ALL)
+  /**
+   * Số đơn theo từng tab trạng thái, để hiện badge cạnh tên tab
+   * (ví dụ "Chờ xử lý 3", "Đang liên hệ 1"…). Null = chưa tải / không đếm được.
+   */
+  const [tabCounts, setTabCounts] = useState({
+    [ORDER_STATUS_TAB.ALL]: null,
+    [ORDER_STATUS.PENDING]: null,
+    [ORDER_STATUS.CONTACTING]: null,
+    [ORDER_STATUS.CONFIRMED]: null,
+    [ORDER_STATUS.SHIPPING]: null,
+    [ORDER_STATUS.COMPLETED]: null,
+    [ORDER_STATUS.CANCELLED]: null,
+  })
 
   useEffect(() => {
     if (!toast) return undefined
@@ -151,6 +164,62 @@ export function ProfilePage() {
     if (!user) return
     loadOrdersPage(1)
   }, [user, statusTab, orderSearch, loadOrdersPage])
+
+  /**
+   * Tải số lượng đơn cho từng tab (Tất cả + 6 trạng thái) song song.
+   * Dùng limit=1 để chỉ lấy total từ server, không kéo nguyên page.
+   * Re-fetch khi: đổi user, từ khoá search đổi, hoặc khi page hiện tại reload (orders thay đổi).
+   */
+  useEffect(() => {
+    if (!user) return undefined
+    let cancelled = false
+
+    const STATUS_KEYS = [
+      ORDER_STATUS.PENDING,
+      ORDER_STATUS.CONTACTING,
+      ORDER_STATUS.CONFIRMED,
+      ORDER_STATUS.SHIPPING,
+      ORDER_STATUS.COMPLETED,
+      ORDER_STATUS.CANCELLED,
+    ]
+
+    const q = orderSearch.trim()
+    const baseParams = { limit: 1, skip: 0 }
+    if (q) baseParams.search = q
+
+    const fetchOne = (statusCode) => {
+      const params = { ...baseParams }
+      if (statusCode) params.status = statusCode
+      return api
+        .get('/api/orders/my-orders', { params })
+        .then(({ data }) => {
+          const parsed = parseOrderListResponse(data)
+          if (parsed.total != null && Number.isFinite(parsed.total)) {
+            return parsed.total
+          }
+          return parsed.items.length
+        })
+        .catch(() => null)
+    }
+
+    Promise.all([fetchOne(''), ...STATUS_KEYS.map(fetchOne)]).then((results) => {
+      if (cancelled) return
+      const [allCount, ...statusCounts] = results
+      setTabCounts({
+        [ORDER_STATUS_TAB.ALL]: allCount,
+        [ORDER_STATUS.PENDING]: statusCounts[0],
+        [ORDER_STATUS.CONTACTING]: statusCounts[1],
+        [ORDER_STATUS.CONFIRMED]: statusCounts[2],
+        [ORDER_STATUS.SHIPPING]: statusCounts[3],
+        [ORDER_STATUS.COMPLETED]: statusCounts[4],
+        [ORDER_STATUS.CANCELLED]: statusCounts[5],
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, orderSearch, orders])
 
   const statusTabs = [
     { id: ORDER_STATUS_TAB.ALL, label: 'Tất cả' },
@@ -360,65 +429,48 @@ export function ProfilePage() {
     return <Navigate to="/login" replace />
   }
 
+  /**
+   * Mobile section tabs (mỏng, không có bóng card chồng chéo).
+   * Dùng dải gạch chân màu brand cho tab đang chọn.
+   */
+  const mobileSectionTabs = [
+    { id: 'profile', label: 'Hồ sơ', Icon: User },
+    { id: 'orders', label: 'Đơn mua', Icon: ShoppingBag, anchor: 'orders-mobile' },
+    { id: 'password', label: 'Mật khẩu', Icon: KeyRound },
+  ]
+
   return (
     <div className="min-h-svh bg-page font-sans text-ink">
       <Header searchQuery={search} onSearchQueryChange={setSearch} />
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 md:py-8 lg:px-8 xl:px-10 2xl:max-w-[90rem]">
-        <div className="rounded-2xl border border-gray-200 bg-[#F3F4F6] p-3 md:p-5 lg:p-6">
-          <nav
-            className="mb-4 md:hidden"
-            aria-label="Menu tài khoản"
-          >
-            <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-              <div className="-mx-0.5 flex gap-1 overflow-x-auto px-0.5 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <main className="mx-auto w-full max-w-7xl px-2 pb-6 pt-3 sm:px-6 md:px-4 md:py-8 lg:px-8 xl:px-10 2xl:max-w-[90rem]">
+        <nav
+          className="sticky top-[calc(var(--header-mobile-offset,116px))] z-30 -mx-2 mb-3 border-b border-gray-200 bg-page/95 px-2 backdrop-blur supports-[backdrop-filter]:bg-page/80 md:hidden"
+          aria-label="Menu tài khoản"
+        >
+          <div className="flex items-stretch gap-1 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {mobileSectionTabs.map(({ id, label, Icon, anchor }) => {
+              const active = section === id
+              return (
                 <button
+                  key={id}
+                  id={anchor}
                   type="button"
-                  onClick={() => setSection('profile')}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2.5 text-sm font-bold transition ${
-                    section === 'profile'
-                      ? 'bg-brand text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  onClick={() => setSection(id)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition ${
+                    active
+                      ? 'border-brand font-bold text-brand'
+                      : 'border-transparent font-medium text-gray-600'
                   }`}
                 >
-                  <User className="size-4 shrink-0" />
-                  Hồ sơ
+                  <Icon className="size-4 shrink-0" />
+                  {label}
                 </button>
-                <button
-                  id="orders-mobile"
-                  type="button"
-                  onClick={() => setSection('orders')}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2.5 text-sm font-bold transition ${
-                    section === 'orders'
-                      ? 'bg-brand text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <ShoppingBag className="size-4 shrink-0" />
-                  Đơn mua
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSection('password')}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2.5 text-sm font-bold transition ${
-                    section === 'password'
-                      ? 'bg-brand text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <KeyRound className="size-4 shrink-0" />
-                  Mật khẩu
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white py-2.5 text-sm font-bold text-gray-800 hover:bg-gray-50"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </nav>
+              )
+            })}
+          </div>
+        </nav>
 
+        <div className="rounded-none border-0 bg-transparent p-0 md:rounded-2xl md:border md:border-gray-200 md:bg-[#F3F4F6] md:p-5 lg:p-6">
           <div className="grid gap-4 md:grid-cols-[minmax(0,200px)_minmax(0,1fr)] md:gap-5 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
           <aside className="hidden rounded-xl border border-gray-200 bg-white p-2 md:block">
             <nav className="flex flex-col gap-1.5" aria-label="Menu tài khoản">
@@ -457,7 +509,7 @@ export function ProfilePage() {
             </button>
           </aside>
 
-          <section className="min-w-0 rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] sm:p-6 md:p-8 lg:p-10">
+          <section className="min-w-0 rounded-none border-0 bg-transparent p-0 shadow-none sm:p-0 md:rounded-2xl md:border md:border-gray-100 md:bg-white md:p-8 md:shadow-[0_8px_24px_rgba(15,23,42,0.05)] lg:p-10">
             {section === 'profile' ? (
               <>
                 <h1 className="text-xl font-extrabold">Thông tin tài khoản</h1>
@@ -554,10 +606,10 @@ export function ProfilePage() {
 
             {section === 'orders' ? (
               <>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-xl font-extrabold">Đơn mua của tôi</h2>
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                <div className="rounded-none border-0 bg-transparent p-0 shadow-none md:rounded-2xl md:border md:border-gray-200 md:bg-white md:p-5 md:shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 md:px-0">
+                    <h2 className="text-lg font-extrabold md:text-xl">Đơn mua của tôi</h2>
+                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 md:px-3 md:py-1 md:text-xs">
                       {ordersTotal != null
                         ? `${ordersTotal} đơn`
                         : orders.length > 0
@@ -566,26 +618,27 @@ export function ProfilePage() {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <input
-                      type="search"
-                      value={orderSearchInput}
-                      onChange={(e) => setOrderSearchInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          setOrderSearch(orderSearchInput.trim())
-                        }
-                      }}
-                      placeholder="Tìm theo mã đơn, tên SP, SĐT…"
-                      className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                      aria-label="Tìm đơn hàng"
-                    />
-                    <div className="flex shrink-0 gap-2">
+                  {/* Search + Status tabs: sticky trên mobile để khi cuộn danh sách dài vẫn đổi tab nhanh */}
+                  <div className="sticky top-[calc(var(--header-mobile-offset,116px)+44px)] z-20 -mx-2 mt-3 border-b border-gray-200 bg-page/95 px-2 pt-2 backdrop-blur supports-[backdrop-filter]:bg-page/80 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:pt-0">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="search"
+                        value={orderSearchInput}
+                        onChange={(e) => setOrderSearchInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            setOrderSearch(orderSearchInput.trim())
+                          }
+                        }}
+                        placeholder="Tìm mã đơn, tên SP, SĐT…"
+                        className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        aria-label="Tìm đơn hàng"
+                      />
                       <button
                         type="button"
                         onClick={() => setOrderSearch(orderSearchInput.trim())}
-                        className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
+                        className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-800 md:px-4"
                       >
                         Tìm
                       </button>
@@ -596,32 +649,49 @@ export function ProfilePage() {
                             setOrderSearchInput('')
                             setOrderSearch('')
                           }}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="shrink-0 rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 md:px-3 md:text-sm"
                         >
                           Xóa lọc
                         </button>
                       ) : null}
                     </div>
-                  </div>
 
-                  <div className="mt-4 border-b border-gray-200">
-                    <div className="flex gap-5 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {statusTabs.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setStatusTab(t.id)}
-                      className={`shrink-0 border-b-2 px-0 pb-2.5 pt-1 text-sm transition ${
-                        statusTab === t.id
-                          ? 'border-[#BC1F26] font-bold text-[#BC1F26]'
-                          : 'border-transparent font-medium text-gray-600 hover:text-[#BC1F26]'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                    <div className="mt-2 md:mt-4 md:border-b md:border-gray-200">
+                      <div className="flex gap-4 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] md:gap-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {statusTabs.map((t) => {
+                          const isActive = statusTab === t.id
+                          const count = tabCounts[t.id]
+                          const hasCount = typeof count === 'number' && Number.isFinite(count)
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setStatusTab(t.id)}
+                              className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-0 pb-2 pt-1 text-sm transition md:pb-2.5 ${
+                                isActive
+                                  ? 'border-[#BC1F26] font-bold text-[#BC1F26]'
+                                  : 'border-transparent font-medium text-gray-600 hover:text-[#BC1F26]'
+                              }`}
+                            >
+                              <span>{t.label}</span>
+                              {hasCount && count > 0 ? (
+                                <span
+                                  className={`inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0 text-[10px] font-bold leading-[18px] ${
+                                    isActive
+                                      ? 'bg-[#BC1F26] text-white'
+                                      : 'bg-gray-200 text-gray-700'
+                                  }`}
+                                  aria-label={`${count} đơn`}
+                                >
+                                  {count > 99 ? '99+' : count}
+                                </span>
+                              ) : null}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
-                </div>
+                  </div>
                 {ordError ? (
                   <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                     {ordError}
@@ -730,6 +800,18 @@ export function ProfilePage() {
             ) : null}
           </section>
         </div>
+        </div>
+
+        {/* Mobile-only: nút Đăng xuất nhỏ ở cuối trang, nhường chỗ phía trên cho danh sách đơn.
+            Body đã có padding-bottom = 72px (bottom-nav) qua index.css; thêm 8px nữa cho thoáng. */}
+        <div className="mt-6 pb-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="mx-auto block rounded-full border border-gray-300 bg-white px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Đăng xuất
+          </button>
         </div>
       </main>
       <ReasonInputModal

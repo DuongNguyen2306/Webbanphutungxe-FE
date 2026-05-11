@@ -27,6 +27,7 @@ import { IntroPage } from './pages/IntroPage'
 import { GuidesPage } from './pages/GuidesPage'
 import { NewsPage } from './pages/NewsPage'
 import { FloatingContactRails } from './components/FloatingContactRails'
+import { MobileBottomNav } from './components/MobileBottomNav'
 import { BlockAdminFromAuthForms, CustomerOnlyRoute } from './components/RouteGuards'
 import { NewsEditorPage } from './pages/admin/NewsEditorPage'
 import { GlobalUiToast } from './components/GlobalUiToast'
@@ -102,6 +103,7 @@ export default function App() {
         </Routes>
         <GlobalUiToast />
         <FloatingContactRails />
+        <MobileBottomNav />
       </CartProvider>
     </AuthProvider>
   )

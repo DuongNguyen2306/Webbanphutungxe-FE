@@ -5,9 +5,14 @@ export function CatalogFeatureSection({
   title,
   products,
   imageAspect = 'square',
-  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-4 md:grid-cols-3 lg:gap-5 xl:grid-cols-4 2xl:grid-cols-6 2xl:gap-6',
+  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6',
+  compactCardsOnMobile = true,
+  bestSellerIds = null,
 }) {
   if (!products.length) return null
+
+  const bs =
+    bestSellerIds instanceof Set ? bestSellerIds : bestSellerIds ? new Set(bestSellerIds) : null
 
   return (
     <section className="mb-10">
@@ -18,7 +23,7 @@ export function CatalogFeatureSection({
         <div className="mt-2 h-1 w-20 rounded-full bg-brand" />
       </div>
 
-      <div className={`bg-page px-2 py-4 sm:px-3 ${gridClassName}`}>
+      <div className={`bg-page py-4 sm:px-0 ${gridClassName}`}>
         {products.map((p) => (
           <ProductCard
             key={p.id}
@@ -33,6 +38,8 @@ export function CatalogFeatureSection({
             variants={p.variants}
             priceFrom={p.priceFrom}
             imageAspect={imageAspect}
+            compactOnMobile={compactCardsOnMobile}
+            bestseller={bs ? bs.has(String(p.id)) || bs.has(p.id) : false}
           />
         ))}
       </div>

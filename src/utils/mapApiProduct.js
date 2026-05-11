@@ -178,12 +178,18 @@ export function mapApiProduct(p) {
   const prices = variants
     .map((v) => v.salePrice)
     .filter((n) => Number.isFinite(n))
-  const minPrice = prices.length ? Math.min(...prices) : 0
+  let minPrice = prices.length ? Math.min(...prices) : 0
+  if (minPrice === 0) {
+    const fp = toNullableNumber(p.minPrice) ?? toNullableNumber(p.price)
+    if (fp != null && fp > 0) minPrice = fp
+  }
   const originals = variants
     .map((v) => v.originalPrice)
     .filter((n) => n != null && n > minPrice)
 
-  const isAvailable = variants.some((v) => v.available)
+  const isAvailable = variants.length
+    ? variants.some((v) => v.available)
+    : p.isAvailable !== false
 
   const productImages = Array.isArray(p.images) ? p.images.filter(Boolean) : []
   const wishlistCountRaw =
@@ -201,8 +207,15 @@ export function mapApiProduct(p) {
 
   const videoUrlRaw = p.videoUrl != null ? String(p.videoUrl).trim() : ''
 
+  const bestSellerEnabled =
+    typeof p.bestSellerEnabled === 'boolean'
+      ? p.bestSellerEnabled
+      : typeof p.isBestSeller === 'boolean'
+        ? p.isBestSeller
+        : Boolean(p.showInBestSellers)
+
   return {
-    id: String(p._id),
+    id: String(p._id ?? p.id ?? ''),
     name: p.name,
     description: p.description ?? '',
     videoUrl: videoUrlRaw,
@@ -230,6 +243,7 @@ export function mapApiProduct(p) {
     categoryName: p.category?.name ?? '',
     attributes,
     variants,
+    bestSellerEnabled,
     _fromApi: true,
   }
 }

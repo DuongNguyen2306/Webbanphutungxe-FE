@@ -12,6 +12,13 @@ function toggleId(arr, id) {
   return [...arr, id]
 }
 
+const SORT_OPTIONS = [
+  { value: 'default', label: 'Mặc định' },
+  { value: 'price_asc', label: 'Giá thấp → cao' },
+  { value: 'price_desc', label: 'Giá cao → thấp' },
+  { value: 'name', label: 'Tên A → Z' },
+]
+
 export function FilterPanelContent({
   filters,
   priceDraft,
@@ -20,11 +27,32 @@ export function FilterPanelContent({
   onPriceChange,
   onApplyPrice,
   onReset,
+  sortBy = 'default',
+  onSortChange,
 }) {
   const set = (patch) => onChange({ ...filters, ...patch })
 
   return (
     <div className="space-y-6 text-ink">
+      {onSortChange ? (
+        <div className="border-b border-gray-100 pb-4">
+          <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-gray-500">
+            Sắp xếp
+          </label>
+          <select
+            value={sortBy}
+            onChange={(e) => onSortChange(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-3 pr-10 text-sm font-medium text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-bold text-ink">
           <SlidersHorizontal className="size-5 text-brand" />

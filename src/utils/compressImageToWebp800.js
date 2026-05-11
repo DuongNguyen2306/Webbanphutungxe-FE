@@ -1,7 +1,11 @@
-const MAX_SIZE = 800
+const MAX_SIZE = 1280
 
 /**
- * Nén ảnh về WebP ~800x800 (giữ tỷ lệ, pad trong khung) để giảm dung lượng trước khi gửi BE.
+ * Nén ảnh về WebP, giữ nguyên tỷ lệ gốc (không pad viền trong suốt). Cạnh dài tối đa MAX_SIZE.
+ *
+ * Lý do bỏ "pad 800×800": canvas vuông + clearRect tạo viền trong suốt → khi `<img>` dùng object-cover,
+ * nội dung trông như "nhỏ giữa khung" sau khi lưu, dù ô đã đầy 100%.
+ *
  * @param {File} file
  * @returns {Promise<File>}
  */
@@ -16,19 +20,17 @@ export async function compressImageToWebp800(file) {
       node.onerror = () => reject(new Error('Không đọc được ảnh.'))
       node.src = objectUrl
     })
-    const canvas = document.createElement('canvas')
-    canvas.width = MAX_SIZE
-    canvas.height = MAX_SIZE
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return file
 
     const ratio = Math.min(1, MAX_SIZE / img.width, MAX_SIZE / img.height)
     const width = Math.max(1, Math.round(img.width * ratio))
     const height = Math.max(1, Math.round(img.height * ratio))
-    const x = Math.round((MAX_SIZE - width) / 2)
-    const y = Math.round((MAX_SIZE - height) / 2)
-    ctx.clearRect(0, 0, MAX_SIZE, MAX_SIZE)
-    ctx.drawImage(img, x, y, width, height)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(img, 0, 0, width, height)
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
