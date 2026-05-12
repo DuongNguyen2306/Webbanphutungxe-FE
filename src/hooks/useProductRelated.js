@@ -57,9 +57,13 @@ export function useProductRelated(productId) {
         const rawCat = Array.isArray(data.relatedByCategory) ? data.relatedByCategory : []
         const rawBrand = Array.isArray(data.relatedByBrand) ? data.relatedByBrand : []
 
+        /**
+         * Map an toàn — KHÔNG tự giới hạn 10. BE đã chốt logic:
+         * relatedByCategory chỉ chứa SP cùng partCategory (có thể [], [1] hoặc < 10).
+         * Không trộn / pad với best-sellers ở FE.
+         */
         const mapSafe = (arr) =>
           arr
-            .slice(0, 10)
             .map((raw) => {
               try {
                 return mapApiProduct(raw)

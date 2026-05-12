@@ -3,7 +3,6 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
 import { ProductSection } from '../components/ProductSection'
-import { CatalogFeatureSection } from '../components/CatalogFeatureSection'
 import { FilterPanelContent } from '../components/FilterPanel'
 import { FilterPanelAccordionSidebar } from '../components/FilterPanelAccordion'
 import { CatalogMobileCategoryRail } from '../components/catalog/CatalogMobileCategoryRail'
@@ -89,7 +88,6 @@ export function HomePage() {
     return ids
   }, [bestSellerItems])
 
-  const isSingleBrandView = adv.brands.length === 1
   const categoryQuery = useMemo(() => {
     const params = new URLSearchParams(location.search)
     return String(params.get('category') || '').trim()
@@ -161,16 +159,6 @@ export function HomePage() {
     return out
   }, [filtered, adv.brands, sortBy])
 
-  const replacementProducts = useMemo(
-    () => filtered.filter((p) => p.homeFeature === 'replacement').slice(0, 8),
-    [filtered],
-  )
-
-  const tireProducts = useMemo(
-    () => filtered.filter((p) => p.homeFeature === 'tires').slice(0, 8),
-    [filtered],
-  )
-
   const resetAdv = useCallback(() => {
     const next = createDefaultFilterState(absoluteMaxPrice)
     setAdv(next)
@@ -206,16 +194,6 @@ export function HomePage() {
     [absoluteMaxPrice, handleViewMoreBrand],
   )
 
-  const applyReplacementFilter = useCallback(() => {
-    const next = {
-      ...createDefaultFilterState(absoluteMaxPrice),
-      parts: ['shock', 'lighting', 'engine'],
-    }
-    setAdv(next)
-    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [absoluteMaxPrice])
-
   /** Danh mục theo BE — đồng bộ query ?categoryId= (đã dùng trong filtered). */
   const handleCategorySelect = useCallback(
     (categoryId) => {
@@ -238,16 +216,6 @@ export function HomePage() {
     },
     [setSearchParams],
   )
-
-  const applyTiresFilter = useCallback(() => {
-    const next = {
-      ...createDefaultFilterState(absoluteMaxPrice),
-      parts: ['tires_wheels'],
-    }
-    setAdv(next)
-    setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [absoluteMaxPrice])
 
   useEffect(() => {
     if (!searchQuery.trim()) return
@@ -340,23 +308,6 @@ export function HomePage() {
                   />
                 ))
               )}
-
-              {!isSingleBrandView && !(catalogLoading && products.length === 0) ? (
-                <div className="mt-6">
-                  <CatalogFeatureSection
-                    title="Phụ tùng thay thế"
-                    products={replacementProducts}
-                    imageAspect="square"
-                    bestSellerIds={bestSellerIdSet}
-                  />
-                  <CatalogFeatureSection
-                    title="Vỏ xe máy (Lốp xe)"
-                    products={tireProducts}
-                    imageAspect="tire"
-                    bestSellerIds={bestSellerIdSet}
-                  />
-                </div>
-              ) : null}
 
             </div>
           </div>

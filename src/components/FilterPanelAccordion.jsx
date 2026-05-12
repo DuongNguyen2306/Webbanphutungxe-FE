@@ -3,10 +3,10 @@ import { ChevronDown, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import {
   BRAND_FILTER_GROUPS,
   VEHICLE_TYPES,
-  PART_TYPES,
 } from '../data/filterOptions'
 import { BRANDS } from '../data/products'
 import { PriceRangeSlider } from './PriceRangeSlider'
+import { usePartCategories } from '../hooks/usePartCategories'
 
 function toggleId(arr, id) {
   if (arr.includes(id)) return arr.filter((x) => x !== id)
@@ -55,6 +55,7 @@ export function FilterPanelAccordionSidebar({
   onSortChange,
 }) {
   const set = (patch) => onChange({ ...filters, ...patch })
+  const { partCategories, loading: partCategoriesLoading } = usePartCategories()
 
   return (
     <div className="mt-3 w-full min-w-0 border-t border-gray-200 pt-3">
@@ -189,23 +190,27 @@ export function FilterPanelAccordionSidebar({
           </div>
         </AccordionBlock>
 
-        <AccordionBlock title="Danh mục phụ tùng">
-          <div className="flex flex-col gap-1.5">
-            {PART_TYPES.map((p) => (
-              <label
-                key={p.id}
-                className="flex cursor-pointer items-center gap-2 text-sm font-medium"
-              >
-                <input
-                  type="checkbox"
-                  checked={filters.parts.includes(p.id)}
-                  onChange={() => set({ parts: toggleId(filters.parts, p.id) })}
-                  className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
-                />
-                {p.label}
-              </label>
-            ))}
-          </div>
+        <AccordionBlock title="Loại phụ tùng">
+          {partCategoriesLoading && partCategories.length === 0 ? (
+            <p className="text-xs text-gray-500">Đang tải…</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {partCategories.map((p) => (
+                <label
+                  key={p.value}
+                  className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                >
+                  <input
+                    type="checkbox"
+                    checked={filters.parts.includes(p.value)}
+                    onChange={() => set({ parts: toggleId(filters.parts, p.value) })}
+                    className="size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                  />
+                  {p.label}
+                </label>
+              ))}
+            </div>
+          )}
         </AccordionBlock>
 
         <AccordionBlock title="Khoảng giá" defaultOpen>

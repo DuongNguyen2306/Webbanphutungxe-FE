@@ -56,12 +56,14 @@ function RelatedRail({ items, railRef, onScrollLeft, onScrollRight }) {
   )
 }
 
-function SectionSkeleton({ title }) {
+/**
+ * Skeleton trung tính (không có tiêu đề "Sản phẩm cùng loại") — để khi BE trả
+ * relatedByCategory=[], FE không bị "nháy" tiêu đề section rồi biến mất.
+ */
+function NeutralRailSkeleton() {
   return (
-    <section>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-base font-extrabold uppercase tracking-wide text-ink sm:text-lg">{title}</h2>
-      </div>
+    <section aria-hidden>
+      <div className="mb-3 h-5 w-44 animate-pulse rounded-md bg-gray-200" />
       <div className="flex gap-2 overflow-hidden sm:gap-3 md:px-10">
         {Array.from({ length: 5 }, (_, i) => (
           <div
@@ -118,10 +120,7 @@ export function ProductDetailRelatedSections({
     <div className="border-t border-gray-200 bg-page/40 py-8">
       <div className="mx-auto max-w-[1200px] space-y-10 px-4">
         {loading ? (
-          <>
-            <SectionSkeleton title="Sản phẩm tương tự" />
-            <SectionSkeleton title="Phụ kiện cùng hãng" />
-          </>
+          <NeutralRailSkeleton />
         ) : (
           <>
             {byCategory.length > 0 ? (
@@ -132,9 +131,9 @@ export function ProductDetailRelatedSections({
                       id="pdp-related-cat"
                       className="text-base font-extrabold uppercase tracking-wide text-ink sm:text-lg"
                     >
-                      Sản phẩm tương tự
+                      Sản phẩm cùng loại
                     </h2>
-                    <p className="mt-0.5 text-xs text-gray-500">Cùng danh mục</p>
+                    <p className="mt-0.5 text-xs text-gray-500">Cùng loại phụ tùng</p>
                   </div>
                   <Link
                     to="/"
@@ -151,6 +150,22 @@ export function ProductDetailRelatedSections({
                   onScrollRight={() => scrollRail(railCat, 320)}
                 />
               </section>
+            ) : byBrand.length > 0 ? (
+              <section
+                aria-labelledby="pdp-related-cat-empty"
+                className="rounded-lg border border-dashed border-gray-200 bg-white/80 px-3 py-3"
+              >
+                <h2
+                  id="pdp-related-cat-empty"
+                  className="text-sm font-extrabold uppercase tracking-wide text-ink"
+                >
+                  Sản phẩm cùng loại
+                </h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  Chưa có sản phẩm khác cùng loại phụ tùng để gợi ý — hệ thống chỉ hiển thị khi có ít nhất
+                  một sản phẩm khác trùng loại (ví dụ cùng «bạt phủ», «gương»…) với sản phẩm này.
+                </p>
+              </section>
             ) : null}
 
             {byBrand.length > 0 ? (
@@ -160,7 +175,7 @@ export function ProductDetailRelatedSections({
                     id="pdp-related-brand"
                     className="text-base font-extrabold uppercase tracking-wide text-ink sm:text-lg"
                   >
-                    Phụ kiện cùng hãng
+                    Cùng hãng xe
                   </h2>
                   <Link
                     to="/"

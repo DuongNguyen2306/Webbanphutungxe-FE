@@ -11,18 +11,12 @@ import {
   revokePreviewUrls,
 } from '../../components/ImagePickerField'
 import { AdminProductStoreReviewsSection } from '../../components/admin/AdminProductStoreReviewsSection'
+import { usePartCategories, DEFAULT_PART_CATEGORY } from '../../hooks/usePartCategories'
 
 const OTHER = '__other__'
 
 const BRAND_PRESET = new Set(['honda', 'vespa', 'yamaha', 'piaggio'])
 const VEHICLE_PRESET = new Set(['scooter', 'underbone', 'sportbike'])
-const PART_PRESET = new Set([
-  'accessories',
-  'shock',
-  'lighting',
-  'tires_wheels',
-  'engine',
-])
 
 function slugifyText(input) {
   return String(input || '')
@@ -49,7 +43,13 @@ function buildSkuNameCode(productName) {
 }
 
 function buildSkuColorCode(color) {
-  return normalizeNoAccent(color).replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'NON'
+  const upper = normalizeNoAccent(color)
+  const words = upper.split(/[^A-Z0-9]+/).filter(Boolean)
+  if (!words.length) return 'NON'
+  if (words.length >= 2) {
+    return words.map((w) => w[0]).join('').slice(0, 6) || 'NON'
+  }
+  return words[0].slice(0, 5)
 }
 
 /**
@@ -320,9 +320,8 @@ export function AdminProductForm() {
   const [brandOther, setBrandOther] = useState('')
   const [vehicleType, setVehicleType] = useState('scooter')
   const [vehicleTypeOther, setVehicleTypeOther] = useState('')
-  const [partCategory, setPartCategory] = useState('accessories')
-  const [partCategoryOther, setPartCategoryOther] = useState('')
-  const [homeFeature, setHomeFeature] = useState('')
+  const [partCategory, setPartCategory] = useState(DEFAULT_PART_CATEGORY)
+  const { partCategories, loading: partCategoriesLoading } = usePartCategories()
   const [showOnStorefront, setShowOnStorefront] = useState(true)
   const [bestSellerEnabled, setBestSellerEnabled] = useState(false)
   const [bestSellerOrder, setBestSellerOrder] = useState('0')
@@ -401,10 +400,9 @@ export function AdminProductForm() {
     const [vt, vto] = splitPreset(data.vehicleType, VEHICLE_PRESET)
     setVehicleType(vt)
     setVehicleTypeOther(vto)
-    const [pc, pco] = splitPreset(data.partCategory, PART_PRESET)
-    setPartCategory(pc)
-    setPartCategoryOther(pco)
-    setHomeFeature(data.homeFeature ?? '')
+    setPartCategory(
+      String(data?.partCategory ?? '').trim().toLowerCase() || DEFAULT_PART_CATEGORY,
+    )
     setShowOnStorefront(data.showOnStorefront !== false)
     setBestSellerEnabled(resolveBestSellerEnabled(data))
     setBestSellerOrder(resolveBestSellerOrder(data))
@@ -540,13 +538,18 @@ export function AdminProductForm() {
     [attributesForVariants],
   )
 
-  const comboSourcesIncomplete = useMemo(
-    () => attributesForVariants.some((attr) => attr.values.length === 0),
+  /** Có cột phân loại được khai báo tên nhưng chưa thêm tag — chỉ dùng cho banner nhắc nhẹ, không chặn sync. */
+  const draftAttributeNames = useMemo(
+    () =>
+      attributesForVariants
+        .filter((attr) => attr.values.length === 0)
+        .map((attr) => attr.name)
+        .filter(Boolean),
     [attributesForVariants],
   )
 
   const autoComboKeySet = useMemo(() => {
-    if (!comboAttributes.length || comboSourcesIncomplete) return new Set()
+    if (!comboAttributes.length) return new Set()
     const combos = comboAttributes.reduce(
       (acc, attr) => {
         const next = []
@@ -560,7 +563,7 @@ export function AdminProductForm() {
       [{}],
     )
     return new Set(combos.map((attributeValues) => defaultVariantKey(attributeValues, attributesForVariants)))
-  }, [comboAttributes, comboSourcesIncomplete, attributesForVariants])
+  }, [comboAttributes, attributesForVariants])
 
   const usePrimaryImageGrouping = useMemo(
     () => hasVariants && attributesForVariants.length >= 2,
@@ -800,12 +803,6 @@ export function AdminProductForm() {
         }
         return
       }
-      if (comboSourcesIncomplete) {
-        if (!silent) {
-          setToast('Còn cột phân loại chưa có lựa chọn nào — thêm tag hoặc xóa cột thừa. Hoặc bấm «Thêm một loại thủ công».')
-        }
-        return
-      }
 
       const combos = comboAttributes.reduce(
         (acc, attr) => {
@@ -833,13 +830,19 @@ export function AdminProductForm() {
           .map((attributeValues) => {
             const comboKey = defaultVariantKey(attributeValues, attributesForVariants)
             const existed = byCombo.get(comboKey)
-            const nextRow = { ...emptyVariant(), attributeValues, keyPreview: comboKey }
+            /** Merge để giữ giá trị user đã gõ tay vào các cột "nháp" (chưa có tag). */
+            const mergedValues = existed
+              ? { ...existed.attributeValues, ...attributeValues }
+              : attributeValues
+            const nextRow = { ...emptyVariant(), attributeValues: mergedValues, keyPreview: comboKey }
             if (existed) {
               return {
                 ...existed,
-                attributeValues,
+                attributeValues: mergedValues,
                 keyPreview: comboKey,
-                sku: existed.skuManuallyEdited ? existed.sku : buildSkuForRow({ ...existed, attributeValues }),
+                sku: existed.skuManuallyEdited
+                  ? existed.sku
+                  : buildSkuForRow({ ...existed, attributeValues: mergedValues }),
               }
             }
             return {
@@ -864,7 +867,6 @@ export function AdminProductForm() {
       attributesForVariants,
       buildSkuForRow,
       comboAttributes,
-      comboSourcesIncomplete,
       dismissedAutoVariantKeys,
       primaryImageGroups,
     ],
@@ -946,13 +948,16 @@ export function AdminProductForm() {
 
     let brandFinal
     let vehicleTypeFinal
-    let partCategoryFinal
     try {
       brandFinal = resolveOther(brand, brandOther, 'hãng xe')
       vehicleTypeFinal = resolveOther(vehicleType, vehicleTypeOther, 'loại xe')
-      partCategoryFinal = resolveOther(partCategory, partCategoryOther, 'nhóm phụ tùng')
     } catch (err) {
       setError(err.message)
+      return
+    }
+    const partCategoryFinal = String(partCategory || '').trim().toLowerCase()
+    if (!partCategoryFinal) {
+      setError('Vui lòng chọn loại phụ tùng.')
       return
     }
 
@@ -1035,15 +1040,23 @@ export function AdminProductForm() {
         const attributeValues = {}
         for (const attr of attributesForVariants) {
           const value = String(row.attributeValues?.[attr.key] || '').trim()
+          /** Cột phân loại chưa có tag = "nháp" → không bắt buộc, vẫn lưu nếu user gõ tay. */
+          const isRequired = attr.values.length > 0
           if (!value) {
-            setVariantErrorRow(idx)
-            setToast(`Dòng số ${rowNo}: Chưa chọn «${attr.name || 'phân loại'}».`)
-            setError(`Dòng số ${rowNo}: Bạn chưa điền đủ phân loại «${attr.name}».`)
-            return
+            if (isRequired) {
+              setVariantErrorRow(idx)
+              setToast(`Dòng số ${rowNo}: Chưa chọn «${attr.name || 'phân loại'}».`)
+              setError(`Dòng số ${rowNo}: Bạn chưa điền đủ phân loại «${attr.name}».`)
+              return
+            }
+            continue
           }
           attributeValues[attr.name] = value
         }
-        const comboDisplayKey = attributesForVariants.map((attr) => attributeValues[attr.name]).join(' / ')
+        const comboDisplayKey = attributesForVariants
+          .map((attr) => attributeValues[attr.name])
+          .filter(Boolean)
+          .join(' / ')
         const comboNormalized = comboDisplayKey.toLowerCase()
         if (comboSet.has(comboNormalized)) {
           setVariantErrorRow(idx)
@@ -1184,7 +1197,6 @@ export function AdminProductForm() {
         brand: brandFinal,
         vehicleType: vehicleTypeFinal,
         partCategory: partCategoryFinal,
-        homeFeature: homeFeature || null,
         showOnStorefront,
         bestSellerEnabled,
         bestSellerOrder: parsedBestSellerOrder,
@@ -1436,7 +1448,7 @@ export function AdminProductForm() {
 
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Hãng · Loại xe · Nhóm phụ tùng
+            Hãng · Loại xe · Loại phụ tùng
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
@@ -1479,36 +1491,34 @@ export function AdminProductForm() {
               ) : null}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-700">Nhóm phụ tùng</label>
+              <label className="text-xs font-medium text-gray-700">Loại phụ tùng</label>
               <select
                 value={partCategory}
                 onChange={(e) => setPartCategory(e.target.value)}
                 className={field}
+                disabled={partCategoriesLoading && partCategories.length === 0}
               >
-                <option value="accessories">Phụ kiện</option>
-                <option value="shock">Giảm xóc</option>
-                <option value="lighting">Đèn & điện</option>
-                <option value="tires_wheels">Vỏ & mâm</option>
-                <option value="engine">Động cơ</option>
-                <option value={OTHER}>Khác — nhập mới…</option>
+                {partCategoriesLoading && partCategories.length === 0 ? (
+                  <option value={partCategory}>Đang tải loại phụ tùng…</option>
+                ) : null}
+                {partCategories.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+                {partCategory &&
+                !partCategoriesLoading &&
+                !partCategories.some((c) => c.value === partCategory) ? (
+                  <option value={partCategory}>{partCategory}</option>
+                ) : null}
               </select>
-              {partCategory === OTHER ? (
-                <input
-                  value={partCategoryOther}
-                  onChange={(e) => setPartCategoryOther(e.target.value)}
-                  className={field}
-                  placeholder="VD: phanh, nhông xích…"
-                />
-              ) : null}
+              <p className="text-[11px] text-gray-500">
+                Danh sách lấy từ BE (/api/part-categories). Mặc định:{' '}
+                <span className="font-semibold">Phụ kiện chung</span>.
+              </p>
             </div>
           </div>
         </div>
-
-        <select value={homeFeature} onChange={(e) => setHomeFeature(e.target.value)} className={field}>
-          <option value="">Không gắn section đặc biệt</option>
-          <option value="replacement">Phụ tùng thay thế</option>
-          <option value="tires">Vỏ / lốp</option>
-        </select>
 
         <div
           className={`overflow-hidden transition-all duration-300 ${
@@ -1688,10 +1698,11 @@ export function AdminProductForm() {
                 </button>
               </div>
             </div>
-            {comboSourcesIncomplete ? (
+            {draftAttributeNames.length ? (
               <p className="mt-2 text-xs leading-relaxed text-amber-800">
-                Còn cột phân loại chưa có ô lựa chọn nào — bạn vẫn có thể «Thêm một loại thủ công». Khi mỗi cột có đủ
-                lựa chọn, danh sách bên dưới sẽ tự cập nhật.
+                Cột «{draftAttributeNames.join('», «')}» chưa có ô lựa chọn —
+                các dòng bên dưới vẫn tạo theo phân loại có tag, ô của cột này được để trống
+                (không bắt buộc). Thêm tag để tự sinh tổ hợp, hoặc gõ tay từng dòng nếu muốn.
               </p>
             ) : null}
             {attributesForVariants.map((attr) => (

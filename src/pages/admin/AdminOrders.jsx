@@ -61,6 +61,27 @@ function orderMatchesSearch(order, rawQuery) {
   return normalizeSearch(fields).includes(q)
 }
 
+/** Parse YYYY-MM-DD (input[type=date]) → mốc đầu/cuối ngày địa phương để so sánh với createdAt. */
+function parseDateBound(value, kind /* 'from' | 'to' */) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  const [y, m, d] = raw.split('-').map((v) => Number(v))
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null
+  const dt = new Date(y, m - 1, d, kind === 'to' ? 23 : 0, kind === 'to' ? 59 : 0, kind === 'to' ? 59 : 0, kind === 'to' ? 999 : 0)
+  const ts = dt.getTime()
+  return Number.isFinite(ts) ? ts : null
+}
+
+function orderMatchesDateRange(order, fromTs, toTs) {
+  if (fromTs == null && toTs == null) return true
+  const raw = order?.createdAt || order?.orderDate || order?.created_at
+  const ts = raw ? new Date(raw).getTime() : NaN
+  if (!Number.isFinite(ts)) return false
+  if (fromTs != null && ts < fromTs) return false
+  if (toTs != null && ts > toTs) return false
+  return true
+}
+
 export function AdminOrders() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState([])
@@ -73,6 +94,10 @@ export function AdminOrders() {
   const [hasNextPage, setHasNextPage] = useState(false)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [dateFromInput, setDateFromInput] = useState('')
+  const [dateToInput, setDateToInput] = useState('')
   const [activeTabId, setActiveTabId] = useState('ALL')
   const [error, setError] = useState('')
   const [toast, setToast] = useState({ message: '', tone: 'success' })
@@ -110,11 +135,15 @@ export function AdminOrders() {
     [activeTabId],
   )
 
+  const fromTs = useMemo(() => parseDateBound(dateFrom, 'from'), [dateFrom])
+  const toTs = useMemo(() => parseDateBound(dateTo, 'to'), [dateTo])
+  const dateFilterActive = fromTs != null || toTs != null
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     const q = search.trim()
-    const searching = Boolean(q)
+    const searching = Boolean(q) || dateFilterActive
     const safePage = Math.max(1, page)
     const skip = searching ? 0 : (safePage - 1) * PAGE_LIMIT
     const params = {
@@ -122,16 +151,29 @@ export function AdminOrders() {
       skip,
     }
     if (q) {
-      // Hỗ trợ nhiều backend naming conventions
       params.search = q
       params.q = q
       params.keyword = q
+    }
+    if (dateFrom) {
+      params.dateFrom = dateFrom
+      params.from = dateFrom
+      params.startDate = dateFrom
+    }
+    if (dateTo) {
+      params.dateTo = dateTo
+      params.to = dateTo
+      params.endDate = dateTo
     }
     if (activeStatusQuery) params.status = activeStatusQuery
     try {
       const { data } = await api.get('/api/admin/orders', { params })
       const { items, total } = parseOrderListResponse(data)
-      const filteredItems = searching ? items.filter((order) => orderMatchesSearch(order, q)) : items
+      const filteredItems = searching
+        ? items
+            .filter((order) => orderMatchesSearch(order, q))
+            .filter((order) => orderMatchesDateRange(order, fromTs, toTs))
+        : items
       setOrders(filteredItems)
       if (searching) {
         setOrdersTotal(filteredItems.length)
@@ -156,20 +198,39 @@ export function AdminOrders() {
     } finally {
       setLoading(false)
     }
-  }, [activeStatusQuery, page, search])
+  }, [activeStatusQuery, page, search, dateFrom, dateTo, dateFilterActive, fromTs, toTs])
 
   const loadTabCounts = useCallback(async () => {
     setCountsLoading(true)
     const q = search.trim()
+    /** Khi có bộ lọc theo ngày, đếm chính xác bằng cách kéo về rồi lọc client-side (BE có thể chưa hỗ trợ). */
     try {
       const entries = await Promise.all(
         ORDER_FILTER_TABS.map(async (tab) => {
-          const params = { limit: 1, skip: 0 }
+          const params = dateFilterActive
+            ? { limit: 500, skip: 0 }
+            : { limit: 1, skip: 0 }
           if (q) params.search = q
+          if (dateFrom) {
+            params.dateFrom = dateFrom
+            params.from = dateFrom
+            params.startDate = dateFrom
+          }
+          if (dateTo) {
+            params.dateTo = dateTo
+            params.to = dateTo
+            params.endDate = dateTo
+          }
           if (tab.statusQuery) params.status = tab.statusQuery
           try {
             const { data } = await api.get('/api/admin/orders', { params })
             const { items, total } = parseOrderListResponse(data)
+            if (dateFilterActive) {
+              const matched = items.filter((order) =>
+                orderMatchesDateRange(order, fromTs, toTs),
+              )
+              return [tab.id, matched.length]
+            }
             return [tab.id, total != null ? total : items.length]
           } catch {
             return [tab.id, null]
@@ -180,7 +241,7 @@ export function AdminOrders() {
     } finally {
       setCountsLoading(false)
     }
-  }, [search])
+  }, [search, dateFrom, dateTo, dateFilterActive, fromTs, toTs])
 
   async function loadStatusOptions() {
     try {
@@ -393,46 +454,132 @@ export function AdminOrders() {
         }}
       />
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              setPage(1)
-              setSearch(searchInput.trim())
-            }
-          }}
-          placeholder="Tìm mã đơn, SĐT, tên sản phẩm..."
-          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          aria-label="Tìm đơn hàng"
-        />
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setPage(1)
-              setSearch(searchInput.trim())
+      <div className="mt-4 flex flex-col gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                setPage(1)
+                setSearch(searchInput.trim())
+                setDateFrom(dateFromInput)
+                setDateTo(dateToInput)
+              }
             }}
-            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
-          >
-            Tìm
-          </button>
-          {search ? (
+            placeholder="Tìm mã đơn, SĐT, tên sản phẩm..."
+            className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Tìm đơn hàng"
+          />
+          <div className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={() => {
-                setSearchInput('')
-                setSearch('')
                 setPage(1)
+                setSearch(searchInput.trim())
+                setDateFrom(dateFromInput)
+                setDateTo(dateToInput)
               }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800"
             >
-              Xóa lọc
+              Tìm
             </button>
-          ) : null}
+            {search || dateFilterActive ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchInput('')
+                  setSearch('')
+                  setDateFromInput('')
+                  setDateToInput('')
+                  setDateFrom('')
+                  setDateTo('')
+                  setPage(1)
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Xóa lọc
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
+          <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+            Lọc theo ngày đặt
+          </span>
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+            Từ
+            <input
+              type="date"
+              value={dateFromInput}
+              onChange={(e) => setDateFromInput(e.target.value)}
+              max={dateToInput || undefined}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-800 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              aria-label="Từ ngày"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+            Đến
+            <input
+              type="date"
+              value={dateToInput}
+              onChange={(e) => setDateToInput(e.target.value)}
+              min={dateFromInput || undefined}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-800 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              aria-label="Đến ngày"
+            />
+          </label>
+          <div className="flex flex-wrap gap-1.5 sm:ml-auto">
+            {[
+              { id: 'today', label: 'Hôm nay', days: 0 },
+              { id: '7d', label: '7 ngày', days: 6 },
+              { id: '30d', label: '30 ngày', days: 29 },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  const today = new Date()
+                  const start = new Date(today)
+                  start.setDate(today.getDate() - preset.days)
+                  const toIso = (dt) => {
+                    const y = dt.getFullYear()
+                    const m = String(dt.getMonth() + 1).padStart(2, '0')
+                    const d = String(dt.getDate()).padStart(2, '0')
+                    return `${y}-${m}-${d}`
+                  }
+                  const fromStr = toIso(start)
+                  const toStr = toIso(today)
+                  setDateFromInput(fromStr)
+                  setDateToInput(toStr)
+                  setDateFrom(fromStr)
+                  setDateTo(toStr)
+                  setPage(1)
+                }}
+                className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-bold text-gray-700 hover:border-brand/40 hover:text-brand"
+              >
+                {preset.label}
+              </button>
+            ))}
+            {dateFilterActive ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFromInput('')
+                  setDateToInput('')
+                  setDateFrom('')
+                  setDateTo('')
+                  setPage(1)
+                }}
+                className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100"
+              >
+                Bỏ lọc ngày
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -455,7 +602,7 @@ export function AdminOrders() {
         onChangeStatus={updateStatus}
         onOpenComplete={openCompleteFlow}
       />
-      {orders.length > 0 && !search ? (
+      {orders.length > 0 && !search && !dateFilterActive ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
           <p className="text-xs text-gray-500">
             {adminTotalPages != null ? `Trang ${page} / ${adminTotalPages}` : `Trang ${page}`}
@@ -485,8 +632,8 @@ export function AdminOrders() {
       ) : null}
       {orders.length === 0 && !loading ? (
         <p className="mt-8 rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-          {search
-            ? 'Không có đơn khớp tìm kiếm.'
+          {search || dateFilterActive
+            ? 'Không có đơn khớp tìm kiếm / khoảng ngày.'
             : activeStatusQuery
               ? 'Không có đơn ở trạng thái đã chọn.'
               : 'Chưa có đơn nào.'}

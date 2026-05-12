@@ -4,17 +4,10 @@ export const VEHICLE_TYPES = [
   { id: 'sportbike', label: 'Sport / PKL' },
 ]
 
-export const PART_TYPES = [
-  { id: 'shock', label: 'Giảm xóc' },
-  { id: 'lighting', label: 'Đèn & điện' },
-  { id: 'tires_wheels', label: 'Vỏ & mâm' },
-  { id: 'engine', label: 'Động cơ & truyền động' },
-  { id: 'accessories', label: 'Phụ kiện & đồ chơi' },
-]
-
-/** Lối tắt danh mục: Phụ kiện vs Phụ tùng (các nhóm phụ tùng chính) */
-export const QUICK_ACCESSORY_PART_IDS = ['accessories']
-export const QUICK_SPARE_PART_IDS = ['shock', 'lighting', 'tires_wheels', 'engine']
+/**
+ * Danh sách loại phụ tùng (partCategory) đã chuyển sang BE: GET /api/part-categories.
+ * Component cần lấy qua hook `usePartCategories` — không hard-code danh sách ở FE nữa.
+ */
 
 export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 
