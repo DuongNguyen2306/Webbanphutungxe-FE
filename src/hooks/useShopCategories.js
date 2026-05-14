@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { normalizeCategoriesPayload } from '../utils/normalizeApiCategories'
 
 /**
  * Danh mục sản phẩm từ BE — GET /api/categories
@@ -16,20 +17,7 @@ export function useShopCategories() {
       try {
         const { data } = await api.get('/api/categories')
         if (cancelled) return
-        const rawList = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.categories)
-              ? data.categories
-              : []
-        const normalized = rawList
-          .map((item) => ({
-            id: String(item?._id || item?.id || ''),
-            name: String(item?.name || '').trim(),
-          }))
-          .filter((item) => item.id && item.name)
-        setCategories(normalized)
+        setCategories(normalizeCategoriesPayload(data))
       } catch {
         if (!cancelled) setCategories([])
       } finally {

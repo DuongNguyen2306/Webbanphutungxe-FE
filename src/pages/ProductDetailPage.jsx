@@ -25,6 +25,11 @@ import { ProductDetailRelatedSections } from '../components/ProductDetailRelated
 import { useAuth } from '../context/AuthContext'
 import { showUiToast } from '../utils/uiToast'
 import { parseYouTubeVideoId } from '../utils/youtubeUrl'
+import {
+  usePartCategories,
+  getPartCategoryLabel,
+  PART_CATEGORY_OTHER_VALUE,
+} from '../hooks/usePartCategories'
 
 function ProductVideoSection({ videoUrl, title }) {
   const trimmed = String(videoUrl || '').trim()
@@ -92,6 +97,15 @@ function StarRow({ value = 0 }) {
   )
 }
 
+/** Khớp biến thể khi chỉ chọn một phần thuộc tính (giá trị rỗng = chưa chọn, bỏ qua cột đó). */
+function variantMatchesPartialSelection(candidate, attrs, selected) {
+  return (attrs || []).every((a) => {
+    const sel = selected[a.key]
+    if (sel == null || sel === '') return true
+    return (candidate.attributeValues || {})[a.key] === sel
+  })
+}
+
 function ProductDetailBody({
   product,
   addItem,
@@ -127,6 +141,16 @@ function ProductDetailBody({
   })
   const [imageZoomOpen, setImageZoomOpen] = useState(false)
 
+  const { partCategories } = usePartCategories()
+  const partCategoryLine = useMemo(() => {
+    const v = String(product.partCategory || '').trim().toLowerCase()
+    if (!v) return ''
+    const label = getPartCategoryLabel(partCategories, v)
+    const note = String(product.partCategoryNote || '').trim()
+    if (v === PART_CATEGORY_OTHER_VALUE && note) return `${label} — ${note}`
+    return label
+  }, [product.partCategory, product.partCategoryNote, partCategories])
+
   const variantById = useMemo(() => {
     if (!product.variants?.length) return null
     return (
@@ -137,13 +161,19 @@ function ProductDetailBody({
   const variant = useMemo(() => {
     if (!product.variants?.length) return null
     if (!product.attributes?.length) return variantById
-    const matched = product.variants.find((candidate) =>
-      (product.attributes || []).every(
-        (attr) => (candidate.attributeValues || {})[attr.key] === selectedAttrs[attr.key],
-      ),
+    const attrs = product.attributes || []
+    const among = product.variants.filter((c) =>
+      variantMatchesPartialSelection(c, attrs, selectedAttrs),
     )
-    return matched || variantById
+    return among.find((v) => v.available) ?? among[0] ?? variantById
   }, [product, selectedAttrs, variantById])
+
+  const selectionComplete = useMemo(() => {
+    if (!product.attributes?.length) return true
+    return (product.attributes || []).every(
+      (a) => selectedAttrs[a.key] != null && selectedAttrs[a.key] !== '',
+    )
+  }, [product.attributes, selectedAttrs])
 
   /** Gallery: variant.images nếu có; không thì product.images (fallback) */
   const galleryImages = useMemo(() => {
@@ -160,9 +190,14 @@ function ProductDetailBody({
 
   useEffect(() => {
     if (!product.attributes?.length || !variant) return
+    const attrs = product.attributes || []
+    const incomplete = attrs.some(
+      (a) => selectedAttrs[a.key] == null || selectedAttrs[a.key] === '',
+    )
+    if (incomplete) return
     const nextSelected = { ...selectedAttrs }
     let changed = false
-    ;(product.attributes || []).forEach((attr) => {
+    attrs.forEach((attr) => {
       const value = (variant.attributeValues || {})[attr.key]
       if (value && nextSelected[attr.key] !== value) {
         nextSelected[attr.key] = value
@@ -174,8 +209,13 @@ function ProductDetailBody({
 
   useEffect(() => {
     if (!variant) return
+    const attrs = product.attributes || []
+    const complete =
+      !attrs.length ||
+      attrs.every((a) => selectedAttrs[a.key] != null && selectedAttrs[a.key] !== '')
+    if (!complete) return
     if (variant.id !== variantId) setVariantId(variant.id)
-  }, [variant, variantId])
+  }, [variant, variantId, product.attributes, selectedAttrs])
 
   useEffect(() => {
     setWishlistCount(Math.max(0, Number(product.wishlistCount) || 0))
@@ -266,6 +306,10 @@ function ProductDetailBody({
   }
 
   function handleAddCart() {
+    if (!selectionComplete) {
+      showUiToast('Vui lòng chọn đủ phân loại trước khi thêm giỏ')
+      return
+    }
     if (!variant || !available) return
     Promise.resolve(
       addItem({
@@ -290,6 +334,10 @@ function ProductDetailBody({
   }
 
   function handleBuyNow() {
+    if (!selectionComplete) {
+      showUiToast('Vui lòng chọn đủ phân loại trước khi mua')
+      return
+    }
     if (!variant || !available) return
     handleAddCart()
     navigate('/cart')
@@ -532,6 +580,12 @@ function ProductDetailBody({
           </div>
 
           <div className="mt-6 space-y-4 text-sm">
+            {partCategoryLine ? (
+              <div className="flex gap-3 border-b border-gray-100 pb-4">
+                <span className="w-28 shrink-0 text-gray-500">Loại phụ tùng</span>
+                <p className="min-w-0 flex-1 font-medium text-ink">{partCategoryLine}</p>
+              </div>
+            ) : null}
             <div className="flex gap-3 border-b border-gray-100 pb-4">
               <span className="w-28 shrink-0 text-gray-500">Vận chuyển</span>
               <div className="flex min-w-0 flex-1 items-start gap-2">
@@ -565,9 +619,10 @@ function ProductDetailBody({
                       const active = selectedAttrs[attr.key] === value
                       const canPick = product.variants.some((candidate) => {
                         const trial = { ...selectedAttrs, [attr.key]: value }
-                        return (product.attributes || []).every(
-                          (a) =>
-                            (candidate.attributeValues || {})[a.key] === trial[a.key],
+                        return variantMatchesPartialSelection(
+                          candidate,
+                          product.attributes || [],
+                          trial,
                         )
                       })
                       return (
@@ -576,7 +631,14 @@ function ProductDetailBody({
                           type="button"
                           disabled={!canPick}
                           onClick={() =>
-                            setSelectedAttrs((prev) => ({ ...prev, [attr.key]: value }))
+                            setSelectedAttrs((prev) => {
+                              if (prev[attr.key] === value) {
+                                const next = { ...prev }
+                                delete next[attr.key]
+                                return next
+                              }
+                              return { ...prev, [attr.key]: value }
+                            })
                           }
                           className={`relative min-w-[90px] rounded border-2 px-3 py-2 text-left text-sm font-semibold transition ${
                             !canPick
@@ -688,7 +750,7 @@ function ProductDetailBody({
               <motion.button
                 type="button"
                 onClick={handleAddCart}
-                disabled={!available}
+                disabled={!available || !selectionComplete}
                 whileTap={{ scale: 0.98 }}
                 className={`inline-flex flex-1 items-center justify-center gap-2 rounded border-2 border-brand py-3 text-sm font-extrabold uppercase transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   addCartFeedback.visible
@@ -710,7 +772,7 @@ function ProductDetailBody({
               <button
                 type="button"
                 onClick={handleBuyNow}
-                disabled={!available}
+                disabled={!available || !selectionComplete}
                 className="inline-flex flex-1 items-center justify-center rounded bg-cta-buy py-3 text-sm font-extrabold uppercase text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {available ? 'Mua ngay' : 'Hết hàng'}

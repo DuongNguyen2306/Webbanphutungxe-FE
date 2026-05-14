@@ -58,6 +58,7 @@ export const BRANDS = {
  * @property {'vespa'|'honda'|'yamaha'|'piaggio'} brand
  * @property {'underbone'|'scooter'|'sportbike'} vehicleType
  * @property {string} partCategory — value tiếng Việt từ GET /api/part-categories (vd: "gương", "phụ kiện")
+ * @property {string} [partCategoryNote] — ghi chú khi partCategory là «khác» (tối đa 200 ký tự phía BE)
  * @property {boolean} [priceFrom]
  * @property {number} rating
  * @property {number} reviewCount

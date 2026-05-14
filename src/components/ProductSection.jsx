@@ -1,5 +1,6 @@
 import { SectionDivider } from './SectionDivider'
 import { ProductCard } from './ProductCard'
+import { CatalogPagination } from './catalog/CatalogPagination'
 import { listPrice } from '../utils/catalogFilters'
 
 export function ProductSection({
@@ -10,6 +11,7 @@ export function ProductSection({
   gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6',
   compactCardsOnMobile = true,
   bestSellerIds = null,
+  pagination = null,
 }) {
   if (!products.length) return null
 
@@ -39,6 +41,15 @@ export function ProductSection({
           />
         ))}
       </div>
+
+      {pagination ? (
+        <CatalogPagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.onPageChange}
+        />
+      ) : null}
 
       {showViewMore && (
         <div className="pt-6">

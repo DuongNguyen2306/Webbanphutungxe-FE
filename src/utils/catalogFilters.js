@@ -12,6 +12,11 @@ import { normalizeSearch } from './string'
  *   inStockOnly: boolean
  * }} f
  */
+/** So khớp hãng trong bộ lọc (tránh mất SP khi brand rỗng / khác hoa thường so với mảng brands). */
+function normalizeBrandToken(b) {
+  return String(b ?? '').trim().toLowerCase()
+}
+
 function productSearchBlob(p) {
   const tags = Array.isArray(p.tags) ? p.tags : []
   const vehicles = Array.isArray(p.compatibleVehicles) ? p.compatibleVehicles : []
@@ -31,7 +36,11 @@ export function filterCatalog(list, f) {
   return list.filter((p) => {
     if (q && !productSearchBlob(p).includes(q)) return false
 
-    if (f.brands.length > 0 && !f.brands.includes(p.brand)) return false
+    if (f.brands.length > 0) {
+      const pb = normalizeBrandToken(p.brand)
+      const ok = f.brands.some((sel) => normalizeBrandToken(sel) === pb)
+      if (!ok) return false
+    }
 
     if (f.vehicles.length > 0 && !f.vehicles.includes(p.vehicleType)) {
       return false

@@ -11,6 +11,9 @@ import { api } from '../api/client'
 
 const DEFAULT_VALUE = 'phụ kiện'
 
+/** Giá trị `partCategory` khi chọn «Khác» trong GET /api/part-categories (tiếng Việt, chữ thường). */
+export const PART_CATEGORY_OTHER_VALUE = 'khác'
+
 /** @type {{ value: string, label: string }[] | null} */
 let cachedList = null
 /** @type {Promise<{ value: string, label: string }[]> | null} */

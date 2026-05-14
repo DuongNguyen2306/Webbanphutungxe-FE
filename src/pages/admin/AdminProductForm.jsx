@@ -11,7 +11,13 @@ import {
   revokePreviewUrls,
 } from '../../components/ImagePickerField'
 import { AdminProductStoreReviewsSection } from '../../components/admin/AdminProductStoreReviewsSection'
-import { usePartCategories, DEFAULT_PART_CATEGORY } from '../../hooks/usePartCategories'
+import {
+  usePartCategories,
+  DEFAULT_PART_CATEGORY,
+  PART_CATEGORY_OTHER_VALUE,
+} from '../../hooks/usePartCategories'
+
+const PART_CATEGORY_NOTE_MAX = 200
 
 const OTHER = '__other__'
 
@@ -93,9 +99,10 @@ function uniqueCaseInsensitive(values = []) {
 function normalizeAttributeSchema(rows = []) {
   const usedNames = new Set()
   return rows.map((row, index) => {
-    const name = String(row?.name || '').trim()
+    const nameRaw = String(row?.name ?? '')
+    const nameTrimmed = nameRaw.trim()
     const values = uniqueCaseInsensitive(Array.isArray(row?.values) ? row.values : [])
-    const base = name || `Phân loại ${index + 1}`
+    const base = nameTrimmed || `Phân loại ${index + 1}`
     let key = base
     let suffix = 2
     while (usedNames.has(key.toLowerCase())) {
@@ -105,7 +112,8 @@ function normalizeAttributeSchema(rows = []) {
     usedNames.add(key.toLowerCase())
     return {
       id: row?.id || nextLocalId('attr'),
-      name,
+      /** Giữ nguyên khoảng trắng khi gõ (trim chỉ dùng để tạo key / nhãn mặc định, không gán lại ô nhập). */
+      name: nameRaw,
       key,
       values,
       draft: String(row?.draft || ''),
@@ -120,6 +128,36 @@ function defaultVariantKey(attributeValues, attrs) {
     .filter(Boolean)
     .join(' - ')
   return raw || `Biến thể ${Math.random().toString(16).slice(2, 6)}`
+}
+
+/**
+ * Các tổ hợp tag (Descartes) có trong phân loại nhưng không có dòng biến thể từ API —
+ * coi như user đã xóa trước đó, để sync không tự sinh lại khi mở form sửa.
+ */
+function computeDismissedAutoKeysFromApiRows(attrsForVariant, variantRows) {
+  const attrs = attrsForVariant.filter((attr) => attr.name.trim())
+  const comboAttrs = attrs.filter((attr) => attr.values.length > 0)
+  if (!comboAttrs.length || !variantRows.length) return []
+
+  const combos = comboAttrs.reduce(
+    (acc, attr) => {
+      const next = []
+      acc.forEach((base) => {
+        attr.values.forEach((value) => {
+          next.push({ ...base, [attr.key]: value })
+        })
+      })
+      return next
+    },
+    [{}],
+  )
+  const fullComboKeys = new Set(
+    combos.map((av) => defaultVariantKey(av, attrs)),
+  )
+  const presentKeys = new Set(
+    variantRows.map((row) => defaultVariantKey(row.attributeValues || {}, attrs)),
+  )
+  return [...fullComboKeys].filter((k) => !presentKeys.has(k))
 }
 
 /** Tên hiển thị preview (vd: Chanh - 100ml) */
@@ -321,6 +359,7 @@ export function AdminProductForm() {
   const [vehicleType, setVehicleType] = useState('scooter')
   const [vehicleTypeOther, setVehicleTypeOther] = useState('')
   const [partCategory, setPartCategory] = useState(DEFAULT_PART_CATEGORY)
+  const [partCategoryNote, setPartCategoryNote] = useState('')
   const { partCategories, loading: partCategoriesLoading } = usePartCategories()
   const [showOnStorefront, setShowOnStorefront] = useState(true)
   const [bestSellerEnabled, setBestSellerEnabled] = useState(false)
@@ -400,8 +439,10 @@ export function AdminProductForm() {
     const [vt, vto] = splitPreset(data.vehicleType, VEHICLE_PRESET)
     setVehicleType(vt)
     setVehicleTypeOther(vto)
-    setPartCategory(
-      String(data?.partCategory ?? '').trim().toLowerCase() || DEFAULT_PART_CATEGORY,
+    const pcLoaded = String(data?.partCategory ?? '').trim().toLowerCase() || DEFAULT_PART_CATEGORY
+    setPartCategory(pcLoaded)
+    setPartCategoryNote(
+      pcLoaded === PART_CATEGORY_OTHER_VALUE ? String(data?.partCategoryNote ?? '') : '',
     )
     setShowOnStorefront(data.showOnStorefront !== false)
     setBestSellerEnabled(resolveBestSellerEnabled(data))
@@ -497,6 +538,13 @@ export function AdminProductForm() {
         attrsForVariant,
         initialPrimaryGroups,
       ),
+    )
+    const loadedVariantCount = Array.isArray(data.variants) ? data.variants.length : 0
+    const attrsForKeys = attrsForUI.filter((attr) => attr.name.trim())
+    setDismissedAutoVariantKeys(
+      apiHasVariants && loadedVariantCount > 0
+        ? computeDismissedAutoKeysFromApiRows(attrsForKeys, preparedVariants)
+        : [],
     )
   }
 
@@ -746,6 +794,43 @@ export function AdminProductForm() {
     })
   }
 
+  function clearAllVariantRows() {
+    if (!variants.length) return
+    if (
+      !window.confirm(
+        'Xóa hết tất cả các dòng biến thể? Ảnh tạm (chưa lưu) sẽ được gỡ. Sau đó còn một dòng trống để nhập lại.',
+      )
+    ) {
+      return
+    }
+    for (const row of variants) {
+      if (row?.variantImages?.length) revokePreviewUrls(row.variantImages)
+    }
+    if (usePrimaryImageGrouping) {
+      Object.values(primaryImageGroups || {}).forEach((items) => {
+        if (Array.isArray(items) && items.length) revokePreviewUrls(items)
+      })
+      setPrimaryImageGroups({})
+    }
+    setDismissedAutoVariantKeys(Array.from(autoComboKeySet))
+    const baseValues = {}
+    attributesForVariants.forEach((attr) => {
+      baseValues[attr.key] = ''
+    })
+    const row = mapImagesByPrimaryAttribute(
+      [{ ...emptyVariant(), attributeValues: baseValues }],
+      attributesForVariants,
+      {},
+    )[0]
+    setVariants([
+      {
+        ...row,
+        sku: buildSkuForRow(row),
+      },
+    ])
+    setVariantErrorRow(-1)
+  }
+
   function toggleHasVariants() {
     setHasVariants((prev) => {
       const next = !prev
@@ -852,12 +937,11 @@ export function AdminProductForm() {
           })
           .filter((row) => !dismissedSet?.has(defaultVariantKey(row.attributeValues || {}, attributesForVariants)))
 
-        const generatedKeySet = new Set(
-          generatedRows.map((row) => defaultVariantKey(row.attributeValues || {}, attributesForVariants)),
-        )
         const manualExtras = prev.filter((row) => {
           const key = defaultVariantKey(row.attributeValues || {}, attributesForVariants)
-          return !generatedKeySet.has(key)
+          if (!autoComboKeySet.has(key)) return true
+          if (dismissedSet?.has(key)) return true
+          return false
         })
         const mergedRows = [...generatedRows, ...manualExtras]
         return mapImagesByPrimaryAttribute(mergedRows, attributesForVariants, primaryImageGroups)
@@ -867,6 +951,7 @@ export function AdminProductForm() {
       attributesForVariants,
       buildSkuForRow,
       comboAttributes,
+      autoComboKeySet,
       dismissedAutoVariantKeys,
       primaryImageGroups,
     ],
@@ -893,20 +978,6 @@ export function AdminProductForm() {
       return generateSKU(name, [])
     })
   }, [name, hasVariants, singleSkuManuallyEdited])
-
-  const duplicatedSkuSet = useMemo(() => {
-    const counts = new Map()
-    variants.forEach((row) => {
-      const sku = String(row.sku || '').trim().toUpperCase()
-      if (!sku) return
-      counts.set(sku, (counts.get(sku) || 0) + 1)
-    })
-    return new Set(
-      Array.from(counts.entries())
-        .filter(([, count]) => count > 1)
-        .map(([sku]) => sku),
-    )
-  }, [variants])
 
   useEffect(() => {
     const cat = String(categoryInput || '').trim().toLowerCase()
@@ -960,6 +1031,16 @@ export function AdminProductForm() {
       setError('Vui lòng chọn loại phụ tùng.')
       return
     }
+    const partCategoryNoteTrimmed =
+      partCategoryFinal === PART_CATEGORY_OTHER_VALUE
+        ? String(partCategoryNote || '').trim()
+        : ''
+    if (partCategoryNoteTrimmed.length > PART_CATEGORY_NOTE_MAX) {
+      setError(
+        `Ghi chú loại «Khác» tối đa ${PART_CATEGORY_NOTE_MAX} ký tự (sau khi bỏ khoảng trắng đầu/cuối).`,
+      )
+      return
+    }
 
     if (!hasVariants) {
       if (singlePrice === '' || Number.isNaN(Number(singlePrice)) || Number(singlePrice) < 0) {
@@ -991,10 +1072,6 @@ export function AdminProductForm() {
       }
       if (!variants.length) {
         setError('Chưa có dòng hàng nào. Hãy nhập lựa chọn ở phần phân loại phía trên hoặc bấm «+ Thêm một loại thủ công».')
-        return
-      }
-      if (duplicatedSkuSet.size > 0) {
-        setError('Có hai dòng trùng mã SKU — mỗi loại hàng cần một mã riêng, kiểm tra lại giúp mình nhé.')
         return
       }
 
@@ -1197,6 +1274,9 @@ export function AdminProductForm() {
         brand: brandFinal,
         vehicleType: vehicleTypeFinal,
         partCategory: partCategoryFinal,
+        ...(partCategoryFinal === PART_CATEGORY_OTHER_VALUE
+          ? { partCategoryNote: partCategoryNoteTrimmed }
+          : {}),
         showOnStorefront,
         bestSellerEnabled,
         bestSellerOrder: parsedBestSellerOrder,
@@ -1297,7 +1377,7 @@ export function AdminProductForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="mt-6 space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+        className="mt-6 space-y-5 rounded-xl border border-gray-200 bg-white p-6 pb-8 shadow-sm sm:pb-10"
       >
         <input
           required
@@ -1494,7 +1574,13 @@ export function AdminProductForm() {
               <label className="text-xs font-medium text-gray-700">Loại phụ tùng</label>
               <select
                 value={partCategory}
-                onChange={(e) => setPartCategory(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setPartCategory(next)
+                  if (String(next || '').trim().toLowerCase() !== PART_CATEGORY_OTHER_VALUE) {
+                    setPartCategoryNote('')
+                  }
+                }}
                 className={field}
                 disabled={partCategoriesLoading && partCategories.length === 0}
               >
@@ -1512,6 +1598,25 @@ export function AdminProductForm() {
                   <option value={partCategory}>{partCategory}</option>
                 ) : null}
               </select>
+              {String(partCategory || '').trim().toLowerCase() === PART_CATEGORY_OTHER_VALUE ? (
+                <div className="mt-2 space-y-1">
+                  <label className="text-xs font-medium text-gray-700">
+                    Mô tả ngắn loại phụ tùng <span className="font-normal text-gray-500">(tuỳ chọn)</span>
+                  </label>
+                  <textarea
+                    value={partCategoryNote}
+                    onChange={(e) => setPartCategoryNote(e.target.value)}
+                    maxLength={PART_CATEGORY_NOTE_MAX}
+                    rows={2}
+                    className={`${field} min-h-[2.75rem] resize-y`}
+                    placeholder="Mô tả ngắn loại phụ tùng (vd: Bơm xăng điện)"
+                  />
+                  <p className="text-[11px] text-gray-500">
+                    {partCategoryNote.length}/{PART_CATEGORY_NOTE_MAX} ký tự — tối đa{' '}
+                    {PART_CATEGORY_NOTE_MAX} theo quy định lưu trữ.
+                  </p>
+                </div>
+              ) : null}
               <p className="text-[11px] text-gray-500">
                 Danh sách lấy từ BE (/api/part-categories). Mặc định:{' '}
                 <span className="font-semibold">Phụ kiện chung</span>.
@@ -1521,17 +1626,31 @@ export function AdminProductForm() {
         </div>
 
         <div
-          className={`overflow-hidden transition-all duration-300 ${
-            hasVariants ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-[960px] opacity-100'
+          className={`transition-all duration-300 ${
+            hasVariants
+              ? 'pointer-events-none max-h-0 overflow-hidden opacity-0'
+              : 'max-h-none overflow-visible opacity-100'
           }`}
         >
           <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 transition-opacity duration-300">
             <p className="text-sm font-bold text-gray-900">Sản phẩm đơn</p>
             <p className="mt-1 text-xs text-gray-500">
-              Giá, SKU và ảnh đại diện. Để trống tồn kho ở bước này — khi cần bán không giới hạn, không gửi
-              số lượng lên BE.
+              Giá gốc (tuỳ chọn), giá bán, SKU và ảnh đại diện. Để trống tồn kho ở bước này — khi cần bán
+              không giới hạn, không gửi số lượng lên BE.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  Giá gốc <span className="font-normal text-gray-500">(tuỳ chọn)</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="VD: 150000 — để trống nếu không giảm giá"
+                  value={singleOriginalPrice}
+                  onChange={(e) => setSingleOriginalPrice(e.target.value)}
+                  className={field}
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-700">Giá bán *</label>
                 <input
@@ -1542,7 +1661,7 @@ export function AdminProductForm() {
                   className={field}
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label
                   className="mb-1 block text-xs font-semibold text-gray-700"
                   title="SKU tự sinh từ tên sản phẩm nếu để trống."
@@ -1588,8 +1707,10 @@ export function AdminProductForm() {
         </div>
 
         <div
-          className={`overflow-hidden transition-all duration-300 ${
-            hasVariants ? 'max-h-[8000px] opacity-100' : 'pointer-events-none max-h-0 opacity-0'
+          className={`transition-all duration-300 ${
+            hasVariants
+              ? 'max-h-none overflow-visible opacity-100'
+              : 'pointer-events-none max-h-0 overflow-hidden opacity-0'
           }`}
         >
           <div className="border-t border-gray-200 pt-5">
@@ -1691,6 +1812,14 @@ export function AdminProductForm() {
                 </button>
                 <button
                   type="button"
+                  onClick={clearAllVariantRows}
+                  disabled={!variants.length}
+                  className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Xóa hết các dòng
+                </button>
+                <button
+                  type="button"
                   onClick={addManualVariantRow}
                   className="rounded-lg border border-brand/30 bg-white px-2.5 py-1 text-xs font-bold text-brand shadow-sm hover:bg-red-50/60"
                 >
@@ -1758,7 +1887,7 @@ export function AdminProductForm() {
                 </div>
               </div>
             ) : null}
-            <div className="mt-3 space-y-3">
+            <div className="mt-3 space-y-3 pb-8 sm:pb-12">
               {variants.map((row, i) => (
                 <div
                   key={row._id || `row-${i}`}
@@ -1817,11 +1946,7 @@ export function AdminProductForm() {
                           onChange={(e) =>
                             updateRow(i, { sku: e.target.value, skuManuallyEdited: true })
                           }
-                          className={`min-w-0 flex-1 rounded-lg border bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm ${
-                            duplicatedSkuSet.has(String(row.sku || '').trim().toUpperCase())
-                              ? 'border-red-400'
-                              : 'border-gray-300'
-                          }`}
+                          className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                         />
                         <button
                           type="button"
@@ -1837,22 +1962,19 @@ export function AdminProductForm() {
                           ↻
                         </button>
                       </div>
-                      {duplicatedSkuSet.has(String(row.sku || '').trim().toUpperCase()) ? (
-                        <p className="mt-1 text-[11px] font-medium text-red-600">Mã SKU bị trùng</p>
-                      ) : null}
                     </div>
-                    <input
-                      type="number"
-                      placeholder="Giá *"
-                      value={row.price}
-                      onChange={(e) => updateRow(i, { price: e.target.value })}
-                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                    />
                     <input
                       type="number"
                       placeholder="Giá gốc"
                       value={row.originalPrice}
                       onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
+                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Giá *"
+                      value={row.price}
+                      onChange={(e) => updateRow(i, { price: e.target.value })}
                       className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
                     />
                     <input
@@ -1903,6 +2025,10 @@ export function AdminProductForm() {
         </div>
         </div>
 
+        {/* Khoảng đệm + thanh lưu dính đáy viewport: tránh nút đỏ che dòng biến thể cuối khi cuộn */}
+        <div className="h-16 shrink-0 sm:h-20" aria-hidden />
+
+        <div className="sticky bottom-0 z-20 -mx-6 -mb-6 mt-2 space-y-3 border-t border-gray-200 bg-white/95 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-4 shadow-[0_-10px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:-mx-6 sm:-mb-6">
         {error ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p>
         ) : null}
@@ -1922,6 +2048,7 @@ export function AdminProductForm() {
               ? 'Cập nhật sản phẩm'
               : 'Lưu sản phẩm'}
         </button>
+        </div>
       </form>
 
       {toast ? (

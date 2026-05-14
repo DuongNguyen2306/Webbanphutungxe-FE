@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
 import { ProductSection } from '../components/ProductSection'
@@ -8,7 +9,11 @@ import { FilterPanelAccordionSidebar } from '../components/FilterPanelAccordion'
 import { CatalogMobileCategoryRail } from '../components/catalog/CatalogMobileCategoryRail'
 import { CatalogFilterBottomSheet } from '../components/catalog/CatalogFilterBottomSheet'
 import { DesktopCategoryNav } from '../components/catalog/DesktopCategoryNav'
-import { PRICE_SLIDER_MAX, createDefaultFilterState } from '../data/filterOptions'
+import {
+  PRICE_SLIDER_MAX,
+  PRICE_SLIDER_MIN,
+  createDefaultFilterState,
+} from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
 import { BestSellingShelf } from '../components/BestSellingShelf'
 import { filterCatalog } from '../utils/catalogFilters'
@@ -26,6 +31,9 @@ const BRAND_SECTION_LABEL = {
 }
 
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
+
+/** Số sản phẩm mỗi trang trong từng khối (VESPA, Hãng khác, …). */
+const CATALOG_PAGE_SIZE = 12
 
 /** Giữ đúng lưới sản phẩm khi API chưa trả về — tránh khoảng trắng / nhảy layout khi bỏ chữ “Đang tải…”. */
 function HomeCatalogSkeleton() {
@@ -57,6 +65,7 @@ function HomeCatalogSkeleton() {
 
 export function HomePage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [, setSearchParams] = useSearchParams()
   const { categories, loading: categoriesLoading } = useShopCategories()
   const [searchQuery, setSearchQuery] = useState('')
@@ -67,6 +76,8 @@ export function HomePage() {
   }))
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
   const [sortBy, setSortBy] = useState('default')
+  /** Trang phân trang theo từng khối hãng (key = section key). */
+  const [pagesBySection, setPagesBySection] = useState({})
   const { products, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
     useShopCatalog({
       priceMin: adv.priceMin,
@@ -122,6 +133,21 @@ export function HomePage() {
     prevAbsoluteMaxRef.current = absoluteMaxPrice
   }, [absoluteMaxPrice])
 
+  useEffect(() => {
+    setPagesBySection({})
+  }, [
+    categoryIdQuery,
+    categoryQuery,
+    searchQuery,
+    sortBy,
+    adv.brands.join(','),
+    adv.parts.join(','),
+    adv.vehicles.join(','),
+    adv.priceMin,
+    adv.priceMax,
+    adv.inStockOnly,
+  ])
+
   const filtered = useMemo(() => {
     const byFilters = filterCatalog(products, { ...adv, search: searchQuery })
     if (categoryIdQuery) {
@@ -141,7 +167,10 @@ export function HomePage() {
     const sortItems = (items) => sortCatalogProducts(items, sortBy)
     if (adv.brands.length === 1) {
       const key = adv.brands[0]
-      const label = BRAND_SECTION_LABEL[key] ?? key.toUpperCase()
+      const label =
+        key === '' || key == null
+          ? 'Hãng khác'
+          : BRAND_SECTION_LABEL[key] ?? String(key).toUpperCase()
       return [{ key, label, items: sortItems(filtered) }]
     }
     const main = BRAND_ORDER.map((b) => ({
@@ -165,6 +194,23 @@ export function HomePage() {
     setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
   }, [absoluteMaxPrice])
 
+  /** Xóa mọi điều kiện hiển thị catalog: bộ lọc cột + danh mục URL + tìm kiếm + sắp xếp (tránh “bấm Xóa mà vẫn trống” vì còn ?categoryId=). */
+  const clearAllCatalogFilters = useCallback(() => {
+    resetAdv()
+    setSearchQuery('')
+    setSortBy('default')
+    setSearchParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev)
+        nextParams.delete('categoryId')
+        nextParams.delete('category')
+        return nextParams
+      },
+      { replace: true },
+    )
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [resetAdv, setSearchParams])
+
   const applyPriceFilter = useCallback(() => {
     setAdv((prev) => ({
       ...prev,
@@ -183,7 +229,21 @@ export function HomePage() {
   const handleViewMoreSection = useCallback(
     (sectionKey) => {
       if (sectionKey === 'other') {
-        const next = createDefaultFilterState(absoluteMaxPrice)
+        /** Các hãng không thuộc nhóm Vespa/Honda/Yamaha/Piaggio — lọc đúng nhóm này (tránh “reset” trùng state nên không thấy gì đổi). */
+        const seen = new Set()
+        const otherBrands = []
+        for (const p of filtered) {
+          if (BRAND_ORDER.some((b) => brandMatches(p, b))) continue
+          const raw = String(p.brand ?? '').trim()
+          const dedupeKey = raw.toLowerCase() || '__empty__'
+          if (seen.has(dedupeKey)) continue
+          seen.add(dedupeKey)
+          otherBrands.push(raw)
+        }
+        const next =
+          otherBrands.length > 0
+            ? { ...createDefaultFilterState(absoluteMaxPrice), brands: otherBrands }
+            : createDefaultFilterState(absoluteMaxPrice)
         setAdv(next)
         setPriceDraft({ priceMin: next.priceMin, priceMax: next.priceMax })
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -191,7 +251,7 @@ export function HomePage() {
       }
       handleViewMoreBrand(sectionKey)
     },
-    [absoluteMaxPrice, handleViewMoreBrand],
+    [absoluteMaxPrice, handleViewMoreBrand, filtered],
   )
 
   /** Danh mục theo BE — đồng bộ query ?categoryId= (đã dùng trong filtered). */
@@ -216,6 +276,86 @@ export function HomePage() {
     },
     [setSearchParams],
   )
+
+  const anySectionPageBeyondFirst = useMemo(
+    () => Object.values(pagesBySection).some((p) => (p ?? 1) > 1),
+    [pagesBySection],
+  )
+
+  const hasActiveCatalogNarrowing = useMemo(() => {
+    if (categoryIdQuery || categoryQuery) return true
+    if (adv.brands.length > 0) return true
+    if (adv.parts.length > 0 || adv.vehicles.length > 0) return true
+    if (adv.inStockOnly) return true
+    if (String(searchQuery || '').trim()) return true
+    if (sortBy !== 'default') return true
+    if (adv.priceMin > PRICE_SLIDER_MIN) return true
+    if (
+      absoluteMaxPrice > 0 &&
+      adv.priceMax != null &&
+      adv.priceMax < absoluteMaxPrice
+    ) {
+      return true
+    }
+    return false
+  }, [categoryIdQuery, categoryQuery, adv, searchQuery, sortBy, absoluteMaxPrice])
+
+  const showCatalogBack = anySectionPageBeyondFirst || hasActiveCatalogNarrowing
+
+  const handleCatalogBack = useCallback(() => {
+    if (anySectionPageBeyondFirst) {
+      setPagesBySection({})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (categoryIdQuery || categoryQuery) {
+      handleCategorySelect(null)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (adv.brands.length > 0 || adv.parts.length > 0 || adv.vehicles.length > 0 || adv.inStockOnly) {
+      resetAdv()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (sortBy !== 'default') {
+      setSortBy('default')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (
+      adv.priceMin > PRICE_SLIDER_MIN ||
+      (absoluteMaxPrice > 0 &&
+        adv.priceMax != null &&
+        adv.priceMax < absoluteMaxPrice)
+    ) {
+      resetAdv()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (String(searchQuery || '').trim()) {
+      setSearchQuery('')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    navigate(-1)
+  }, [
+    anySectionPageBeyondFirst,
+    categoryIdQuery,
+    categoryQuery,
+    adv.brands.length,
+    adv.parts.length,
+    adv.vehicles.length,
+    adv.inStockOnly,
+    adv.priceMin,
+    adv.priceMax,
+    searchQuery,
+    sortBy,
+    absoluteMaxPrice,
+    handleCategorySelect,
+    resetAdv,
+    navigate,
+  ])
 
   useEffect(() => {
     if (!searchQuery.trim()) return
@@ -263,7 +403,7 @@ export function HomePage() {
                     setPriceDraft({ priceMin, priceMax })
                   }
                   onApplyPrice={applyPriceFilter}
-                  onReset={resetAdv}
+                  onReset={clearAllCatalogFilters}
                   sortBy={sortBy}
                   onSortChange={setSortBy}
                 />
@@ -271,7 +411,20 @@ export function HomePage() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="mb-3 md:mb-4">
+              <div
+                id="catalog-list-top"
+                className="mb-3 flex flex-wrap items-center gap-3 md:mb-4 md:gap-4"
+              >
+                {showCatalogBack ? (
+                  <button
+                    type="button"
+                    onClick={handleCatalogBack}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-ink shadow-sm transition hover:border-brand hover:text-brand"
+                  >
+                    <ChevronLeft className="size-4" strokeWidth={2.5} aria-hidden />
+                    Quay lại
+                  </button>
+                ) : null}
                 <h2 className="text-base font-extrabold tracking-tight text-ink md:text-xl">
                   Danh sách sản phẩm
                 </h2>
@@ -289,7 +442,7 @@ export function HomePage() {
                     </p>
                     <button
                       type="button"
-                      onClick={resetAdv}
+                      onClick={clearAllCatalogFilters}
                       className="mt-4 text-sm font-bold text-brand underline"
                     >
                       Xóa tất cả bộ lọc
@@ -297,16 +450,38 @@ export function HomePage() {
                   </div>
                 ) : null
               ) : (
-                sections.map((s) => (
-                  <ProductSection
-                    key={s.key}
-                    brandDisplayName={s.label}
-                    products={s.items}
-                    onViewMore={() => handleViewMoreSection(s.key)}
-                    showViewMore={adv.brands.length !== 1}
-                    bestSellerIds={bestSellerIdSet}
-                  />
-                ))
+                sections.map((s) => {
+                  const total = s.items.length
+                  const totalPages = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE))
+                  const rawPage = pagesBySection[s.key] ?? 1
+                  const page = Math.min(Math.max(1, rawPage), totalPages)
+                  const start = (page - 1) * CATALOG_PAGE_SIZE
+                  const slice = s.items.slice(start, start + CATALOG_PAGE_SIZE)
+                  const onPageChange = (nextPage) => {
+                    const clamped = Math.min(Math.max(1, nextPage), totalPages)
+                    setPagesBySection((prev) => ({ ...prev, [s.key]: clamped }))
+                    document
+                      .getElementById('catalog-list-top')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                  const pagination = {
+                    page,
+                    totalPages,
+                    totalItems: total,
+                    onPageChange,
+                  }
+                  return (
+                    <ProductSection
+                      key={s.key === '' ? '__empty_brand__' : s.key}
+                      brandDisplayName={s.label}
+                      products={slice}
+                      onViewMore={() => handleViewMoreSection(s.key)}
+                      showViewMore={adv.brands.length !== 1}
+                      bestSellerIds={bestSellerIdSet}
+                      pagination={pagination}
+                    />
+                  )
+                })
               )}
 
             </div>
@@ -329,7 +504,7 @@ export function HomePage() {
                 setSortBy(v)
               }}
               onReset={() => {
-                resetAdv()
+                clearAllCatalogFilters()
                 setMobileFilterOpen(false)
               }}
               onApplyPrice={() => {

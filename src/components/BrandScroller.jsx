@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
 import { normalizeSearch } from '../utils/string'
+import { normalizeCategoriesPayload } from '../utils/normalizeApiCategories'
 
 export function BrandScroller() {
   const ref = useRef(null)
@@ -32,21 +33,7 @@ export function BrandScroller() {
       try {
         const { data } = await api.get('/api/categories')
         if (cancelled) return
-        const rawList = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.categories)
-              ? data.categories
-              : []
-        setCategories(
-          rawList
-            .map((item) => ({
-              id: String(item?._id || item?.id || ''),
-              name: String(item?.name || '').trim(),
-            }))
-            .filter((item) => item.id && item.name),
-        )
+        setCategories(normalizeCategoriesPayload(data))
       } catch {
         if (!cancelled) setCategories([])
       }

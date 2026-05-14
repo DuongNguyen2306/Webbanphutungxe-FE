@@ -15,6 +15,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { normalizeSearch } from '../utils/string'
+import { normalizeCategoriesPayload } from '../utils/normalizeApiCategories'
 
 export function Header({ searchQuery, onSearchQueryChange }) {
   const { totalQuantity } = useCart()
@@ -61,20 +62,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
       try {
         const { data } = await api.get('/api/categories')
         if (cancelled) return
-        const rawList = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data?.categories)
-              ? data.categories
-              : []
-        const normalized = rawList
-          .map((item) => ({
-            id: String(item?._id || item?.id || ''),
-            name: String(item?.name || '').trim(),
-          }))
-          .filter((item) => item.id && item.name)
-        setCategories(normalized)
+        setCategories(normalizeCategoriesPayload(data))
       } catch {
         if (!cancelled) setCategories([])
       }

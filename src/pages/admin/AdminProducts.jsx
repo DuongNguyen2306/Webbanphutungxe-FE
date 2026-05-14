@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api } from '../../api/client'
 import { formatVnd } from '../../utils/format'
+import {
+  usePartCategories,
+  getPartCategoryLabel,
+  PART_CATEGORY_OTHER_VALUE,
+} from '../../hooks/usePartCategories'
 
 const PAGE_SIZE = 10
 const BEST_SELLER_FILTERS = {
@@ -45,7 +50,19 @@ function getCategoryDisplay(product) {
   return ''
 }
 
+function formatPartCategoryAdminLine(product, partCategories) {
+  const v = String(product?.partCategory || '').trim().toLowerCase()
+  if (!v) return ''
+  const label = getPartCategoryLabel(partCategories, v)
+  if (v === PART_CATEGORY_OTHER_VALUE) {
+    const note = String(product?.partCategoryNote || '').trim()
+    return note ? `Loại phụ tùng: Khác — ${note}` : 'Loại phụ tùng: Khác'
+  }
+  return `Loại phụ tùng: ${label}`
+}
+
 export function AdminProducts() {
+  const { partCategories } = usePartCategories()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -190,6 +207,7 @@ export function AdminProducts() {
           const bestSellerEnabled = getBestSellerEnabled(p)
           const bestSellerOrder = getBestSellerOrder(p)
           const soldCount = getSoldCount(p)
+          const partCatLine = formatPartCategoryAdminLine(p, partCategories)
           return (
             <li
               key={p._id}
@@ -206,6 +224,9 @@ export function AdminProducts() {
                   {getCategoryDisplay(p) || 'Chưa gán danh mục'} ·{' '}
                   {p.variants?.length || 0} biến thể
                 </p>
+                {partCatLine ? (
+                  <p className="mt-0.5 text-xs text-gray-600">{partCatLine}</p>
+                ) : null}
                 <div className="mt-2 grid gap-2 text-xs text-gray-600 sm:grid-cols-3">
                   <div>
                     <p className="font-semibold text-gray-500">Bán chạy</p>

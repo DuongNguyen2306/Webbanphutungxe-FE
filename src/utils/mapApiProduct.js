@@ -1,3 +1,5 @@
+import { PART_CATEGORY_OTHER_VALUE } from '../hooks/usePartCategories'
+
 /**
  * @typedef {Object} ApiVariantRaw
  * @property {string} [_id]
@@ -31,6 +33,8 @@
  * @property {string} image — ảnh đại diện: product.images[0] hoặc variants[0].images[0]
  * @property {string[]} images
  * @property {ProductVariantMapped[]} variants
+ * @property {string} [partCategory]
+ * @property {string} [partCategoryNote] — khi partCategory là «khác»; chỉ hiển thị
  * @property {boolean} [_fromApi]
  */
 
@@ -119,6 +123,20 @@ function toSafeNumber(v, fallback = 0) {
 function toNullableNumber(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+function categoryDisplayName(cat) {
+  if (cat == null) return ''
+  if (typeof cat === 'string') return String(cat).trim()
+  const raw = cat?.name
+  if (typeof raw === 'string') return raw.trim()
+  if (raw != null && typeof raw === 'object') {
+    const nested = raw.vi ?? raw.en ?? raw.default
+    if (typeof nested === 'string') return nested.trim()
+  }
+  if (typeof cat?.title === 'string') return cat.title.trim()
+  if (typeof cat?.label === 'string') return cat.label.trim()
+  return ''
 }
 
 /** Chuẩn hóa document Product từ API MongoDB cho storefront */
@@ -214,6 +232,8 @@ export function mapApiProduct(p) {
         ? p.isBestSeller
         : Boolean(p.showInBestSellers)
 
+  const partCatNorm = String(p.partCategory ?? '').trim().toLowerCase() || 'phụ kiện'
+
   return {
     id: String(p._id ?? p.id ?? ''),
     name: p.name,
@@ -228,7 +248,9 @@ export function mapApiProduct(p) {
     isAvailable,
     brand: p.brand ?? 'honda',
     vehicleType: p.vehicleType ?? 'scooter',
-    partCategory: p.partCategory ?? 'phụ kiện',
+    partCategory: partCatNorm,
+    partCategoryNote:
+      partCatNorm === PART_CATEGORY_OTHER_VALUE ? String(p.partCategoryNote ?? '') : '',
     showOnStorefront: p.showOnStorefront !== false,
     rating: ratingRaw,
     reviewCount: reviewCountRaw,
@@ -239,7 +261,7 @@ export function mapApiProduct(p) {
       ? p.compatibleVehicles.map((x) => String(x))
       : [],
     categoryId: p.category?._id ? String(p.category._id) : null,
-    categoryName: p.category?.name ?? '',
+    categoryName: categoryDisplayName(p.category),
     attributes,
     variants,
     bestSellerEnabled,
