@@ -7,16 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 export function CatalogPagination({ page, totalPages, totalItems, onPageChange, className = '' }) {
   if (totalItems <= 0) return null
 
-  if (totalPages <= 1) {
-    return (
-      <div
-        className={`border-t border-gray-100 pt-6 text-center text-xs font-medium text-gray-600 ${className}`}
-        aria-live="polite"
-      >
-        {totalItems} sản phẩm · trang 1 / 1
-      </div>
-    )
-  }
+  if (totalPages <= 1) return null
 
   return (
     <nav

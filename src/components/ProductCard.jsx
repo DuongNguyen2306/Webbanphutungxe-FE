@@ -38,7 +38,6 @@ export function ProductCard({
 
   const tagsNorm = normalizeBadgeTags(badgeTags)
   const showNew = tagsNorm.includes('new')
-  const showFeatured = tagsNorm.includes('featured')
   const showHot = tagsNorm.includes('best-seller') || bestseller
 
   const aspectClass =
@@ -113,7 +112,7 @@ export function ProductCard({
             </span>
           </div>
         )}
-        {(showNew || showHot || showFeatured) && isAvailable && (
+        {(showNew || showHot) && isAvailable && (
           <div className="absolute left-1 top-1 z-[1] flex max-w-[calc(100%-3.5rem)] flex-col gap-0.5 sm:left-2 sm:top-2 sm:gap-1">
             {showNew ? (
               <span className="inline-flex max-w-full rounded bg-emerald-700 px-1 py-0.5 text-[8px] font-extrabold uppercase leading-tight tracking-wide text-white shadow-sm sm:px-1.5 sm:text-[10px]">
@@ -123,11 +122,6 @@ export function ProductCard({
             {showHot ? (
               <span className="inline-flex max-w-full rounded bg-amber-700 px-1 py-0.5 text-[8px] font-extrabold uppercase leading-tight tracking-wide text-white shadow-sm sm:px-1.5 sm:text-[10px]">
                 BÁN CHẠY
-              </span>
-            ) : null}
-            {showFeatured ? (
-              <span className="inline-flex max-w-full rounded bg-violet-700 px-1 py-0.5 text-[9px] font-extrabold uppercase leading-tight text-white shadow-sm sm:px-1.5 sm:text-[10px]">
-                Nổi bật
               </span>
             ) : null}
           </div>
@@ -146,7 +140,7 @@ export function ProductCard({
       >
         <h3
           className={`shrink-0 text-left font-medium leading-snug text-ink ${
-            isShelf
+            isShelf && !denseMobile
               ? 'line-clamp-3 h-[4.35rem] text-xs sm:h-[4.65rem]'
               : denseMobile
                 ? 'max-md:line-clamp-2 max-md:h-[2rem] max-md:text-[10px] md:line-clamp-2 md:h-11 md:text-xs sm:h-12'

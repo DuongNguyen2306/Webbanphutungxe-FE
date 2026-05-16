@@ -30,6 +30,10 @@ import {
   getPartCategoryLabel,
   PART_CATEGORY_OTHER_VALUE,
 } from '../hooks/usePartCategories'
+import {
+  collectProductGalleryImages,
+  getVariantPrimaryGalleryIndex,
+} from '../utils/collectProductGalleryImages'
 
 function ProductVideoSection({ videoUrl, title }) {
   const trimmed = String(videoUrl || '').trim()
@@ -175,18 +179,17 @@ function ProductDetailBody({
     )
   }, [product.attributes, selectedAttrs])
 
-  /** Gallery: variant.images nếu có; không thì product.images (fallback) */
-  const galleryImages = useMemo(() => {
-    const vImgs = (variant?.images ?? []).filter(Boolean)
-    if (vImgs.length > 0) return vImgs
-    const pImgs = (product.images ?? []).filter(Boolean)
-    if (pImgs.length > 0) return pImgs
-    return product.image ? [product.image] : []
-  }, [variant, product])
+  /** Gallery: tất cả ảnh SP + mọi loại; đổi loại → ảnh lớn nhảy đúng ảnh loại đó */
+  const galleryImages = useMemo(() => collectProductGalleryImages(product), [product])
 
   useEffect(() => {
-    setImgIdx(0)
-  }, [variantId])
+    if (!galleryImages.length) {
+      setImgIdx(0)
+      return
+    }
+    const active = product.variants?.find((x) => x.id === variantId) ?? null
+    setImgIdx(getVariantPrimaryGalleryIndex(galleryImages, active))
+  }, [variantId, galleryImages, product.variants])
 
   useEffect(() => {
     if (!product.attributes?.length || !variant) return
@@ -531,10 +534,7 @@ function ProductDetailBody({
         </div>
 
         <div className="min-w-0">
-          <span className="inline-block rounded bg-discount px-2 py-0.5 text-xs font-bold text-white">
-            Yêu thích
-          </span>
-          <h1 className="mt-2 text-xl font-bold leading-snug sm:text-2xl">
+          <h1 className="text-xl font-bold leading-snug sm:text-2xl">
             {product.name}
           </h1>
 

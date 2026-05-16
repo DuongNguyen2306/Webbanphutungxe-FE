@@ -1,8 +1,12 @@
 import { useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { ProductCard } from './ProductCard'
 import { SectionDivider } from './SectionDivider'
 import { CatalogSectionViewMore } from './catalog/CatalogSectionViewMore'
+import { ProductShelfCard } from './catalog/ProductShelfCard'
+import {
+  PRODUCT_SHELF_ITEM_CLASS,
+  PRODUCT_SHELF_RAIL_CLASS,
+} from './catalog/productShelfLayout'
 
 export function BestSellingShelf({
   items = [],
@@ -64,33 +68,24 @@ export function BestSellingShelf({
           ) : error ? (
             <p className="py-4 text-center text-sm text-red-600">{error}</p>
           ) : (
-            <div
-              ref={railRef}
-              className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin]"
-            >
+            <div ref={railRef} className={PRODUCT_SHELF_RAIL_CLASS}>
               {rows.map((entry) => {
                 const p = entry.product
                 return (
-                  <div
-                    key={p.id}
-                    className="flex min-h-0 w-[178px] shrink-0 flex-col self-stretch sm:w-[200px]"
-                  >
-                    <div className="flex min-h-0 flex-1 flex-col">
-                      <ProductCard
-                        productId={p.id}
-                        name={p.name}
-                        originalPrice={p.originalPrice}
-                        salePrice={p.salePrice}
-                        soldCount={entry.soldQuantity}
-                        discountTag={p.discountTag}
-                        image={p.image}
-                        isAvailable={p.isAvailable}
-                        variants={p.variants}
-                        priceFrom={Boolean(p.variants?.length > 1)}
-                        variant="shelf"
-                        badgeTags={p.badgeTags}
-                      />
-                    </div>
+                  <div key={p.id} className={PRODUCT_SHELF_ITEM_CLASS}>
+                    <ProductShelfCard
+                      productId={p.id}
+                      name={p.name}
+                      originalPrice={p.originalPrice}
+                      salePrice={p.salePrice}
+                      soldCount={entry.soldQuantity}
+                      discountTag={p.discountTag}
+                      image={p.image}
+                      isAvailable={p.isAvailable}
+                      variants={p.variants}
+                      priceFrom={Boolean(p.variants?.length > 1)}
+                      badgeTags={p.badgeTags}
+                    />
                   </div>
                 )
               })}
