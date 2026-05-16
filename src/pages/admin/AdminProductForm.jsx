@@ -277,6 +277,19 @@ function formatApiError(err) {
   return err?.response?.data?.message || err?.message || 'Có lỗi xảy ra.'
 }
 
+function resolveNewArrivalEnabled(data) {
+  if (typeof data?.newArrivalEnabled === 'boolean') return data.newArrivalEnabled
+  if (typeof data?.isNewArrival === 'boolean') return data.isNewArrival
+  if (typeof data?.showInNewArrivals === 'boolean') return data.showInNewArrivals
+  return false
+}
+
+function resolveNewArrivalOrder(data) {
+  const raw = data?.newArrivalOrder ?? data?.newArrivalRank ?? data?.newArrivalPosition ?? 0
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? String(n) : '0'
+}
+
 function resolveBestSellerEnabled(data) {
   if (typeof data?.bestSellerEnabled === 'boolean') return data.bestSellerEnabled
   if (typeof data?.isBestSeller === 'boolean') return data.isBestSeller
@@ -362,6 +375,8 @@ export function AdminProductForm() {
   const [partCategoryNote, setPartCategoryNote] = useState('')
   const { partCategories, loading: partCategoriesLoading } = usePartCategories()
   const [showOnStorefront, setShowOnStorefront] = useState(true)
+  const [newArrivalEnabled, setNewArrivalEnabled] = useState(false)
+  const [newArrivalOrder, setNewArrivalOrder] = useState('0')
   const [bestSellerEnabled, setBestSellerEnabled] = useState(false)
   const [bestSellerOrder, setBestSellerOrder] = useState('0')
   const [soldCount, setSoldCount] = useState('0')
@@ -445,6 +460,8 @@ export function AdminProductForm() {
       pcLoaded === PART_CATEGORY_OTHER_VALUE ? String(data?.partCategoryNote ?? '') : '',
     )
     setShowOnStorefront(data.showOnStorefront !== false)
+    setNewArrivalEnabled(resolveNewArrivalEnabled(data))
+    setNewArrivalOrder(resolveNewArrivalOrder(data))
     setBestSellerEnabled(resolveBestSellerEnabled(data))
     setBestSellerOrder(resolveBestSellerOrder(data))
     setSoldCount(resolveSoldCount(data))
@@ -1011,6 +1028,12 @@ export function AdminProductForm() {
       return
     }
 
+    const parsedNewArrivalOrder = Number(newArrivalOrder)
+    if (!Number.isFinite(parsedNewArrivalOrder) || parsedNewArrivalOrder < 0) {
+      setError('Thứ tự hàng mới về phải là số không âm.')
+      return
+    }
+
     const parsedBestSellerOrder = Number(bestSellerOrder)
     if (!Number.isFinite(parsedBestSellerOrder) || parsedBestSellerOrder < 0) {
       setError('Thứ tự bán chạy phải là số không âm.')
@@ -1278,6 +1301,12 @@ export function AdminProductForm() {
           ? { partCategoryNote: partCategoryNoteTrimmed }
           : {}),
         showOnStorefront,
+        newArrivalEnabled,
+        newArrivalOrder: parsedNewArrivalOrder,
+        isNewArrival: newArrivalEnabled,
+        showInNewArrivals: newArrivalEnabled,
+        newArrivalRank: parsedNewArrivalOrder,
+        newArrivalPosition: parsedNewArrivalOrder,
         bestSellerEnabled,
         bestSellerOrder: parsedBestSellerOrder,
         soldCount: parsedSoldCount,
@@ -1420,6 +1449,36 @@ export function AdminProductForm() {
             </span>
           </span>
         </label>
+
+        <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 sm:col-span-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
+              checked={newArrivalEnabled}
+              onChange={(e) => setNewArrivalEnabled(e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">Hiển thị trong Hàng mới về</span>
+              <span className="mt-0.5 block text-xs text-gray-600">
+                Bật để SP xuất hiện ở block/menu hàng mới về. Không thay danh mục menu (Honda, Phụ kiện…).
+              </span>
+            </span>
+          </label>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">
+              Thứ tự hàng mới về
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={newArrivalOrder}
+              onChange={(e) => setNewArrivalOrder(e.target.value)}
+              className={field}
+              placeholder="0"
+            />
+          </div>
+        </div>
 
         <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2">
           <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 sm:col-span-2">

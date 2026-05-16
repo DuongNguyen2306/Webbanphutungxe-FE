@@ -32,6 +32,14 @@ const productSchema = new mongoose.Schema(
     rating: { type: Number, default: 4.5 },
     reviewCount: { type: Number, default: 0 },
     soldCount: { type: Number, default: 0 },
+    /** Nhãn cửa hàng: new, best-seller, featured */
+    badgeTags: [{ type: String, trim: true }],
+    /** Block "Hàng mới về" — độc lập danh mục menu */
+    newArrivalEnabled: { type: Boolean, default: false },
+    newArrivalOrder: { type: Number, default: 0 },
+    /** Block "Sản phẩm bán chạy" */
+    bestSellerEnabled: { type: Boolean, default: false },
+    bestSellerOrder: { type: Number, default: 0 },
     variants: [variantSchema],
   },
   { timestamps: true },

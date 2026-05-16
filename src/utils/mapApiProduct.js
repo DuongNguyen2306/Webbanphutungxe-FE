@@ -35,7 +35,7 @@ import { PART_CATEGORY_OTHER_VALUE } from '../hooks/usePartCategories'
  * @property {ProductVariantMapped[]} variants
  * @property {string} [partCategory]
  * @property {string} [partCategoryNote] — khi partCategory là «khác»; chỉ hiển thị
- * @property {boolean} [_fromApi]
+ * @property {string[]} [badgeTags] — new | best-seller | featured (đã chuẩn hoá chữ thường)
  */
 
 function variantLabel(v) {
@@ -123,6 +123,20 @@ function toSafeNumber(v, fallback = 0) {
 function toNullableNumber(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+/** Nhãn cửa hàng từ BE: new | best-seller | featured (chữ thường). */
+function normalizeBadgeTags(raw) {
+  if (!Array.isArray(raw)) return []
+  const seen = new Set()
+  const out = []
+  for (const t of raw) {
+    const s = String(t ?? '').trim().toLowerCase()
+    if (!s || seen.has(s)) continue
+    seen.add(s)
+    out.push(s)
+  }
+  return out
 }
 
 function categoryDisplayName(cat) {
@@ -232,6 +246,13 @@ export function mapApiProduct(p) {
         ? p.isBestSeller
         : Boolean(p.showInBestSellers)
 
+  const newArrivalEnabled =
+    typeof p.newArrivalEnabled === 'boolean'
+      ? p.newArrivalEnabled
+      : typeof p.isNewArrival === 'boolean'
+        ? p.isNewArrival
+        : Boolean(p.showInNewArrivals)
+
   const partCatNorm = String(p.partCategory ?? '').trim().toLowerCase() || 'phụ kiện'
 
   return {
@@ -265,6 +286,8 @@ export function mapApiProduct(p) {
     attributes,
     variants,
     bestSellerEnabled,
+    newArrivalEnabled,
+    badgeTags: normalizeBadgeTags(p.badgeTags),
     _fromApi: true,
   }
 }

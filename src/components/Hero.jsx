@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Autoplay, Navigation, Pagination } from 'swiper/modules'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { getPublicBanners } from '../api/contentApi'
+import { textMentionsHangChinhHang } from '../utils/categorySlug'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
@@ -77,8 +78,23 @@ function renderLayer(layer, banner, index) {
   )
 }
 
+function sanitizeBannerTextLayers(layers) {
+  if (!Array.isArray(layers)) return []
+  return layers.filter(
+    (layer) =>
+      layer?.isActive !== false &&
+      String(layer?.text || '').trim() &&
+      !textMentionsHangChinhHang(layer.text),
+  )
+}
+
 function bannersWithImages(list) {
-  return list.filter((b) => String(b?.imageUrl || '').trim())
+  return list
+    .filter((b) => String(b?.imageUrl || '').trim())
+    .map((b) => ({
+      ...b,
+      textLayers: sanitizeBannerTextLayers(b.textLayers),
+    }))
 }
 
 export function Hero() {
@@ -129,12 +145,8 @@ export function Hero() {
                 Không có text thì hiển thị nguyên ảnh để đúng thiết kế người dùng upload.
               */}
                 {(() => {
-                  const hasActiveTextLayers =
-                    Array.isArray(item.textLayers) &&
-                    item.textLayers.some(
-                      (layer) =>
-                        layer?.isActive !== false && String(layer?.text || '').trim(),
-                    )
+                  const activeLayers = sanitizeBannerTextLayers(item.textLayers)
+                  const hasActiveTextLayers = activeLayers.length > 0
                   const imageClass = hasActiveTextLayers
                     ? 'h-full w-full object-cover opacity-90'
                     : 'h-full w-full object-cover'
@@ -146,21 +158,20 @@ export function Hero() {
                     <img src={item.imageUrl} alt="" className={imageClass} />
                   )
                 })()}
-                {Array.isArray(item.textLayers) &&
-                item.textLayers.some(
-                  (layer) =>
-                    layer?.isActive !== false && String(layer?.text || '').trim(),
-                ) ? (
+                {sanitizeBannerTextLayers(item.textLayers).length > 0 ? (
                   <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
                 ) : null}
-                {Array.isArray(item.textLayers) && item.textLayers.length > 0 ? (
-                  <div className="absolute inset-0 mx-auto w-full max-w-[1600px] px-4 sm:px-8 xl:px-10">
-                    {item.textLayers
-                      .filter((layer) => layer.isActive !== false && String(layer.text || '').trim())
-                      .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-                      .map((layer, index) => renderLayer(layer, item, index))}
-                  </div>
-                ) : null}
+                {(() => {
+                  const activeLayers = sanitizeBannerTextLayers(item.textLayers)
+                  if (!activeLayers.length) return null
+                  return (
+                    <div className="absolute inset-0 mx-auto w-full max-w-[1600px] px-4 sm:px-8 xl:px-10">
+                      {[...activeLayers]
+                        .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+                        .map((layer, index) => renderLayer(layer, item, index))}
+                    </div>
+                  )
+                })()}
             </div>
           </SwiperSlide>
         ))}

@@ -47,6 +47,7 @@ function RelatedRail({ items, railRef, onScrollLeft, onScrollRight }) {
                 priceFrom={Boolean(p.variants?.length > 1)}
                 variant="shelf"
                 bestseller={Boolean(p.bestSellerEnabled)}
+                badgeTags={p.badgeTags}
               />
             </div>
           </div>

@@ -16,12 +16,16 @@ import {
 } from '../data/filterOptions'
 import { SiteFooter } from '../components/SiteFooter'
 import { BestSellingShelf } from '../components/BestSellingShelf'
+import { NewArrivalsShelf } from '../components/NewArrivalsShelf'
 import { filterCatalog } from '../utils/catalogFilters'
 import { useShopCatalog } from '../hooks/useShopCatalog'
 import { useBestSellers } from '../hooks/useBestSellers'
+import { useNewArrivals } from '../hooks/useNewArrivals'
 import { useShopCategories } from '../hooks/useShopCategories'
+import { findCategoryByQuery } from '../utils/normalizeApiCategories'
+import { isExcludedStorefrontCategoryName } from '../utils/categorySlug'
 import { normalizeSearch } from '../utils/string'
-import { sortCatalogProducts } from '../utils/sortCatalogProducts'
+import { sortCatalogProducts, applyStorefrontDefaultOrdering } from '../utils/sortCatalogProducts'
 
 const BRAND_SECTION_LABEL = {
   vespa: 'VESPA',
@@ -31,6 +35,10 @@ const BRAND_SECTION_LABEL = {
 }
 
 const BRAND_ORDER = ['vespa', 'honda', 'yamaha', 'piaggio']
+const NEW_ARRIVALS_SECTION = 'new-arrivals'
+const BEST_SELLERS_SECTION = 'best-sellers'
+const HANG_MOI_VE_TITLE = 'Hàng mới về'
+const BAN_CHAY_TITLE = 'Sản phẩm bán chạy'
 
 /** Số sản phẩm mỗi trang trong từng khối (VESPA, Hãng khác, …). */
 const CATALOG_PAGE_SIZE = 12
@@ -78,16 +86,155 @@ export function HomePage() {
   const [sortBy, setSortBy] = useState('default')
   /** Trang phân trang theo từng khối hãng (key = section key). */
   const [pagesBySection, setPagesBySection] = useState({})
-  const { products, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
+
+  const sectionQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return String(params.get('section') || '').trim().toLowerCase()
+  }, [location.search])
+
+  const isNewArrivalsView = sectionQuery === NEW_ARRIVALS_SECTION
+  const isBestSellersView = sectionQuery === BEST_SELLERS_SECTION
+  const isFeaturedSectionView = isNewArrivalsView || isBestSellersView
+
+  const categoryQuery = useMemo(() => {
+    if (isFeaturedSectionView) return ''
+    const params = new URLSearchParams(location.search)
+    return String(params.get('category') || '').trim()
+  }, [location.search, isFeaturedSectionView])
+
+  const categoryIdQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return String(params.get('categoryId') || '').trim()
+  }, [location.search])
+
+  const selectedCategory = useMemo(() => {
+    if (categoryIdQuery && categories.length) {
+      return categories.find((c) => c.id === categoryIdQuery) ?? null
+    }
+    if (categoryQuery && categories.length) {
+      return findCategoryByQuery(categories, categoryQuery)
+    }
+    return null
+  }, [categories, categoryIdQuery, categoryQuery])
+
+  const catalogCategoryParam = useMemo(() => {
+    if (isFeaturedSectionView) return null
+    if (selectedCategory) return selectedCategory.slug || selectedCategory.name
+    if (categoryQuery) return categoryQuery
+    if (categoryIdQuery) return categoryIdQuery
+    return null
+  }, [isFeaturedSectionView, selectedCategory, categoryQuery, categoryIdQuery])
+
+  const selectedCategoryId = selectedCategory?.id ?? (categoryIdQuery || '')
+  const catalogListTitle = useMemo(() => {
+    if (isNewArrivalsView) return HANG_MOI_VE_TITLE
+    if (isBestSellersView) return BAN_CHAY_TITLE
+    if (selectedCategory?.name?.trim()) return selectedCategory.name.trim()
+    if (adv.brands.length === 1) {
+      const key = adv.brands[0]
+      if (key === '' || key == null) return 'Hãng khác'
+      return BRAND_SECTION_LABEL[key] ?? String(key).toUpperCase()
+    }
+    if (
+      adv.brands.length > 1 &&
+      adv.brands.every(
+        (b) => !BRAND_ORDER.some((main) => main === String(b || '').toLowerCase()),
+      )
+    ) {
+      return 'Hãng khác'
+    }
+    return 'Danh sách sản phẩm'
+  }, [isNewArrivalsView, isBestSellersView, selectedCategory, adv.brands])
+
+  const menuCategories = useMemo(
+    () => categories.filter((c) => !isExcludedStorefrontCategoryName(c.name)),
+    [categories],
+  )
+
+  const { products: catalogProducts, loading: catalogLoading, error: catalogError, absoluteMaxPrice } =
     useShopCatalog({
       priceMin: adv.priceMin,
       priceMax: adv.priceMax,
+      category: isFeaturedSectionView ? null : catalogCategoryParam,
     })
+
+  /** Chỉ hiện shelf Hàng mới về / Bán chạy trên trang chủ «Tất cả» chưa lọc. */
+  const hasActiveCatalogNarrowing = useMemo(() => {
+    if (isFeaturedSectionView) return true
+    if (categoryIdQuery || categoryQuery) return true
+    if (adv.brands.length > 0) return true
+    if (adv.parts.length > 0 || adv.vehicles.length > 0) return true
+    if (adv.inStockOnly) return true
+    if (String(searchQuery || '').trim()) return true
+    if (sortBy !== 'default') return true
+    if (adv.priceMin > PRICE_SLIDER_MIN) return true
+    if (
+      absoluteMaxPrice > 0 &&
+      adv.priceMax != null &&
+      adv.priceMax < absoluteMaxPrice
+    ) {
+      return true
+    }
+    return false
+  }, [
+    isFeaturedSectionView,
+    categoryIdQuery,
+    categoryQuery,
+    adv.brands.length,
+    adv.parts.length,
+    adv.vehicles.length,
+    adv.inStockOnly,
+    adv.priceMin,
+    adv.priceMax,
+    searchQuery,
+    sortBy,
+    absoluteMaxPrice,
+  ])
+
+  const showHomeBlocks = !hasActiveCatalogNarrowing
+  const {
+    items: newArrivalShelfItems,
+    loading: newArrivalShelfLoading,
+    error: newArrivalShelfError,
+    total: newArrivalShelfTotal,
+  } = useNewArrivals({ page: 1, limit: 10, enabled: showHomeBlocks })
+  const {
+    items: newArrivalListItems,
+    loading: newArrivalListLoading,
+    error: newArrivalListError,
+  } = useNewArrivals({ page: 1, limit: 100, enabled: isNewArrivalsView })
   const {
     items: bestSellerItems,
     loading: bestSellerLoading,
     error: bestSellerError,
-  } = useBestSellers({ page: 1, limit: 10 })
+  } = useBestSellers({ page: 1, limit: 10, enabled: showHomeBlocks })
+  const {
+    items: bestSellerListItems,
+    loading: bestSellerListLoading,
+    error: bestSellerListError,
+  } = useBestSellers({ page: 1, limit: 100, enabled: isBestSellersView })
+  const bestSellerListProducts = useMemo(
+    () =>
+      bestSellerListItems
+        .map((row) => row?.product)
+        .filter((p) => p?.id),
+    [bestSellerListItems],
+  )
+  const products = isNewArrivalsView
+    ? newArrivalListItems
+    : isBestSellersView
+      ? bestSellerListProducts
+      : catalogProducts
+  const listLoading = isNewArrivalsView
+    ? newArrivalListLoading
+    : isBestSellersView
+      ? bestSellerListLoading
+      : catalogLoading
+  const listError = isNewArrivalsView
+    ? newArrivalListError
+    : isBestSellersView
+      ? bestSellerListError
+      : catalogError
   const prevAbsoluteMaxRef = useRef(PRICE_SLIDER_MAX)
 
   const bestSellerIdSet = useMemo(() => {
@@ -98,16 +245,6 @@ export function HomePage() {
     }
     return ids
   }, [bestSellerItems])
-
-  const categoryQuery = useMemo(() => {
-    const params = new URLSearchParams(location.search)
-    return String(params.get('category') || '').trim()
-  }, [location.search])
-
-  const categoryIdQuery = useMemo(() => {
-    const params = new URLSearchParams(location.search)
-    return String(params.get('categoryId') || '').trim()
-  }, [location.search])
 
   useEffect(() => {
     setAdv((prev) => {
@@ -149,29 +286,31 @@ export function HomePage() {
   ])
 
   const filtered = useMemo(() => {
-    const byFilters = filterCatalog(products, { ...adv, search: searchQuery })
-    if (categoryIdQuery) {
-      return byFilters.filter((p) => String(p.categoryId || '') === categoryIdQuery)
-    }
-    if (!categoryQuery) return byFilters
-    const normalizedCategory = normalizeSearch(categoryQuery)
-    return byFilters.filter((p) =>
-      normalizeSearch(p.categoryName || '').includes(normalizedCategory),
-    )
-  }, [products, adv, searchQuery, categoryQuery, categoryIdQuery])
+    return filterCatalog(products, { ...adv, search: searchQuery })
+  }, [products, adv, searchQuery])
 
   const brandMatches = (p, b) =>
     (p.brand || '').toLowerCase() === (b || '').toLowerCase()
 
   const sections = useMemo(() => {
-    const sortItems = (items) => sortCatalogProducts(items, sortBy)
-    if (adv.brands.length === 1) {
-      const key = adv.brands[0]
-      const label =
-        key === '' || key == null
-          ? 'Hãng khác'
-          : BRAND_SECTION_LABEL[key] ?? String(key).toUpperCase()
-      return [{ key, label, items: sortItems(filtered) }]
+    const sortItems = (items) => {
+      const base = sortCatalogProducts(items, sortBy)
+      if (sortBy !== 'default') return base
+      return applyStorefrontDefaultOrdering(base)
+    }
+    if (catalogCategoryParam || isFeaturedSectionView || adv.brands.length > 0) {
+      const items = sortItems(filtered)
+      if (!items.length) return []
+      const sectionKey = isNewArrivalsView
+        ? 'new-arrivals'
+        : isBestSellersView
+          ? 'best-sellers'
+          : adv.brands.length > 0
+            ? adv.brands.length === 1
+              ? adv.brands[0] || 'other'
+              : 'other'
+            : 'category'
+      return [{ key: sectionKey, label: catalogListTitle, items }]
     }
     const main = BRAND_ORDER.map((b) => ({
       key: b,
@@ -186,7 +325,7 @@ export function HomePage() {
       out.push({ key: 'other', label: 'Hãng khác', items: otherItems })
     }
     return out
-  }, [filtered, adv.brands, sortBy])
+  }, [filtered, adv.brands, sortBy, catalogCategoryParam, isFeaturedSectionView, catalogListTitle])
 
   const resetAdv = useCallback(() => {
     const next = createDefaultFilterState(absoluteMaxPrice)
@@ -204,6 +343,7 @@ export function HomePage() {
         const nextParams = new URLSearchParams(prev)
         nextParams.delete('categoryId')
         nextParams.delete('category')
+        nextParams.delete('section')
         return nextParams
       },
       { replace: true },
@@ -254,19 +394,23 @@ export function HomePage() {
     [absoluteMaxPrice, handleViewMoreBrand, filtered],
   )
 
-  /** Danh mục theo BE — đồng bộ query ?categoryId= (đã dùng trong filtered). */
+  /** Danh mục — GET /api/products?category= (slug hoặc tên từ menu). */
   const handleCategorySelect = useCallback(
     (categoryId) => {
       setAdv((prev) => ({ ...prev, brands: [], parts: [] }))
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
+          next.delete('section')
           if (categoryId == null || categoryId === '') {
             next.delete('categoryId')
             next.delete('category')
           } else {
-            next.set('categoryId', String(categoryId))
-            next.delete('category')
+            const cat = menuCategories.find((c) => c.id === String(categoryId))
+            next.delete('categoryId')
+            if (cat?.slug) next.set('category', cat.slug)
+            else if (cat?.name) next.set('category', cat.name)
+            else next.set('category', String(categoryId))
           }
           return next
         },
@@ -274,37 +418,55 @@ export function HomePage() {
       )
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },
-    [setSearchParams],
+    [setSearchParams, menuCategories],
   )
+
+  /** Block hàng mới về — GET /api/products/new-arrivals (không dùng ?category=). */
+  const handleNewArrivalsSelect = useCallback(() => {
+    setAdv((prev) => ({ ...prev, brands: [], parts: [] }))
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('categoryId')
+        next.delete('category')
+        next.set('section', NEW_ARRIVALS_SECTION)
+        return next
+      },
+      { replace: true },
+    )
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [setSearchParams])
+
+  const handleBestSellersSelect = useCallback(() => {
+    setAdv((prev) => ({ ...prev, brands: [], parts: [] }))
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('categoryId')
+        next.delete('category')
+        next.set('section', BEST_SELLERS_SECTION)
+        return next
+      },
+      { replace: true },
+    )
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [setSearchParams])
 
   const anySectionPageBeyondFirst = useMemo(
     () => Object.values(pagesBySection).some((p) => (p ?? 1) > 1),
     [pagesBySection],
   )
 
-  const hasActiveCatalogNarrowing = useMemo(() => {
-    if (categoryIdQuery || categoryQuery) return true
-    if (adv.brands.length > 0) return true
-    if (adv.parts.length > 0 || adv.vehicles.length > 0) return true
-    if (adv.inStockOnly) return true
-    if (String(searchQuery || '').trim()) return true
-    if (sortBy !== 'default') return true
-    if (adv.priceMin > PRICE_SLIDER_MIN) return true
-    if (
-      absoluteMaxPrice > 0 &&
-      adv.priceMax != null &&
-      adv.priceMax < absoluteMaxPrice
-    ) {
-      return true
-    }
-    return false
-  }, [categoryIdQuery, categoryQuery, adv, searchQuery, sortBy, absoluteMaxPrice])
-
   const showCatalogBack = anySectionPageBeyondFirst || hasActiveCatalogNarrowing
 
   const handleCatalogBack = useCallback(() => {
     if (anySectionPageBeyondFirst) {
       setPagesBySection({})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (isFeaturedSectionView) {
+      handleCategorySelect(null)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -341,6 +503,7 @@ export function HomePage() {
     navigate(-1)
   }, [
     anySectionPageBeyondFirst,
+    isFeaturedSectionView,
     categoryIdQuery,
     categoryQuery,
     adv.brands.length,
@@ -369,17 +532,17 @@ export function HomePage() {
       <CatalogMobileCategoryRail
         categories={categories}
         loading={categoriesLoading}
-        selectedCategoryId={categoryIdQuery}
+        selectedCategoryId={selectedCategoryId}
         onCategorySelect={handleCategorySelect}
         onOpenFilters={() => setMobileFilterOpen(true)}
       />
 
       <Hero />
 
-      {catalogError ? (
+      {listError ? (
         <div className="mx-auto w-full max-w-[1600px] px-4 pt-3 xl:px-10">
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-900">
-            {catalogError}
+            {listError}
           </p>
         </div>
       ) : null}
@@ -389,10 +552,12 @@ export function HomePage() {
             <div className="hidden md:flex md:w-[230px] md:shrink-0 md:flex-col">
               <div className="sticky top-28 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
                 <DesktopCategoryNav
-                  categories={categories}
+                  categories={menuCategories}
                   loading={categoriesLoading}
-                  selectedCategoryId={categoryIdQuery}
+                  selectedCategoryId={selectedCategoryId}
+                  newArrivalsActive={isNewArrivalsView}
                   onCategorySelect={handleCategorySelect}
+                  onNewArrivalsSelect={handleNewArrivalsSelect}
                 />
                 <FilterPanelAccordionSidebar
                   filters={adv}
@@ -413,7 +578,7 @@ export function HomePage() {
             <div className="min-w-0 flex-1">
               <div
                 id="catalog-list-top"
-                className="mb-3 flex flex-wrap items-center gap-3 md:mb-4 md:gap-4"
+                className="mb-4 flex flex-wrap items-center gap-3 md:mb-5 md:gap-4"
               >
                 {showCatalogBack ? (
                   <button
@@ -426,13 +591,33 @@ export function HomePage() {
                   </button>
                 ) : null}
                 <h2 className="text-base font-extrabold tracking-tight text-ink md:text-xl">
-                  Danh sách sản phẩm
+                  {catalogListTitle}
                 </h2>
               </div>
-              {catalogLoading && products.length === 0 ? (
+              {showHomeBlocks ? (
+                <div className="mb-2 space-y-1">
+                  {(newArrivalShelfLoading || newArrivalShelfTotal > 0) && !newArrivalShelfError ? (
+                    <NewArrivalsShelf
+                      embedded
+                      items={newArrivalShelfItems}
+                      loading={newArrivalShelfLoading}
+                      error={newArrivalShelfError}
+                      onViewMore={handleNewArrivalsSelect}
+                    />
+                  ) : null}
+                  <BestSellingShelf
+                    embedded
+                    items={bestSellerItems}
+                    loading={bestSellerLoading}
+                    error={bestSellerError}
+                    onViewMore={handleBestSellersSelect}
+                  />
+                </div>
+              ) : null}
+              {listLoading && products.length === 0 ? (
                 <HomeCatalogSkeleton />
               ) : sections.length === 0 ? (
-                !catalogError ? (
+                !listError ? (
                   <div className="rounded-lg border border-dashed border-gray-300 bg-white py-16 text-center">
                     <p className="text-lg font-semibold text-gray-600">
                       Không có sản phẩm phù hợp bộ lọc.
@@ -476,9 +661,20 @@ export function HomePage() {
                       brandDisplayName={s.label}
                       products={slice}
                       onViewMore={() => handleViewMoreSection(s.key)}
-                      showViewMore={adv.brands.length !== 1}
+                      showViewMore={
+                        !catalogCategoryParam &&
+                        !isFeaturedSectionView &&
+                        adv.brands.length === 0
+                      }
                       bestSellerIds={bestSellerIdSet}
                       pagination={pagination}
+                      sectionDividerVariant={
+                        s.key === 'category' ||
+                        s.key === 'new-arrivals' ||
+                        s.key === 'best-sellers'
+                          ? 'plain'
+                          : 'brand'
+                      }
                     />
                   )
                 })
@@ -514,12 +710,6 @@ export function HomePage() {
             />
           </CatalogFilterBottomSheet>
       </>
-
-      <BestSellingShelf
-        items={bestSellerItems}
-        loading={bestSellerLoading}
-        error={bestSellerError}
-      />
 
       <SiteFooter />
     </div>

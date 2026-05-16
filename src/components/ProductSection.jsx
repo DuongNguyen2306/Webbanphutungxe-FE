@@ -1,6 +1,7 @@
 import { SectionDivider } from './SectionDivider'
 import { ProductCard } from './ProductCard'
 import { CatalogPagination } from './catalog/CatalogPagination'
+import { CatalogSectionViewMore } from './catalog/CatalogSectionViewMore'
 import { listPrice } from '../utils/catalogFilters'
 
 export function ProductSection({
@@ -8,10 +9,13 @@ export function ProductSection({
   products,
   onViewMore,
   showViewMore = true,
-  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6',
+  gridClassName = 'grid min-h-0 grid-cols-2 items-stretch gap-1.5 px-0.5 sm:gap-2 md:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 2xl:gap-6',
   compactCardsOnMobile = true,
+  denseMobileCards = true,
   bestSellerIds = null,
   pagination = null,
+  /** 'brand' = tiêu đề kiểu «Phụ kiện dành cho xe …»; 'plain' = chỉ hiện brandDisplayName */
+  sectionDividerVariant = 'brand',
 }) {
   if (!products.length) return null
 
@@ -20,7 +24,7 @@ export function ProductSection({
 
   return (
     <section className="w-full">
-      <SectionDivider brandName={brandDisplayName} />
+      <SectionDivider brandName={brandDisplayName} variant={sectionDividerVariant} />
 
       <div className={gridClassName}>
         {products.map((p) => (
@@ -37,7 +41,9 @@ export function ProductSection({
             variants={p.variants}
             priceFrom={p.priceFrom}
             compactOnMobile={compactCardsOnMobile}
+            denseMobile={denseMobileCards}
             bestseller={bs ? bs.has(String(p.id)) || bs.has(p.id) : false}
+            badgeTags={p.badgeTags}
           />
         ))}
       </div>
@@ -51,17 +57,7 @@ export function ProductSection({
         />
       ) : null}
 
-      {showViewMore && (
-        <div className="pt-6">
-          <button
-            type="button"
-            onClick={onViewMore}
-            className="rounded-lg border-2 border-brand bg-transparent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-brand transition hover:bg-brand hover:text-white"
-          >
-            Xem thêm... &gt;
-          </button>
-        </div>
-      )}
+      {showViewMore ? <CatalogSectionViewMore onClick={onViewMore} /> : null}
     </section>
   )
 }

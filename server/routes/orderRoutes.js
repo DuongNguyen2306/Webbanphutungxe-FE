@@ -18,14 +18,23 @@ function formatAddressText(shippingAddress) {
   return parts.join(', ')
 }
 
+const ORDER_OK_MESSAGE =
+  'Đã nhận đơn. Nhân viên sẽ liên hệ tư vấn qua SĐT trên.'
+
 router.post('/', authOptional, async (req, res) => {
   try {
     const { contact, items, totalAmount, shippingAddress } = req.body
     if (!contact || !items?.length)
       return res.status(400).json({ message: 'Thiếu thông tin đơn hàng.' })
-    const { name = '', email = '', phone = '' } = contact
-    if (!String(email).trim() && !String(phone).trim())
-      return res.status(400).json({ message: 'Cần email hoặc SĐT liên hệ.' })
+    const name = String(contact?.name ?? req.body?.name ?? '').trim()
+    const phoneRaw = contact?.phone ?? req.body?.phoneNumber ?? ''
+    const phone = String(phoneRaw).replace(/\D/g, '')
+    const email = String(contact?.email ?? req.body?.email ?? '').trim()
+
+    if (!name) return res.status(400).json({ message: 'Vui lòng nhập họ và tên.' })
+    if (phone.length < 9 || phone.length > 11) {
+      return res.status(400).json({ message: 'Vui lòng nhập số điện thoại hợp lệ.' })
+    }
 
     const province = String(
       shippingAddress?.province ?? shippingAddress?.provinceName ?? '',
@@ -38,13 +47,6 @@ router.post('/', authOptional, async (req, res) => {
     const note = String(
       shippingAddress?.note ?? req.body?.note ?? '',
     ).trim()
-
-    if (!province || !district || !ward || !detail) {
-      return res.status(400).json({
-        message:
-          'Địa chỉ giao hàng không hợp lệ. Cần province, district, ward, detail.',
-      })
-    }
 
     const normalized = items.map((i) => ({
       productId: i.productId,
@@ -73,8 +75,8 @@ router.post('/', authOptional, async (req, res) => {
       user: req.userId || null,
       contact: {
         name,
-        email: String(email).trim(),
-        phone: String(phone).trim(),
+        email,
+        phone,
       },
       items: normalized,
       shippingAddress: {
@@ -89,7 +91,7 @@ router.post('/', authOptional, async (req, res) => {
     })
     res.status(201).json({
       orderId: order._id,
-      message: 'OK',
+      message: ORDER_OK_MESSAGE,
       shippingAddressText: formatAddressText(order.shippingAddress),
     })
   } catch (e) {

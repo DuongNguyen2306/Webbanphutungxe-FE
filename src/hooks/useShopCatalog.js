@@ -13,7 +13,11 @@ function getAbsoluteMaxPrice(rawData, mappedProducts) {
   return maxFromProducts > 0 ? maxFromProducts : PRICE_SLIDER_MAX
 }
 
-export function useShopCatalog({ priceMin = 0, priceMax = null } = {}) {
+/**
+ * @param {{ priceMin?: number, priceMax?: number | null, category?: string | null }} [opts]
+ * `category`: tên, slug hoặc ObjectId — GET /api/products?category=
+ */
+export function useShopCatalog({ priceMin = 0, priceMax = null, category = null } = {}) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [fromApi, setFromApi] = useState(false)
@@ -35,6 +39,8 @@ export function useShopCatalog({ priceMin = 0, priceMax = null } = {}) {
         } else if (priceMax != null) {
           params.maxPrice = Number(priceMax)
         }
+        const cat = String(category ?? '').trim()
+        if (cat) params.category = cat
 
         const { data } = await api.get('/api/products', { params })
         if (cancel) return
@@ -46,6 +52,7 @@ export function useShopCatalog({ priceMin = 0, priceMax = null } = {}) {
               ? data.items
               : []
         const mapped = list.map(mapApiProduct)
+        /** Giữ đúng thứ tự phần tử mảng từ BE — không sort lại ở client. */
         setProducts(mapped)
         setAbsoluteMaxPrice(getAbsoluteMaxPrice(data, mapped))
         setFromApi(true)
@@ -62,7 +69,7 @@ export function useShopCatalog({ priceMin = 0, priceMax = null } = {}) {
     return () => {
       cancel = true
     }
-  }, [priceMin, priceMax])
+  }, [priceMin, priceMax, category])
 
   return { products, loading, fromApi, error, absoluteMaxPrice }
 }

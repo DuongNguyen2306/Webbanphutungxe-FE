@@ -16,7 +16,7 @@ export const BRAND_FILTER_GROUPS = [
   {
     id: 'vespa-core',
     legend: 'Vespa & Piaggio',
-    hint: 'Hàng chủ lực cửa hàng',
+    hint: 'Vespa & Piaggio',
     ids: ['vespa', 'piaggio'],
   },
   {

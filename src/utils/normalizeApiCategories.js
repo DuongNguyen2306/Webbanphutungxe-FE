@@ -1,3 +1,5 @@
+import { isExcludedStorefrontCategoryName, slugifyCategoryName } from './categorySlug'
+
 /**
  * Chuẩn hoá tên danh mục từ API (tránh "[object Object]" khi name là object i18n hoặc dữ liệu lỗi).
  * @param {unknown} raw
@@ -20,7 +22,7 @@ export function coerceCategoryName(raw) {
 
 /**
  * @param {unknown} item — document Category từ GET /api/categories
- * @returns {{ id: string, name: string } | null}
+ * @returns {{ id: string, name: string, slug: string } | null}
  */
 export function normalizeCategoryRow(item) {
   const id = String(item?._id ?? item?.id ?? '').trim()
@@ -28,12 +30,14 @@ export function normalizeCategoryRow(item) {
   if (!name) name = coerceCategoryName(item?.title)
   if (!name) name = coerceCategoryName(item?.label)
   if (!id || !name) return null
-  return { id, name }
+  const slugRaw = String(item?.slug ?? '').trim()
+  const slug = slugRaw || slugifyCategoryName(name)
+  return { id, name, slug }
 }
 
 /**
  * @param {unknown} data — body JSON từ GET /api/categories
- * @returns {{ id: string, name: string }[]}
+ * @returns {{ id: string, name: string, slug: string }[]}
  */
 export function normalizeCategoriesPayload(data) {
   const rawList = Array.isArray(data)
@@ -47,10 +51,27 @@ export function normalizeCategoriesPayload(data) {
   const out = []
   for (const item of rawList) {
     const row = normalizeCategoryRow(item)
-    if (!row || seen.has(row.id)) continue
+    if (!row || seen.has(row.id) || isExcludedStorefrontCategoryName(row.name)) continue
     seen.add(row.id)
     out.push(row)
   }
   out.sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }))
   return out
+}
+
+/**
+ * Tìm danh mục khớp query ?category= (slug hoặc tên).
+ * @param {{ id: string, name: string, slug: string }[]} categories
+ * @param {string} categoryQuery
+ */
+export function findCategoryByQuery(categories, categoryQuery) {
+  const q = String(categoryQuery || '').trim().toLowerCase()
+  if (!q) return null
+  return (
+    categories.find(
+      (c) =>
+        String(c.slug || '').toLowerCase() === q ||
+        String(c.name || '').trim().toLowerCase() === q,
+    ) ?? null
+  )
 }

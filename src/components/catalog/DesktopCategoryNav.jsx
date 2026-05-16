@@ -1,13 +1,15 @@
-import { Package } from 'lucide-react'
+import { Package, Sparkles } from 'lucide-react'
 
 /**
- * Sidebar desktop — danh mục từ BE (id + name). Chữ ~13px.
+ * Sidebar desktop — danh mục từ BE + mục cố định "Hàng mới về" (API new-arrivals).
  */
 export function DesktopCategoryNav({
   categories,
   loading,
   selectedCategoryId,
+  newArrivalsActive = false,
   onCategorySelect,
+  onNewArrivalsSelect,
 }) {
   function btnClass(active) {
     return [
@@ -18,7 +20,7 @@ export function DesktopCategoryNav({
     ].join(' ')
   }
 
-  const isAll = !selectedCategoryId
+  const isAll = !selectedCategoryId && !newArrivalsActive
 
   return (
     <nav aria-label="Danh mục sản phẩm" className="pb-1">
@@ -41,8 +43,20 @@ export function DesktopCategoryNav({
             Tất cả
           </button>
         </li>
+        {typeof onNewArrivalsSelect === 'function' ? (
+          <li>
+            <button
+              type="button"
+              onClick={() => onNewArrivalsSelect()}
+              className={btnClass(newArrivalsActive)}
+            >
+              <Sparkles className="size-[18px] shrink-0 text-current opacity-80" strokeWidth={2} />
+              <span className="min-w-0 break-words">Hàng mới về</span>
+            </button>
+          </li>
+        ) : null}
         {categories.map((c) => {
-          const active = selectedCategoryId === c.id
+          const active = !newArrivalsActive && selectedCategoryId === c.id
           return (
             <li key={c.id}>
               <button

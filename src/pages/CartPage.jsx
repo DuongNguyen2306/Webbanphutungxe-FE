@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { formatVnd } from '../utils/format'
+import { showUiToast } from '../utils/uiToast'
 
 export function CartPage() {
   const navigate = useNavigate()
@@ -173,33 +174,27 @@ export function CartPage() {
       setError('Vui lòng nhập họ và tên.')
       return
     }
-    if (!/^\d{10}$/.test(String(contact.phone || '').replace(/\D/g, ''))) {
-      setError('Số điện thoại phải gồm đúng 10 chữ số.')
-      return
-    }
-    if (!address.provinceCode || !address.districtCode || !address.wardCode) {
-      setError('Vui lòng chọn đầy đủ Tỉnh/Thành, Quận/Huyện và Phường/Xã.')
-      return
-    }
-    if (!address.detail.trim()) {
-      setError('Vui lòng nhập địa chỉ cụ thể.')
+    if (!/^\d{9,11}$/.test(String(contact.phone || '').replace(/\D/g, ''))) {
+      setError('Vui lòng nhập số điện thoại hợp lệ (9–11 chữ số).')
       return
     }
     setSubmitting(true)
     try {
-      await api.post('/api/orders', {
+      const phoneDigits = String(contact.phone || '').replace(/\D/g, '')
+      const { data } = await api.post('/api/orders', {
         contact: {
           name: contact.name.trim(),
           email: contact.email?.trim() || '',
-          phone: String(contact.phone || '').replace(/\D/g, ''),
+          phone: phoneDigits,
         },
+        phoneNumber: phoneDigits,
         shippingAddress: {
-          provinceCode: address.provinceCode,
-          provinceName: address.provinceName,
-          districtCode: address.districtCode,
-          districtName: address.districtName,
-          wardCode: address.wardCode,
-          wardName: address.wardName,
+          provinceCode: address.provinceCode || '',
+          provinceName: address.provinceName || '',
+          districtCode: address.districtCode || '',
+          districtName: address.districtName || '',
+          wardCode: address.wardCode || '',
+          wardName: address.wardName || '',
           detail: address.detail.trim(),
           note: address.note.trim(),
         },
@@ -215,9 +210,18 @@ export function CartPage() {
       })
       await removeSelectedLines()
       setCheckoutOpen(false)
+      const okMsg =
+        (typeof data?.message === 'string' && data.message.trim()) ||
+        'Đã nhận đơn. Nhân viên sẽ liên hệ tư vấn qua SĐT trên.'
+      showUiToast(okMsg)
       navigate('/profile#orders')
     } catch (err) {
-      setError('Không gửi được đơn hàng. Vui lòng thử lại sau ít phút.')
+      const apiMsg = err?.response?.data?.message
+      setError(
+        typeof apiMsg === 'string' && apiMsg.trim()
+          ? apiMsg.trim()
+          : 'Không gửi được đơn hàng. Vui lòng thử lại sau ít phút.',
+      )
     } finally {
       setSubmitting(false)
     }
@@ -281,7 +285,7 @@ export function CartPage() {
                 <ul className="divide-y divide-gray-100">
                   {items.map((line) => (
                     <li key={line.lineId} className="px-4 py-3">
-                      {Boolean(lineLoadingMap[line.lineId]) ? (
+                      {lineLoadingMap[line.lineId] ? (
                         <p className="mb-2 text-xs font-medium text-gray-500">Đang cập nhật...</p>
                       ) : null}
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -373,10 +377,6 @@ export function CartPage() {
                       <span className="font-semibold text-gray-900">{formatVnd(selectedTotal)}</span>
                     </div>
                     <div className="flex items-center justify-between text-gray-600">
-                      <span>Phí vận chuyển</span>
-                      <span className="font-semibold text-gray-900">{formatVnd(0)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-gray-600">
                       <span>Giảm giá</span>
                       <span className="font-semibold text-gray-900">{formatVnd(0)}</span>
                     </div>
@@ -422,6 +422,9 @@ export function CartPage() {
                     className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
                   >
                     <p className="text-sm font-bold text-ink">Thông tin liên hệ</p>
+                    <p className="text-[11px] leading-relaxed text-gray-600">
+                      Chỉ cần họ tên và SĐT. Địa chỉ giao hàng là tuỳ chọn — nhân viên có thể xác nhận sau qua điện thoại.
+                    </p>
                     <input
                       type="text"
                       placeholder="Họ và tên"
@@ -447,7 +450,7 @@ export function CartPage() {
                       disabled={loadingProvince}
                     >
                       <option value="">
-                        {loadingProvince ? 'Đang tải tỉnh/thành...' : 'Chọn Tỉnh/Thành'}
+                        {loadingProvince ? 'Đang tải tỉnh/thành...' : 'Tỉnh/Thành (tuỳ chọn)'}
                       </option>
                       {provinces.map((p) => (
                         <option key={p.code} value={p.code}>
@@ -463,10 +466,10 @@ export function CartPage() {
                     >
                       <option value="">
                         {!address.provinceCode
-                          ? 'Chọn Quận/Huyện'
+                          ? 'Quận/Huyện (tuỳ chọn)'
                           : loadingDistrict
                             ? 'Đang tải quận/huyện...'
-                            : 'Chọn Quận/Huyện'}
+                            : 'Quận/Huyện (tuỳ chọn)'}
                       </option>
                       {districts.map((d) => (
                         <option key={d.code} value={d.code}>
@@ -482,10 +485,10 @@ export function CartPage() {
                     >
                       <option value="">
                         {!address.districtCode
-                          ? 'Chọn Phường/Xã'
+                          ? 'Phường/Xã (tuỳ chọn)'
                           : loadingWard
                             ? 'Đang tải phường/xã...'
-                            : 'Chọn Phường/Xã'}
+                            : 'Phường/Xã (tuỳ chọn)'}
                       </option>
                       {wards.map((w) => (
                         <option key={w.code} value={w.code}>
@@ -495,7 +498,7 @@ export function CartPage() {
                     </select>
                     <input
                       type="text"
-                      placeholder="Địa chỉ cụ thể (số nhà, tên đường...)"
+                      placeholder="Địa chỉ cụ thể (tuỳ chọn)"
                       value={address.detail}
                       onChange={(e) =>
                         setAddress((prev) => ({ ...prev, detail: e.target.value }))
@@ -511,6 +514,9 @@ export function CartPage() {
                       rows={3}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                     />
+                    <p className="text-center text-xs font-extrabold uppercase leading-snug tracking-wide text-brand">
+                      NHÂN VIÊN SẼ LIÊN HỆ TƯ VẤN QUA SĐT TRÊN
+                    </p>
                     {error ? (
                       <p className="text-sm font-semibold text-brand">{error}</p>
                     ) : null}

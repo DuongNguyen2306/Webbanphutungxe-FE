@@ -210,9 +210,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
     <header className="sticky top-0 z-50 shadow-md">
       <div className="bg-brand px-3 py-0.5 text-[10px] font-medium text-white/90 sm:px-4 sm:py-1 sm:text-[11px] xl:px-10">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center gap-2 text-center sm:justify-between sm:text-left">
-          <span className="hidden sm:inline">
-            Giao hàng toàn quốc · Hàng chính hãng · Tư vấn Zalo nhanh
-          </span>
+          <span className="hidden sm:inline">Giao hàng toàn quốc · Tư vấn Zalo nhanh</span>
           <span className="sm:hidden">Giao toàn quốc · Tư vấn Zalo nhanh</span>
         </div>
       </div>
@@ -236,7 +234,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
           <Link
             to="/"
             className="absolute left-1/2 -translate-x-1/2 no-underline"
-            aria-label="Thai Vũ — Trang chủ"
+            aria-label="PHỤ KIỆN THÁI VŨ — Trang chủ"
           >
             <img
               src="/logo.jpg"
@@ -385,12 +383,9 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               alt="Thai Vũ"
               className="h-9 w-auto max-w-[80px] object-contain lg:h-12 lg:max-w-[120px]"
             />
-            <span className="hidden max-w-[200px] text-left leading-tight text-white lg:block">
-              <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/90">
-                Thai Vũ
-              </span>
-              <span className="block text-xs font-bold uppercase leading-snug">
-                Phụ kiện Thái Vũ
+            <span className="hidden max-w-[220px] text-left leading-tight text-white lg:block">
+              <span className="block text-xs font-extrabold uppercase leading-snug tracking-wide">
+                PHỤ KIỆN THÁI VŨ
               </span>
             </span>
           </Link>

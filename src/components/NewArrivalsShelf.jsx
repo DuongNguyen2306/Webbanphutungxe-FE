@@ -4,7 +4,7 @@ import { ProductCard } from './ProductCard'
 import { SectionDivider } from './SectionDivider'
 import { CatalogSectionViewMore } from './catalog/CatalogSectionViewMore'
 
-export function BestSellingShelf({
+export function NewArrivalsShelf({
   items = [],
   loading = false,
   error = null,
@@ -18,11 +18,10 @@ export function BestSellingShelf({
     if (!items.length) return []
     const seen = new Set()
     const out = []
-    for (const entry of items) {
-      const p = entry?.product
+    for (const p of items) {
       if (!p?.id || seen.has(p.id)) continue
       seen.add(p.id)
-      out.push(entry)
+      out.push(p)
     }
     return out
   }, [items])
@@ -32,14 +31,14 @@ export function BestSellingShelf({
     if (el) el.scrollBy({ left: delta, behavior: 'smooth' })
   }
 
-  const innerClass = embedded ? 'w-full' : 'mx-auto max-w-[1600px] px-4 xl:px-10'
-
   if (!loading && !error && !rows.length) return null
+
+  const innerClass = embedded ? 'w-full' : 'mx-auto max-w-[1600px] px-4 xl:px-10'
 
   return (
     <section className={embedded ? 'w-full' : 'border-t border-gray-200 bg-white py-6'}>
       <div className={innerClass}>
-        <SectionDivider title="Sản phẩm bán chạy" variant="plain" />
+        <SectionDivider title="Hàng mới về" variant="plain" />
 
         <div className="relative">
           <button
@@ -60,7 +59,7 @@ export function BestSellingShelf({
           </button>
 
           {loading ? (
-            <p className="py-4 text-center text-sm text-gray-500">Đang tải sản phẩm bán chạy...</p>
+            <p className="py-4 text-center text-sm text-gray-500">Đang tải hàng mới về...</p>
           ) : error ? (
             <p className="py-4 text-center text-sm text-red-600">{error}</p>
           ) : (
@@ -68,32 +67,29 @@ export function BestSellingShelf({
               ref={railRef}
               className="flex items-stretch gap-3 overflow-x-auto scroll-smooth pb-1 pt-1 [scrollbar-width:thin]"
             >
-              {rows.map((entry) => {
-                const p = entry.product
-                return (
-                  <div
-                    key={p.id}
-                    className="flex min-h-0 w-[178px] shrink-0 flex-col self-stretch sm:w-[200px]"
-                  >
-                    <div className="flex min-h-0 flex-1 flex-col">
-                      <ProductCard
-                        productId={p.id}
-                        name={p.name}
-                        originalPrice={p.originalPrice}
-                        salePrice={p.salePrice}
-                        soldCount={entry.soldQuantity}
-                        discountTag={p.discountTag}
-                        image={p.image}
-                        isAvailable={p.isAvailable}
-                        variants={p.variants}
-                        priceFrom={Boolean(p.variants?.length > 1)}
-                        variant="shelf"
-                        badgeTags={p.badgeTags}
-                      />
-                    </div>
+              {rows.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex min-h-0 w-[178px] shrink-0 flex-col self-stretch sm:w-[200px]"
+                >
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <ProductCard
+                      productId={p.id}
+                      name={p.name}
+                      originalPrice={p.originalPrice}
+                      salePrice={p.salePrice}
+                      soldCount={p.soldCount}
+                      discountTag={p.discountTag}
+                      image={p.image}
+                      isAvailable={p.isAvailable}
+                      variants={p.variants}
+                      priceFrom={Boolean(p.variants?.length > 1)}
+                      variant="shelf"
+                      badgeTags={p.badgeTags}
+                    />
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>

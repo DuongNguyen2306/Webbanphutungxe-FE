@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BadgePercent,
   Mail,
@@ -8,11 +9,12 @@ import {
   Truck,
 } from 'lucide-react'
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
+import { PURCHASE_GUIDE_HREF } from '../constants/guides'
 
 const supportLinks = [
-  { href: '#', label: 'Hướng dẫn đặt hàng' },
-  { href: '#', label: 'Chính sách đổi trả' },
-  { href: '#', label: 'Bảo hành' },
+  { href: PURCHASE_GUIDE_HREF, label: 'Hướng dẫn đặt hàng', isRouter: true },
+  { href: '#', label: 'Chính sách đổi trả', isRouter: false },
+  { href: '#', label: 'Bảo hành', isRouter: false },
 ]
 
 /** Logo Facebook (Simple Icons, CC0) */
@@ -76,7 +78,7 @@ export function SiteFooter() {
               <span className="text-2xl font-black tracking-tight text-white">Thai Vũ</span>
             </a>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
-              Chuyên phụ tùng và phụ kiện Vespa Piaggio chính hãng.
+              Chuyên phụ tùng và phụ kiện Vespa Piaggio.
               <br />
               Tư vấn nhanh, giá rõ ràng, giao hàng toàn quốc.
             </p>
@@ -110,9 +112,15 @@ export function SiteFooter() {
           <ul className="mt-4 space-y-3 text-sm">
             {supportLinks.map((item) => (
               <li key={item.label}>
-                <a href={item.href} className="text-zinc-300 transition hover:text-brand">
-                  {item.label}
-                </a>
+                {item.isRouter ? (
+                  <Link to={item.href} className="text-zinc-300 transition hover:text-brand">
+                    {item.label}
+                  </Link>
+                ) : (
+                  <a href={item.href} className="text-zinc-300 transition hover:text-brand">
+                    {item.label}
+                  </a>
+                )}
               </li>
             ))}
           </ul>

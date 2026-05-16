@@ -15,10 +15,7 @@ export function CheckoutSuccessModal({ open, onClose }) {
           Đặt hàng thành công
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-ink">
-          Chúng tôi đã nhận thông tin mua hàng của bạn. Nhân viên Thai Vũ sẽ liên
-          hệ lại qua SĐT/Email trong vòng{' '}
-          <span className="font-semibold">30–60 phút</span> để xác nhận đơn. Xin
-          cảm ơn!
+          Đã nhận đơn. Nhân viên sẽ liên hệ tư vấn qua SĐT trên. Xin cảm ơn!
         </p>
         <button
           type="button"

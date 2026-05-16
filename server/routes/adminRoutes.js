@@ -95,6 +95,13 @@ router.post('/products', async (req, res) => {
       rating: req.body.rating ?? 4.5,
       reviewCount: req.body.reviewCount ?? 0,
       soldCount: req.body.soldCount ?? 0,
+      badgeTags: Array.isArray(req.body.badgeTags)
+        ? req.body.badgeTags.map((t) => String(t || '').trim()).filter(Boolean)
+        : [],
+      newArrivalEnabled: Boolean(req.body.newArrivalEnabled ?? req.body.showInNewArrivals ?? req.body.isNewArrival),
+      newArrivalOrder: Math.max(0, Number(req.body.newArrivalOrder ?? req.body.newArrivalRank ?? req.body.newArrivalPosition) || 0),
+      bestSellerEnabled: Boolean(req.body.bestSellerEnabled ?? req.body.showInBestSellers ?? req.body.isBestSeller),
+      bestSellerOrder: Math.max(0, Number(req.body.bestSellerOrder ?? req.body.bestSellerRank ?? req.body.bestSellerPosition) || 0),
       variants,
     })
     const populated = await doc.populate('category', 'name')
@@ -120,6 +127,17 @@ router.put('/products/:id', async (req, res) => {
     if (req.body.homeFeature !== undefined) p.homeFeature = req.body.homeFeature
     if (req.body.showOnStorefront !== undefined)
       p.showOnStorefront = Boolean(req.body.showOnStorefront)
+    if (Array.isArray(req.body.badgeTags))
+      p.badgeTags = req.body.badgeTags.map((t) => String(t || '').trim()).filter(Boolean)
+    if (req.body.newArrivalEnabled !== undefined)
+      p.newArrivalEnabled = Boolean(req.body.newArrivalEnabled ?? req.body.showInNewArrivals ?? req.body.isNewArrival)
+    if (req.body.newArrivalOrder !== undefined || req.body.newArrivalRank !== undefined || req.body.newArrivalPosition !== undefined)
+      p.newArrivalOrder = Math.max(0, Number(req.body.newArrivalOrder ?? req.body.newArrivalRank ?? req.body.newArrivalPosition) || 0)
+    if (req.body.bestSellerEnabled !== undefined)
+      p.bestSellerEnabled = Boolean(req.body.bestSellerEnabled ?? req.body.showInBestSellers ?? req.body.isBestSeller)
+    if (req.body.bestSellerOrder !== undefined || req.body.bestSellerRank !== undefined || req.body.bestSellerPosition !== undefined)
+      p.bestSellerOrder = Math.max(0, Number(req.body.bestSellerOrder ?? req.body.bestSellerRank ?? req.body.bestSellerPosition) || 0)
+    if (req.body.soldCount !== undefined) p.soldCount = Math.max(0, Number(req.body.soldCount) || 0)
     if (Array.isArray(req.body.variants)) {
       p.variants = normalizeVariants({
         ...req.body,
