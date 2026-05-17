@@ -140,10 +140,20 @@ export function Header({ searchQuery, onSearchQueryChange }) {
   function goCategory(categoryId) {
     const id = String(categoryId || '').trim()
     if (!id) {
-      navigate('/shop')
+      goToProducts()
       return
     }
     navigate(`/shop?categoryId=${encodeURIComponent(id)}`)
+  }
+
+  /** Về trang danh sách sản phẩm (xóa danh mục / tìm kiếm trên URL). */
+  function goToProducts() {
+    setMobileMenuOpen(false)
+    setMobileCategorySel('')
+    if (typeof onSearchQueryChange === 'function') {
+      onSearchQueryChange('')
+    }
+    navigate({ pathname: '/shop', search: '' })
   }
 
   /**
@@ -232,7 +242,11 @@ export function Header({ searchQuery, onSearchQueryChange }) {
             )}
           </button>
           <Link
-            to="/"
+            to="/shop"
+            onClick={() => {
+              setMobileCategorySel('')
+              if (typeof onSearchQueryChange === 'function') onSearchQueryChange('')
+            }}
             className="absolute left-1/2 -translate-x-1/2 no-underline"
             aria-label="PHỤ KIỆN THÁI VŨ — Trang chủ"
           >
@@ -342,6 +356,14 @@ export function Header({ searchQuery, onSearchQueryChange }) {
             className="border-t border-white/15 bg-brand-dark/90 px-2 py-2 text-white"
           >
             <div className="grid gap-1">
+              <button
+                type="button"
+                onClick={goToProducts}
+                className="inline-flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-white/10"
+              >
+                <ShoppingBag className="size-4 shrink-0 opacity-90" strokeWidth={2.2} aria-hidden />
+                Sản phẩm
+              </button>
               <Link to="/gioi-thieu" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Giới thiệu
               </Link>
