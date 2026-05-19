@@ -247,13 +247,13 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               setMobileCategorySel('')
               if (typeof onSearchQueryChange === 'function') onSearchQueryChange('')
             }}
-            className="absolute left-1/2 -translate-x-1/2 no-underline"
+            className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center no-underline"
             aria-label="PHỤ KIỆN THÁI VŨ — Trang chủ"
           >
             <img
               src="/logo.jpg"
               alt="Thai Vũ"
-              className="h-6 w-auto max-w-[44px] object-contain"
+              className="h-9 w-auto max-w-[58px] rounded-full object-contain shadow-[0_2px_8px_rgba(0,0,0,0.35)] ring-1 ring-white/60"
             />
           </Link>
           <div className="flex items-center gap-1">
@@ -398,15 +398,18 @@ export function Header({ searchQuery, onSearchQueryChange }) {
 
       {/* DESKTOP bar */}
       <div className="hidden bg-brand px-2 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-brand/95 sm:px-4 sm:py-2 lg:block lg:py-3 xl:px-10">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-row flex-nowrap items-center gap-1.5 sm:gap-2 lg:gap-4">
-          <Link to="/" className="flex shrink-0 items-center gap-2 no-underline lg:gap-3">
+        <div className="mx-auto flex min-h-12 w-full max-w-[1600px] flex-row flex-nowrap items-center gap-1.5 sm:gap-2 lg:gap-4">
+          <Link
+            to="/shop"
+            className="group flex h-12 max-h-12 shrink-0 items-center gap-2.5 no-underline lg:gap-3"
+          >
             <img
               src="/logo.jpg"
               alt="Thai Vũ"
-              className="h-9 w-auto max-w-[80px] object-contain lg:h-12 lg:max-w-[120px]"
+              className="h-11 w-auto max-w-[100px] shrink-0 rounded-full object-contain shadow-[0_2px_10px_rgba(0,0,0,0.35)] ring-1 ring-white/60 transition group-hover:brightness-110 group-hover:ring-white/80 sm:h-12 sm:max-w-[118px]"
             />
-            <span className="hidden max-w-[220px] text-left leading-tight text-white lg:block">
-              <span className="block text-xs font-extrabold uppercase leading-snug tracking-wide">
+            <span className="hidden max-w-[240px] text-left leading-tight text-white lg:block">
+              <span className="block text-[11px] font-extrabold uppercase leading-snug tracking-wide drop-shadow-sm sm:text-xs lg:text-sm">
                 PHỤ KIỆN THÁI VŨ
               </span>
             </span>
