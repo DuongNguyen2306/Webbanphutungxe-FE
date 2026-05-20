@@ -10,11 +10,13 @@ import {
 } from 'lucide-react'
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 import { PURCHASE_GUIDE_HREF } from '../constants/guides'
-
 const supportLinks = [
   { href: PURCHASE_GUIDE_HREF, label: 'Hướng dẫn đặt hàng', isRouter: true },
-  { href: '#', label: 'Chính sách đổi trả', isRouter: false },
-  { href: '#', label: 'Bảo hành', isRouter: false },
+  { href: '/chinh-sach/doi-tra', label: 'Chính sách đổi trả', isRouter: true },
+  { href: '/chinh-sach/van-chuyen', label: 'Vận chuyển & giao nhận', isRouter: true },
+  { href: '/chinh-sach/bao-hanh', label: 'Bảo hành', isRouter: true },
+  { href: '/chinh-sach/bao-mat', label: 'Bảo mật thông tin', isRouter: true },
+  { href: '/chinh-sach/dieu-khoan', label: 'Điều khoản dịch vụ', isRouter: true },
 ]
 
 /** Logo Facebook (Simple Icons, CC0) */

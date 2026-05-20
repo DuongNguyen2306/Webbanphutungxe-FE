@@ -26,6 +26,7 @@ import { AdminContent } from './pages/admin/AdminContent'
 import { IntroPage } from './pages/IntroPage'
 import { GuidesPage } from './pages/GuidesPage'
 import { NewsPage } from './pages/NewsPage'
+import { PolicyPage } from './pages/PolicyPage'
 import { FloatingContactRails } from './components/FloatingContactRails'
 import { MobileBottomNav } from './components/MobileBottomNav'
 import { BlockAdminFromAuthForms, CustomerOnlyRoute } from './components/RouteGuards'
@@ -54,6 +55,12 @@ export default function App() {
             <Route path="/gioi-thieu" element={<IntroPage />} />
             <Route path="/huong-dan" element={<GuidesPage />} />
             <Route path="/tin-tuc" element={<NewsPage />} />
+            <Route path="/chinh-sach/:slug" element={<PolicyPage />} />
+            <Route path="/chinh-sach-doi-tra" element={<Navigate to="/chinh-sach/doi-tra" replace />} />
+            <Route path="/chinh-sach-bao-mat" element={<Navigate to="/chinh-sach/bao-mat" replace />} />
+            <Route path="/chinh-sach-bao-hanh" element={<Navigate to="/chinh-sach/bao-hanh" replace />} />
+            <Route path="/chinh-sach-van-chuyen" element={<Navigate to="/chinh-sach/van-chuyen" replace />} />
+            <Route path="/dieu-khoan-dich-vu" element={<Navigate to="/chinh-sach/dieu-khoan" replace />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/profile" element={<ProfilePage />} />
