@@ -9,6 +9,10 @@ import { formatVnd } from '../../utils/format'
 import { normalizeOrderDelivery } from '../../utils/orderDelivery'
 import { resolveOrderItemImage } from '../../utils/orderItemImage'
 import { formatOrderDisplayCode } from '../../utils/orderDisplayCode'
+import {
+  buildAdminStatusBadgeText,
+  resolveOrderProcessedBy,
+} from '../../utils/adminOrderStatusDisplay'
 
 function resolveItemUnitPrice(item) {
   const candidates = [
@@ -57,7 +61,18 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
   const badgeClass =
     ORDER_STATUS_BADGE_CLASSES[currentStatus] || 'bg-gray-100 text-gray-800 ring-1 ring-gray-200'
   const statusLabel =
-    ORDER_STATUS_LABELS[currentStatus] || String(order?.status || '').trim() || '—'
+    order?.statusLabel ||
+    ORDER_STATUS_LABELS[currentStatus] ||
+    String(order?.status || '').trim() ||
+    '—'
+  const processedByName =
+    variant === 'admin' ? resolveOrderProcessedBy(order) : null
+  const statusBadgeText =
+    variant === 'admin'
+      ? buildAdminStatusBadgeText(statusLabel, processedByName)
+      : statusLabel
+  const statusBadgeWeight =
+    variant === 'admin' && processedByName ? 'font-semibold' : 'font-bold'
 
   const delivery = normalizeOrderDelivery(order)
   const hasDeliveryLine = Boolean(delivery.carrierName || delivery.trackingNumber)
@@ -88,8 +103,6 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
   const contactName = order?.contact?.name?.trim() || 'Khách hàng'
   const phone = order?.contact?.phone?.trim() || ''
   const orderCodeDisplay = formatOrderDisplayCode(order)
-  const processedByLabel =
-    variant === 'admin' ? String(order?.processedBy || '').trim() || '—' : null
   const dateStr = order?.createdAt
     ? `Đặt lúc: ${new Date(order.createdAt).toLocaleString('vi-VN')}`
     : null
@@ -125,9 +138,10 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
                 </span>
               </div>
               <span
-                className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold leading-tight ${badgeClass}`}
+                className={`max-w-[58%] shrink-0 truncate rounded-md px-2 py-0.5 text-[11px] leading-tight ${statusBadgeWeight} ${badgeClass}`}
+                title={statusBadgeText}
               >
-                {statusLabel}
+                {statusBadgeText}
               </span>
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
@@ -151,19 +165,14 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
               <p className="mt-0.5 font-mono text-sm font-bold text-gray-900">
                 {orderCodeDisplay}
               </p>
-              {variant === 'admin' ? (
-                <p className="mt-2 text-xs text-gray-600">
-                  <span className="font-semibold text-gray-500">NV xử lý:</span>{' '}
-                  {processedByLabel}
-                </p>
-              ) : null}
               <p className="mt-3 text-2xl font-extrabold tracking-tight text-brand">
                 {formatVnd(order?.totalAmount)}
               </p>
               <span
-                className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${badgeClass}`}
+                className={`mt-3 inline-flex max-w-full rounded-full px-3 py-1 text-xs leading-snug ${statusBadgeWeight} ${badgeClass}`}
+                title={statusBadgeText}
               >
-                {statusLabel}
+                {statusBadgeText}
               </span>
             </div>
             {edgeHighlight === 'urgent' ? (
