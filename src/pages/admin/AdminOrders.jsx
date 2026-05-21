@@ -8,12 +8,21 @@ import {
   isOrderStatusCode,
   normalizeOrderStatus,
 } from '../../constants/orderStatus'
-import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
 import { AdminOrderStatusTabs } from '../../components/admin/AdminOrderStatusTabs'
 import { AdminOrderList } from '../../components/admin/AdminOrderList'
+import { AdminOrderStatusChangeModal } from '../../components/admin/AdminOrderStatusChangeModal'
 import { parseOrderListResponse } from '../../utils/orderListResponse'
 import { normalizeSearch } from '../../utils/string'
+import {
+  buildAdminStatusPatchPayload,
+  PROCESSED_BY_ENCOURAGED_TARGETS,
+  validateProcessedByForStatusChange,
+} from '../../utils/adminOrderStatusPatch'
+import { mergeAdminOrderPatch } from '../../utils/mergeAdminOrderPatch'
+import { formatOrderDisplayCode } from '../../utils/orderDisplayCode'
+import { validateIsoDateRange } from '../../utils/isoDate'
+import { downloadAdminOrdersExcel } from '../../api/adminOrdersExport'
 
 const PAGE_LIMIT = 10
 
@@ -45,10 +54,11 @@ function orderMatchesSearch(order, rawQuery) {
   const q = normalizeSearch(String(rawQuery || '').trim())
   if (!q) return true
   const orderId = String(order?._id || '')
-  const shortId = orderId ? `#${orderId.slice(-8)}` : ''
+  const displayCode = formatOrderDisplayCode(order, { withHash: false })
   const fields = [
     orderId,
-    shortId,
+    displayCode,
+    order?.orderCode,
     order?.contact?.name,
     order?.contact?.phone,
     order?.contact?.email,
@@ -84,6 +94,7 @@ function orderMatchesDateRange(order, fromTs, toTs) {
 
 export function AdminOrders() {
   const navigate = useNavigate()
+  const [exportingExcel, setExportingExcel] = useState(false)
   const [orders, setOrders] = useState([])
   const [statusOptions, setStatusOptions] = useState(FALLBACK_STATUS_OPTIONS)
   const [loading, setLoading] = useState(true)
@@ -102,16 +113,20 @@ export function AdminOrders() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState({ message: '', tone: 'success' })
   const [updatingId, setUpdatingId] = useState('')
-  const [cancelModal, setCancelModal] = useState({
+  const [statusModal, setStatusModal] = useState({
     open: false,
     orderId: '',
-    reason: '',
+    targetStatus: '',
+    fromStatus: '',
+    processedBy: '',
+    note: '',
   })
-  const [cancelModalError, setCancelModalError] = useState('')
+  const [statusModalError, setStatusModalError] = useState('')
   const [completeModal, setCompleteModal] = useState({
     step: 0,
     orderId: '',
     token: '',
+    processedBy: '',
   })
   const [completeModalError, setCompleteModalError] = useState('')
 
@@ -280,16 +295,20 @@ export function AdminOrders() {
     loadTabCounts()
   }, [loadTabCounts])
 
-  async function commitStatusChange(id, normalizedStatus, note = '') {
+  async function commitStatusChange(
+    id,
+    normalizedStatus,
+    { note = '', processedBy = '' } = {},
+  ) {
     const previous = orders.find((order) => order._id === id)
     if (!previous) return false
     const previousStatus = normalizeOrderStatus(previous.status)
     if (previousStatus === normalizedStatus) return false
 
-    const payload = { status: normalizedStatus }
-    if (normalizedStatus === ORDER_STATUS.CANCELLED) {
-      payload.note = note
-    }
+    const payload = buildAdminStatusPatchPayload(normalizedStatus, {
+      note,
+      processedBy,
+    })
 
     setUpdatingId(id)
     setError('')
@@ -297,16 +316,7 @@ export function AdminOrders() {
       const { data } = await api.patch(`/api/admin/orders/${id}/status`, payload)
       setOrders((prev) =>
         prev.map((order) =>
-          order._id === id
-            ? {
-                ...order,
-                status: normalizeOrderStatus(data.status || normalizedStatus),
-                cancelNote: data.cancelNote || '',
-                ...(data?.delivery && typeof data.delivery === 'object'
-                  ? { delivery: { ...order.delivery, ...data.delivery } }
-                  : {}),
-              }
-            : order,
+          order._id === id ? mergeAdminOrderPatch(order, data) : order,
         ),
       )
       setToast({ message: 'Cập nhật trạng thái thành công', tone: 'success' })
@@ -340,6 +350,7 @@ export function AdminOrders() {
       step: 1,
       orderId: id,
       token: '',
+      processedBy: '',
     })
     setCompleteModalError('')
   }
@@ -350,8 +361,34 @@ export function AdminOrders() {
       step: 0,
       orderId: '',
       token: '',
+      processedBy: '',
     })
     setCompleteModalError('')
+  }
+
+  function openStatusModal(id, targetStatus, fromStatus) {
+    setStatusModal({
+      open: true,
+      orderId: id,
+      targetStatus,
+      fromStatus,
+      processedBy: '',
+      note: '',
+    })
+    setStatusModalError('')
+  }
+
+  function closeStatusModal() {
+    if (updatingId) return
+    setStatusModal({
+      open: false,
+      orderId: '',
+      targetStatus: '',
+      fromStatus: '',
+      processedBy: '',
+      note: '',
+    })
+    setStatusModalError('')
   }
 
   function updateStatus(id, status, currentStatus) {
@@ -360,28 +397,58 @@ export function AdminOrders() {
       openCompleteFlow(id, currentStatus)
       return
     }
-    if (normalizedStatus === ORDER_STATUS.CANCELLED) {
-      setCancelModal({ open: true, orderId: id, reason: '' })
-      setCancelModalError('')
-      return
-    }
-    commitStatusChange(id, normalizedStatus)
+    if (normalizedStatus === currentStatus) return
+    openStatusModal(id, normalizedStatus, currentStatus)
   }
 
-  async function submitCancelReason() {
-    const reason = cancelModal.reason.trim()
-    if (!reason) {
-      setCancelModalError('Vui lòng nhập lý do hủy đơn.')
+  async function handleExportExcel() {
+    const validationError = validateIsoDateRange(dateFromInput, dateToInput)
+    if (validationError) {
+      setToast({ message: validationError, tone: 'error' })
       return
     }
-    const ok = await commitStatusChange(
-      cancelModal.orderId,
-      ORDER_STATUS.CANCELLED,
-      reason,
+    setExportingExcel(true)
+    try {
+      await downloadAdminOrdersExcel({
+        startDate: dateFromInput,
+        endDate: dateToInput,
+      })
+      setToast({ message: 'Đã tải báo cáo Excel', tone: 'success' })
+    } catch (err) {
+      if (err?.status === 401) {
+        navigate('/login', { replace: true })
+        return
+      }
+      setToast({
+        message: err?.message || 'Không xuất được báo cáo Excel. Vui lòng thử lại.',
+        tone: 'error',
+      })
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
+  async function submitStatusModal() {
+    const { orderId, targetStatus, processedBy, note } = statusModal
+    if (!orderId || !targetStatus) return
+    if (targetStatus === ORDER_STATUS.CANCELLED && !note.trim()) {
+      setStatusModalError('Vui lòng nhập lý do hủy đơn.')
+      return
+    }
+    const processedByError = validateProcessedByForStatusChange(
+      processedBy,
+      targetStatus,
     )
+    if (processedByError) {
+      setStatusModalError(processedByError)
+      return
+    }
+    const ok = await commitStatusChange(orderId, targetStatus, {
+      note: note.trim(),
+      processedBy,
+    })
     if (!ok) return
-    setCancelModal({ open: false, orderId: '', reason: '' })
-    setCancelModalError('')
+    closeStatusModal()
   }
 
   async function submitCompleteOrder() {
@@ -400,12 +467,23 @@ export function AdminOrders() {
       setCompleteModalError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
       return
     }
-    const ok = await commitStatusChange(completeModal.orderId, ORDER_STATUS.COMPLETED)
+    const processedByError = validateProcessedByForStatusChange(
+      completeModal.processedBy,
+      ORDER_STATUS.COMPLETED,
+    )
+    if (processedByError) {
+      setCompleteModalError(processedByError)
+      return
+    }
+    const ok = await commitStatusChange(completeModal.orderId, ORDER_STATUS.COMPLETED, {
+      processedBy: completeModal.processedBy,
+    })
     if (ok) {
       setCompleteModal({
         step: 0,
         orderId: '',
         token: '',
+        processedBy: '',
       })
       setCompleteModalError('')
     }
@@ -506,33 +584,33 @@ export function AdminOrders() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50/70 px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
-          <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Lọc theo ngày đặt
-          </span>
-          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-            Từ
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+          <span className="shrink-0 text-xs font-medium text-gray-500">Ngày đặt</span>
+          <label className="flex items-center gap-1.5 text-xs text-gray-700">
+            <span className="text-gray-500">Từ</span>
             <input
               type="date"
               value={dateFromInput}
               onChange={(e) => setDateFromInput(e.target.value)}
               max={dateToInput || undefined}
-              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-800 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              disabled={exportingExcel}
+              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-60"
               aria-label="Từ ngày"
             />
           </label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-            Đến
+          <label className="flex items-center gap-1.5 text-xs text-gray-700">
+            <span className="text-gray-500">Đến</span>
             <input
               type="date"
               value={dateToInput}
               onChange={(e) => setDateToInput(e.target.value)}
               min={dateFromInput || undefined}
-              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-800 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+              disabled={exportingExcel}
+              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 disabled:opacity-60"
               aria-label="Đến ngày"
             />
           </label>
-          <div className="flex flex-wrap gap-1.5 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-1.5">
             {[
               { id: 'today', label: 'Hôm nay', days: 0 },
               { id: '7d', label: '7 ngày', days: 6 },
@@ -541,6 +619,7 @@ export function AdminOrders() {
               <button
                 key={preset.id}
                 type="button"
+                disabled={exportingExcel}
                 onClick={() => {
                   const today = new Date()
                   const start = new Date(today)
@@ -559,7 +638,7 @@ export function AdminOrders() {
                   setDateTo(toStr)
                   setPage(1)
                 }}
-                className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-bold text-gray-700 hover:border-brand/40 hover:text-brand"
+                className="rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:border-gray-300 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {preset.label}
               </button>
@@ -567,6 +646,7 @@ export function AdminOrders() {
             {dateFilterActive ? (
               <button
                 type="button"
+                disabled={exportingExcel}
                 onClick={() => {
                   setDateFromInput('')
                   setDateToInput('')
@@ -574,11 +654,21 @@ export function AdminOrders() {
                   setDateTo('')
                   setPage(1)
                 }}
-                className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100"
+                className="rounded-md px-2.5 py-1 text-[11px] font-semibold text-gray-500 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Bỏ lọc ngày
               </button>
             ) : null}
+          </div>
+          <div className="ml-1 flex shrink-0 items-center border-l border-gray-200 pl-3">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={exportingExcel}
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
+            </button>
           </div>
         </div>
       </div>
@@ -639,24 +729,33 @@ export function AdminOrders() {
               : 'Chưa có đơn nào.'}
         </p>
       ) : null}
-      <ReasonInputModal
-        open={cancelModal.open}
-        title="Nhập lý do hủy đơn"
-        description="Lý do là bắt buộc khi chuyển trạng thái sang Đã hủy."
-        value={cancelModal.reason}
-        onChange={(value) => {
-          setCancelModal((prev) => ({ ...prev, reason: value }))
-          if (cancelModalError) setCancelModalError('')
+      <AdminOrderStatusChangeModal
+        open={statusModal.open}
+        targetStatus={statusModal.targetStatus}
+        processedBy={statusModal.processedBy}
+        onProcessedByChange={(value) => {
+          setStatusModal((prev) => ({ ...prev, processedBy: value }))
+          if (statusModalError) setStatusModalError('')
         }}
-        onCancel={() => {
-          if (updatingId) return
-          setCancelModal({ open: false, orderId: '', reason: '' })
-          setCancelModalError('')
+        note={statusModal.note}
+        onNoteChange={(value) => {
+          setStatusModal((prev) => ({ ...prev, note: value }))
+          if (statusModalError) setStatusModalError('')
         }}
-        onConfirm={submitCancelReason}
-        confirmLabel="Xác nhận hủy"
+        showNote={statusModal.targetStatus === ORDER_STATUS.CANCELLED}
+        encourageProcessedBy={
+          statusModal.fromStatus === ORDER_STATUS.PENDING &&
+          PROCESSED_BY_ENCOURAGED_TARGETS.has(statusModal.targetStatus)
+        }
+        onCancel={closeStatusModal}
+        onConfirm={submitStatusModal}
+        confirmLabel={
+          statusModal.targetStatus === ORDER_STATUS.CANCELLED
+            ? 'Xác nhận hủy'
+            : 'Cập nhật trạng thái'
+        }
         loading={Boolean(updatingId)}
-        error={cancelModalError}
+        error={statusModalError}
       />
       <CompleteOrderConfirmModal
         step={completeModal.step}
@@ -664,6 +763,10 @@ export function AdminOrders() {
         onInputChange={(value) => {
           setCompleteModal((prev) => ({ ...prev, token: value }))
           if (completeModalError) setCompleteModalError('')
+        }}
+        processedBy={completeModal.processedBy}
+        onProcessedByChange={(value) => {
+          setCompleteModal((prev) => ({ ...prev, processedBy: value }))
         }}
         onClose={closeCompleteFlow}
         onContinue={() => setCompleteModal((prev) => ({ ...prev, step: 2 }))}

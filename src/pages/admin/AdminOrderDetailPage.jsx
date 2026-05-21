@@ -12,8 +12,16 @@ import {
 import { api } from '../../api/client'
 import { mapOrderDetail } from '../../utils/orderDetailMapper'
 import { canAdminEditOrderDelivery, normalizeOrderDelivery } from '../../utils/orderDelivery'
-import { ReasonInputModal } from '../../components/ReasonInputModal'
 import { CompleteOrderConfirmModal, COMPLETE_CONFIRM_TEXT } from '../../components/CompleteOrderConfirmModal'
+import { AdminOrderStatusChangeModal } from '../../components/admin/AdminOrderStatusChangeModal'
+import {
+  buildAdminStatusPatchPayload,
+  PROCESSED_BY_ENCOURAGED_TARGETS,
+  validateProcessedByForStatusChange,
+} from '../../utils/adminOrderStatusPatch'
+import { AdminOrderProcessingHistory } from '../../components/admin/AdminOrderProcessingHistory'
+import { mergeAdminOrderPatch } from '../../utils/mergeAdminOrderPatch'
+import { formatOrderDisplayCode } from '../../utils/orderDisplayCode'
 
 const COMPLETE_FROM_SHIPPING_ONLY_MESSAGE =
   'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.'
@@ -75,9 +83,19 @@ export function AdminOrderDetailPage() {
   const [toast, setToast] = useState('')
   const [updating, setUpdating] = useState(false)
   const [copying, setCopying] = useState(false)
-  const [cancelModal, setCancelModal] = useState({ open: false, reason: '' })
-  const [cancelError, setCancelError] = useState('')
-  const [completeModal, setCompleteModal] = useState({ step: 0, token: '' })
+  const [statusModal, setStatusModal] = useState({
+    open: false,
+    targetStatus: '',
+    fromStatus: '',
+    processedBy: '',
+    note: '',
+  })
+  const [statusModalError, setStatusModalError] = useState('')
+  const [completeModal, setCompleteModal] = useState({
+    step: 0,
+    token: '',
+    processedBy: '',
+  })
   const [completeError, setCompleteError] = useState('')
   const [deliveryCarrier, setDeliveryCarrier] = useState('')
   const [deliveryTracking, setDeliveryTracking] = useState('')
@@ -151,24 +169,14 @@ export function AdminOrderDetailPage() {
     setDeliveryError('')
   }, [order?._id, order?.delivery?.carrierName, order?.delivery?.trackingNumber])
 
-  async function commitStatus(status, note = '') {
+  async function commitStatus(status, { note = '', processedBy = '' } = {}) {
     if (!order) return false
     setUpdating(true)
     setError('')
     try {
-      const payload = { status }
-      if (status === ORDER_STATUS.CANCELLED) payload.note = note
+      const payload = buildAdminStatusPatchPayload(status, { note, processedBy })
       const { data } = await api.patch(`/api/admin/orders/${order._id}/status`, payload)
-      setOrder((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: normalizeOrderStatus(data.status || status),
-              cancelNote: data.cancelNote || '',
-              cancelReason: data.note || data.cancelNote || note || prev.cancelReason || '',
-            }
-          : prev,
-      )
+      setOrder((prev) => (prev ? mapOrderDetail(mergeAdminOrderPatch(prev, data)) : prev))
       setToast('Cập nhật trạng thái thành công')
       return true
     } catch (err) {
@@ -199,8 +207,20 @@ export function AdminOrderDetailPage() {
 
   function closeCompleteFlow() {
     if (updating) return
-    setCompleteModal({ step: 0, token: '' })
+    setCompleteModal({ step: 0, token: '', processedBy: '' })
     setCompleteError('')
+  }
+
+  function closeStatusModal() {
+    if (updating) return
+    setStatusModal({
+      open: false,
+      targetStatus: '',
+      fromStatus: '',
+      processedBy: '',
+      note: '',
+    })
+    setStatusModalError('')
   }
 
   async function submitCompleteOrder() {
@@ -215,9 +235,19 @@ export function AdminOrderDetailPage() {
       setCompleteError(COMPLETE_FROM_SHIPPING_ONLY_MESSAGE)
       return
     }
-    const ok = await commitStatus(ORDER_STATUS.COMPLETED)
+    const processedByError = validateProcessedByForStatusChange(
+      completeModal.processedBy,
+      ORDER_STATUS.COMPLETED,
+    )
+    if (processedByError) {
+      setCompleteError(processedByError)
+      return
+    }
+    const ok = await commitStatus(ORDER_STATUS.COMPLETED, {
+      processedBy: completeModal.processedBy,
+    })
     if (ok) {
-      setCompleteModal({ step: 0, token: '' })
+      setCompleteModal({ step: 0, token: '', processedBy: '' })
       setCompleteError('')
     }
   }
@@ -231,27 +261,40 @@ export function AdminOrderDetailPage() {
       openCompleteFlow()
       return
     }
-    if (normalized === ORDER_STATUS.CANCELLED) {
-      setCancelModal({ open: true, reason: '' })
-      setCancelError('')
-      return
-    }
-    await commitStatus(normalized)
+    setStatusModal({
+      open: true,
+      targetStatus: normalized,
+      fromStatus: currentStatus,
+      processedBy: '',
+      note: '',
+    })
+    setStatusModalError('')
   }
 
-  async function submitCancel() {
-    const reason = cancelModal.reason.trim()
-    if (!reason) {
-      setCancelError('Vui lòng nhập lý do hủy đơn.')
+  async function submitStatusModal() {
+    const { targetStatus, processedBy, note } = statusModal
+    if (!targetStatus) return
+    if (targetStatus === ORDER_STATUS.CANCELLED && !note.trim()) {
+      setStatusModalError('Vui lòng nhập lý do hủy đơn.')
       return
     }
-    await commitStatus(ORDER_STATUS.CANCELLED, reason)
-    setCancelModal({ open: false, reason: '' })
-    setCancelError('')
+    const processedByError = validateProcessedByForStatusChange(
+      processedBy,
+      targetStatus,
+    )
+    if (processedByError) {
+      setStatusModalError(processedByError)
+      return
+    }
+    const ok = await commitStatus(targetStatus, {
+      note: note.trim(),
+      processedBy,
+    })
+    if (ok) closeStatusModal()
   }
 
   function buildOrderShareText(targetOrder) {
-    const orderCode = `#${String(targetOrder._id).slice(-8)}`
+    const orderCode = formatOrderDisplayCode(targetOrder)
     const statusLabel =
       ORDER_STATUS_LABELS[normalizeOrderStatus(targetOrder.status)] ||
       normalizeOrderStatus(targetOrder.status)
@@ -361,8 +404,16 @@ export function AdminOrderDetailPage() {
       ) : order ? (
         <div className="mt-4 space-y-4">
           <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-mono text-xs text-gray-500">Mã đơn: #{String(order._id).slice(-8)}</p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="font-mono text-xs text-gray-500">
+                  Mã đơn: {formatOrderDisplayCode(order)}
+                </p>
+                <p className="mt-1 text-sm text-gray-700">
+                  <span className="font-semibold text-gray-800">NV phụ trách gần nhất:</span>{' '}
+                  {order.processedBy || '—'}
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -432,6 +483,8 @@ export function AdminOrderDetailPage() {
               <p className="text-gray-700">{order.shippingNote || '—'}</p>
             </div>
           </div>
+
+          <AdminOrderProcessingHistory order={order} />
 
           <div
             className={`rounded-xl border bg-white p-4 shadow-sm ${
@@ -539,24 +592,33 @@ export function AdminOrderDetailPage() {
         </div>
       ) : null}
 
-      <ReasonInputModal
-        open={cancelModal.open}
-        title="Nhập lý do hủy đơn"
-        description="Lý do là bắt buộc khi chuyển trạng thái sang Đã hủy."
-        value={cancelModal.reason}
-        onChange={(value) => {
-          setCancelModal((prev) => ({ ...prev, reason: value }))
-          if (cancelError) setCancelError('')
+      <AdminOrderStatusChangeModal
+        open={statusModal.open}
+        targetStatus={statusModal.targetStatus}
+        processedBy={statusModal.processedBy}
+        onProcessedByChange={(value) => {
+          setStatusModal((prev) => ({ ...prev, processedBy: value }))
+          if (statusModalError) setStatusModalError('')
         }}
-        onCancel={() => {
-          if (updating) return
-          setCancelModal({ open: false, reason: '' })
-          setCancelError('')
+        note={statusModal.note}
+        onNoteChange={(value) => {
+          setStatusModal((prev) => ({ ...prev, note: value }))
+          if (statusModalError) setStatusModalError('')
         }}
-        onConfirm={submitCancel}
-        confirmLabel="Xác nhận hủy"
+        showNote={statusModal.targetStatus === ORDER_STATUS.CANCELLED}
+        encourageProcessedBy={
+          statusModal.fromStatus === ORDER_STATUS.PENDING &&
+          PROCESSED_BY_ENCOURAGED_TARGETS.has(statusModal.targetStatus)
+        }
+        onCancel={closeStatusModal}
+        onConfirm={submitStatusModal}
+        confirmLabel={
+          statusModal.targetStatus === ORDER_STATUS.CANCELLED
+            ? 'Xác nhận hủy'
+            : 'Cập nhật trạng thái'
+        }
         loading={updating}
-        error={cancelError}
+        error={statusModalError}
       />
       <CompleteOrderConfirmModal
         step={completeModal.step}
@@ -564,6 +626,10 @@ export function AdminOrderDetailPage() {
         onInputChange={(value) => {
           setCompleteModal((prev) => ({ ...prev, token: value }))
           if (completeError) setCompleteError('')
+        }}
+        processedBy={completeModal.processedBy}
+        onProcessedByChange={(value) => {
+          setCompleteModal((prev) => ({ ...prev, processedBy: value }))
         }}
         onClose={closeCompleteFlow}
         onContinue={() => setCompleteModal((prev) => ({ ...prev, step: 2 }))}

@@ -2,21 +2,14 @@ import express from 'express'
 import mongoose from 'mongoose'
 import { authOptional, authRequired } from '../middleware/auth.js'
 import { Order } from '../models/Order.js'
+import {
+  buildOrderConfirmationPayload,
+  formatAddressText,
+  generateUniqueOrderCode,
+} from '../utils/orderPresentation.js'
+import { createInitialStatusHistoryEntry } from '../utils/orderStatusHistory.js'
 
 const router = express.Router()
-
-function formatAddressText(shippingAddress) {
-  if (!shippingAddress) return ''
-  const parts = [
-    shippingAddress.detail,
-    shippingAddress.ward,
-    shippingAddress.district,
-    shippingAddress.province,
-  ]
-    .map((x) => String(x || '').trim())
-    .filter(Boolean)
-  return parts.join(', ')
-}
 
 const ORDER_OK_MESSAGE =
   'Đã nhận đơn. Nhân viên sẽ liên hệ tư vấn qua SĐT trên.'
@@ -27,7 +20,7 @@ router.post('/', authOptional, async (req, res) => {
     if (!contact || !items?.length)
       return res.status(400).json({ message: 'Thiếu thông tin đơn hàng.' })
     const name = String(contact?.name ?? req.body?.name ?? '').trim()
-    const phoneRaw = contact?.phone ?? req.body?.phoneNumber ?? ''
+    const phoneRaw = contact?.phone ?? contact?.phoneNumber ?? req.body?.phoneNumber ?? ''
     const phone = String(phoneRaw).replace(/\D/g, '')
     const email = String(contact?.email ?? req.body?.email ?? '').trim()
 
@@ -71,8 +64,12 @@ router.post('/', authOptional, async (req, res) => {
     if (Math.abs(sum - Number(totalAmount)) > 1)
       return res.status(400).json({ message: 'Tổng tiền không khớp.' })
 
+    const orderCode = await generateUniqueOrderCode()
+    const initialStatus = 'contacting'
+
     const order = await Order.create({
       user: req.userId || null,
+      orderCode,
       contact: {
         name,
         email,
@@ -87,12 +84,19 @@ router.post('/', authOptional, async (req, res) => {
         note,
       },
       totalAmount: sum,
-      status: 'contacting',
+      shippingFee: 0,
+      status: initialStatus,
+      statusHistory: [createInitialStatusHistoryEntry(initialStatus)],
     })
+
+    const orderPayload = await buildOrderConfirmationPayload(order)
+
     res.status(201).json({
-      orderId: order._id,
       message: ORDER_OK_MESSAGE,
-      shippingAddressText: formatAddressText(order.shippingAddress),
+      shippingFee: 0,
+      orderId: String(order._id),
+      orderCode: order.orderCode,
+      order: orderPayload,
     })
   } catch (e) {
     console.error(e)
@@ -129,7 +133,7 @@ router.patch('/:id/cancel', authRequired, async (req, res) => {
   order.status = 'cancelled'
   order.cancelNote = reason
   await order.save()
-  res.json(order)
+  res.json({ message: 'Đã hủy đơn hàng.' })
 })
 
 export default router

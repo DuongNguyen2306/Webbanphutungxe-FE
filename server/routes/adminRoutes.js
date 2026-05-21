@@ -5,21 +5,18 @@ import { Product } from '../models/Product.js'
 import { Order } from '../models/Order.js'
 import { User } from '../models/User.js'
 import { resolveCategory } from '../lib/categories.js'
+import {
+  ADMIN_STATUS_OPTIONS,
+  isValidDbStatus,
+  parseProcessedByInput,
+  parseStatusInput,
+  presentAdminOrder,
+  resolveStatusFilter,
+} from '../utils/adminOrderPresentation.js'
+import { buildOrdersExcelBuffer } from '../utils/adminOrderExport.js'
+import { createStatusChangeEntry } from '../utils/orderStatusHistory.js'
 
 const router = express.Router()
-
-function formatAddressText(shippingAddress) {
-  if (!shippingAddress) return ''
-  const parts = [
-    shippingAddress.detail,
-    shippingAddress.ward,
-    shippingAddress.district,
-    shippingAddress.province,
-  ]
-    .map((x) => String(x || '').trim())
-    .filter(Boolean)
-  return parts.join(', ')
-}
 
 function normalizeVariants(body) {
   let variants = body.variants
@@ -192,40 +189,219 @@ router.patch(
   },
 )
 
-router.get('/orders', async (_req, res) => {
-  const list = await Order.find()
-    .populate('user', 'email phone')
-    .sort({ createdAt: -1 })
-    .lean()
-  res.json(
-    list.map((o) => ({
-      ...o,
-      shippingAddressText: formatAddressText(o.shippingAddress),
-    })),
-  )
+router.get('/orders/status-options', (_req, res) => {
+  res.json({ statuses: ADMIN_STATUS_OPTIONS })
+})
+
+router.get('/orders/export-excel', async (req, res) => {
+  try {
+    const result = await buildOrdersExcelBuffer(
+      req.query.startDate,
+      req.query.endDate,
+    )
+    if (result.error) {
+      return res.status(400).json({ message: result.error })
+    }
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    )
+    res.send(result.buffer)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Không xuất được báo cáo Excel.' })
+  }
+})
+
+router.get('/orders', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 500)
+    const skip = Math.max(Number(req.query.skip) || 0, 0)
+    const filter = {}
+    const statusValues = resolveStatusFilter(req.query.status)
+    if (statusValues?.length) filter.status = { $in: statusValues }
+
+    const q = String(
+      req.query.search || req.query.q || req.query.keyword || '',
+    ).trim()
+    if (q) {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      filter.$or = [
+        { orderCode: rx },
+        { 'contact.name': rx },
+        { 'contact.phone': rx },
+        { 'contact.email': rx },
+        { processedBy: rx },
+        { 'items.name': rx },
+      ]
+      if (mongoose.Types.ObjectId.isValid(q)) {
+        filter.$or.push({ _id: q })
+      }
+    }
+
+    const fromRaw = String(
+      req.query.dateFrom || req.query.from || req.query.startDate || '',
+    ).trim()
+    const toRaw = String(
+      req.query.dateTo || req.query.to || req.query.endDate || '',
+    ).trim()
+    if (fromRaw || toRaw) {
+      filter.createdAt = {}
+      if (fromRaw) {
+        const [y, m, d] = fromRaw.split('-').map(Number)
+        if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+          filter.createdAt.$gte = new Date(y, m - 1, d, 0, 0, 0, 0)
+        }
+      }
+      if (toRaw) {
+        const [y, m, d] = toRaw.split('-').map(Number)
+        if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+          filter.createdAt.$lte = new Date(y, m - 1, d, 23, 59, 59, 999)
+        }
+      }
+      if (!Object.keys(filter.createdAt).length) delete filter.createdAt
+    }
+
+    const [total, rows] = await Promise.all([
+      Order.countDocuments(filter),
+      Order.find(filter)
+        .populate('user', 'email phone name displayName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ])
+
+    const orders = await Promise.all(rows.map((o) => presentAdminOrder(o)))
+    res.json({ orders, total })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Không tải được danh sách đơn.' })
+  }
+})
+
+router.get('/orders/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Mã đơn không hợp lệ.' })
+    }
+    const o = await Order.findById(req.params.id)
+      .populate('user', 'email phone name displayName')
+      .lean()
+    if (!o) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' })
+    res.json(await presentAdminOrder(o))
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Không tải được chi tiết đơn.' })
+  }
 })
 
 router.patch('/orders/:id/status', async (req, res) => {
-  const { status } = req.body
-  if (!['contacting', 'confirmed', 'cancelled'].includes(status))
-    return res.status(400).json({ message: 'Trạng thái không hợp lệ.' })
+  try {
+    const dbStatus = parseStatusInput(req.body.status)
+    if (!dbStatus || !isValidDbStatus(dbStatus)) {
+      return res.status(400).json({ message: 'Trạng thái không hợp lệ.' })
+    }
 
-  const note = String(req.body.note || '').trim()
-  if (status === 'cancelled' && !note)
-    return res.status(400).json({ message: 'Vui lòng nhập lý do hủy (note).' })
+    const note = String(req.body.note || '').trim()
+    if (dbStatus === 'cancelled' && !note) {
+      return res
+        .status(400)
+        .json({ message: 'Vui lòng nhập lý do hủy (note).' })
+    }
 
-  const update = {
-    status,
-    cancelNote: status === 'cancelled' ? note : '',
+    if (dbStatus === 'completed') {
+      const existing = await Order.findById(req.params.id).select('status').lean()
+      if (existing && String(existing.status).toLowerCase() !== 'shipping') {
+        return res.status(400).json({
+          message:
+            'Chỉ được chuyển Hoàn thành khi đơn đang ở trạng thái Đang giao.',
+        })
+      }
+    }
+
+    const processedBy = parseProcessedByInput(req.body)
+    if (dbStatus !== 'cancelled' && !processedBy) {
+      return res
+        .status(400)
+        .json({ message: 'Vui lòng nhập nhân viên xử lý (processedBy).' })
+    }
+
+    const order = await Order.findById(req.params.id)
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn.' })
+
+    const prevStatus = String(order.status || '').toLowerCase()
+    if (prevStatus === dbStatus) {
+      return res.status(400).json({ message: 'Trạng thái đơn không thay đổi.' })
+    }
+
+    order.status = dbStatus
+    if (dbStatus === 'cancelled') {
+      order.cancelNote = note
+    } else {
+      order.cancelNote = ''
+    }
+    if (processedBy !== undefined) {
+      order.processedBy = processedBy
+    }
+
+    if (!Array.isArray(order.statusHistory)) order.statusHistory = []
+    order.statusHistory.push(
+      createStatusChangeEntry({
+        fromStatus: prevStatus,
+        toStatus: dbStatus,
+        processedBy: processedBy ?? order.processedBy ?? null,
+        note: dbStatus === 'cancelled' ? note : '',
+      }),
+    )
+
+    await order.save()
+
+    const o = await Order.findById(order._id)
+      .populate('user', 'email phone name displayName')
+      .lean()
+
+    res.json(await presentAdminOrder(o))
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Cập nhật trạng thái thất bại.' })
   }
+})
 
-  const o = await Order.findByIdAndUpdate(
-    req.params.id,
-    update,
-    { new: true },
-  ).lean()
-  if (!o) return res.status(404).json({ message: 'Không tìm thấy đơn.' })
-  res.json(o)
+router.patch('/orders/:id/delivery', async (req, res) => {
+  try {
+    const o = await Order.findById(req.params.id)
+    if (!o) return res.status(404).json({ message: 'Không tìm thấy đơn.' })
+
+    const allowed = new Set(['confirmed', 'shipping', 'completed'])
+    if (!allowed.has(String(o.status).toLowerCase())) {
+      return res.status(400).json({
+        message:
+          'Chỉ cập nhật vận chuyển khi đơn ở trạng thái Đã xác nhận, Đang giao hoặc Hoàn thành.',
+      })
+    }
+
+    if (!o.delivery) o.delivery = {}
+    if (req.body.carrierName !== undefined) {
+      o.delivery.carrierName = String(req.body.carrierName || '').trim()
+    }
+    if (req.body.trackingNumber !== undefined) {
+      o.delivery.trackingNumber = String(req.body.trackingNumber || '').trim()
+    }
+    await o.save()
+
+    const lean = await Order.findById(o._id)
+      .populate('user', 'email phone name displayName')
+      .lean()
+    res.json(await presentAdminOrder(lean))
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Không lưu được thông tin vận chuyển.' })
+  }
 })
 
 router.get('/users', async (_req, res) => {

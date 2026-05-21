@@ -11,7 +11,7 @@ export const VEHICLE_TYPES = [
 
 export const BRAND_FILTER_IDS = ['vespa', 'honda', 'yamaha', 'piaggio']
 
-/** Nhóm hãng: ưu tiên Vespa — phù hợp shop chuyên Vespa, ít hàng xe khác */
+/** Nhóm hãng: ưu tiên Vespa — phù hợp shop chuyên Vespa */
 export const BRAND_FILTER_GROUPS = [
   {
     id: 'vespa-core',
@@ -21,8 +21,8 @@ export const BRAND_FILTER_GROUPS = [
   },
   {
     id: 'other-bikes',
-    legend: 'Xe khác (ít hàng)',
-    hint: 'Chỉ bật khi cần lọc Honda / Yamaha',
+    legend: 'Xe khác',
+    hint: 'Honda / Yamaha',
     ids: ['honda', 'yamaha'],
   },
 ]

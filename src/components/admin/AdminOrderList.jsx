@@ -4,6 +4,7 @@ import {
 } from '../../constants/orderStatus'
 import { OrderListCard } from '../orders/OrderListCard'
 import { AdminOrderRowActions } from './AdminOrderRowActions'
+import { AdminOrdersTable } from './AdminOrdersTable'
 
 export function AdminOrderList({
   orders,
@@ -16,8 +17,20 @@ export function AdminOrderList({
   // Không dùng useSyncExternalStore(() => Date.now()) — snapshot thay đổi mỗi lần gọi → re-render vô hạn.
   // eslint-disable-next-line react-hooks/purity -- cần thời gian thực khi render danh sách
   const nowMs = Date.now()
+  if (!orders.length) return null
+
   return (
-    <ul className="mt-6 space-y-4">
+    <>
+      <div className="hidden lg:block">
+        <AdminOrdersTable
+          orders={orders}
+          statusOptions={statusOptions}
+          updatingId={updatingId}
+          onChangeStatus={onChangeStatus}
+          onOpenComplete={onOpenComplete}
+        />
+      </div>
+      <ul className="mt-6 space-y-4 lg:hidden">
       {orders.map((o) => {
         const currentStatus = normalizeOrderStatus(o.status)
         const ageMs = nowMs - new Date(o.createdAt).getTime()
@@ -45,5 +58,6 @@ export function AdminOrderList({
         )
       })}
     </ul>
+    </>
   )
 }

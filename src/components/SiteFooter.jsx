@@ -68,16 +68,18 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-10 lg:px-8">
         <div>
           <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
-            Về Thai Vũ
+            THÁI VŨ
           </h3>
           <div className="mt-4">
-            <a href="/" className="inline-flex items-center gap-3">
+            <a href="/shop" className="inline-flex items-center gap-3">
               <img
                 src="/logo.jpg"
-                alt="Thai Vũ"
+                alt="THÁI VŨ"
                 className="h-12 w-auto max-w-[120px] object-contain"
               />
-              <span className="text-2xl font-black tracking-tight text-white">Thai Vũ</span>
+              <span className="text-2xl font-black uppercase tracking-tight text-white">
+                THÁI VŨ
+              </span>
             </a>
             <p className="mt-3 text-sm leading-6 text-zinc-300">
               Chuyên phụ tùng và phụ kiện Vespa Piaggio.
@@ -217,7 +219,7 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-zinc-800 py-4 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} Thai Vũ. All rights reserved.
+        © {new Date().getFullYear()} THÁI VŨ. All rights reserved.
       </div>
     </footer>
   )

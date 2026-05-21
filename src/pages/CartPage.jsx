@@ -5,7 +5,8 @@ import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../api/client'
+import { createOrder } from '../api/createOrder'
+import { saveOrderConfirmation } from '../utils/orderConfirmationStorage'
 import { formatVnd } from '../utils/format'
 import { showUiToast } from '../utils/uiToast'
 
@@ -181,20 +182,16 @@ export function CartPage() {
     setSubmitting(true)
     try {
       const phoneDigits = String(contact.phone || '').replace(/\D/g, '')
-      const { data } = await api.post('/api/orders', {
+      const confirmation = await createOrder({
         contact: {
           name: contact.name.trim(),
           email: contact.email?.trim() || '',
           phone: phoneDigits,
         },
-        phoneNumber: phoneDigits,
         shippingAddress: {
-          provinceCode: address.provinceCode || '',
-          provinceName: address.provinceName || '',
-          districtCode: address.districtCode || '',
-          districtName: address.districtName || '',
-          wardCode: address.wardCode || '',
-          wardName: address.wardName || '',
+          province: address.provinceName || '',
+          district: address.districtName || '',
+          ward: address.wardName || '',
           detail: address.detail.trim(),
           note: address.note.trim(),
         },
@@ -210,11 +207,8 @@ export function CartPage() {
       })
       await removeSelectedLines()
       setCheckoutOpen(false)
-      const okMsg =
-        (typeof data?.message === 'string' && data.message.trim()) ||
-        'Đã nhận đơn. Nhân viên sẽ liên hệ tư vấn qua SĐT trên.'
-      showUiToast(okMsg)
-      navigate('/profile#orders')
+      saveOrderConfirmation(confirmation)
+      navigate('/order/success', { state: { confirmation } })
     } catch (err) {
       const apiMsg = err?.response?.data?.message
       setError(

@@ -1,9 +1,17 @@
+import {
+  PROCESSED_BY_MAX_LENGTH,
+  isProcessedByRequiredForStatus,
+} from '../utils/adminOrderStatusPatch'
+import { ORDER_STATUS } from '../constants/orderStatus'
+
 const COMPLETE_CONFIRM_TEXT = 'HOAN_THANH'
 
 export function CompleteOrderConfirmModal({
   step,
   inputValue,
   onInputChange,
+  processedBy = '',
+  onProcessedByChange,
   onClose,
   onContinue,
   onConfirm,
@@ -77,6 +85,30 @@ export function CompleteOrderConfirmModal({
           autoFocus
           className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:opacity-60"
         />
+
+        {onProcessedByChange ? (
+          <label className="mt-3 block">
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+              Nhân viên xử lý{' '}
+              {isProcessedByRequiredForStatus(ORDER_STATUS.COMPLETED) ? (
+                <span className="text-red-600">*</span>
+              ) : (
+                <span className="font-normal normal-case text-gray-400">(tùy chọn)</span>
+              )}
+            </span>
+            <input
+              type="text"
+              value={processedBy}
+              onChange={(e) =>
+                onProcessedByChange(e.target.value.slice(0, PROCESSED_BY_MAX_LENGTH))
+              }
+              placeholder="Tên nhân viên phụ trách đơn"
+              disabled={loading}
+              maxLength={PROCESSED_BY_MAX_LENGTH}
+              className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+            />
+          </label>
+        ) : null}
 
         {error ? <p className="mt-2 text-sm font-medium text-red-600">{error}</p> : null}
 

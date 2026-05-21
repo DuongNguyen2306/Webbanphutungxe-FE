@@ -528,9 +528,10 @@ export function CartProvider({ children }) {
           })
         } catch (err) {
           setCartError(err.message)
-          break
+          return
         }
       }
+      setItems((prev) => prev.filter((x) => !x.selected))
       return
     }
 

@@ -8,6 +8,7 @@ import {
 import { formatVnd } from '../../utils/format'
 import { normalizeOrderDelivery } from '../../utils/orderDelivery'
 import { resolveOrderItemImage } from '../../utils/orderItemImage'
+import { formatOrderDisplayCode } from '../../utils/orderDisplayCode'
 
 function resolveItemUnitPrice(item) {
   const candidates = [
@@ -86,7 +87,9 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
   const address = orderAddressLine(order)
   const contactName = order?.contact?.name?.trim() || 'Khách hàng'
   const phone = order?.contact?.phone?.trim() || ''
-  const shortId = String(order?._id || '').slice(-8)
+  const orderCodeDisplay = formatOrderDisplayCode(order)
+  const processedByLabel =
+    variant === 'admin' ? String(order?.processedBy || '').trim() || '—' : null
   const dateStr = order?.createdAt
     ? `Đặt lúc: ${new Date(order.createdAt).toLocaleString('vi-VN')}`
     : null
@@ -118,7 +121,7 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
                   Mã đơn
                 </span>
                 <span className="truncate font-mono text-[13px] font-bold text-gray-900">
-                  #{shortId}
+                  {orderCodeDisplay}
                 </span>
               </div>
               <span
@@ -145,7 +148,15 @@ export function OrderListCard({ order, variant, edgeHighlight = 'none', actions 
               <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 Mã đơn hàng
               </p>
-              <p className="mt-0.5 font-mono text-sm font-bold text-gray-900">#{shortId}</p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-gray-900">
+                {orderCodeDisplay}
+              </p>
+              {variant === 'admin' ? (
+                <p className="mt-2 text-xs text-gray-600">
+                  <span className="font-semibold text-gray-500">NV xử lý:</span>{' '}
+                  {processedByLabel}
+                </p>
+              ) : null}
               <p className="mt-3 text-2xl font-extrabold tracking-tight text-brand">
                 {formatVnd(order?.totalAmount)}
               </p>

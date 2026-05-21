@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { OrderDetailPage } from './pages/OrderDetailPage'
+import { OrderSuccessPage } from './pages/OrderSuccessPage'
 import { AdminLayout } from './pages/admin/AdminLayout'
 import { AdminOrders } from './pages/admin/AdminOrders'
 import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage'
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/dieu-khoan-dich-vu" element={<Navigate to="/chinh-sach/dieu-khoan" replace />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/order/success" element={<OrderSuccessPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/don-mua/:id" element={<OrderDetailPage />} />
           </Route>

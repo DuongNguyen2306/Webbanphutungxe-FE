@@ -1,5 +1,6 @@
 import { normalizeOrderStatus } from './../constants/orderStatus'
 import { normalizeOrderDelivery } from './orderDelivery'
+import { normalizeOrderStatusHistory } from './orderStatusHistory'
 
 function pickItemImage(item) {
   const candidates = [
@@ -24,8 +25,16 @@ export function mapOrderDetail(raw) {
   const items = Array.isArray(raw?.items) ? raw.items : []
   const shippingNote = raw?.shippingAddress?.note || ''
   const cancelReason = raw?.note || ''
+  const processedBy =
+    raw?.processedBy != null && String(raw.processedBy).trim()
+      ? String(raw.processedBy).trim()
+      : null
+
   return {
     ...raw,
+    orderCode: raw?.orderCode ?? null,
+    processedBy,
+    statusHistory: normalizeOrderStatusHistory(raw),
     status: normalizeOrderStatus(raw?.status),
     delivery: normalizeOrderDelivery(raw),
     shippingAddressText: buildShippingAddressText(raw),
