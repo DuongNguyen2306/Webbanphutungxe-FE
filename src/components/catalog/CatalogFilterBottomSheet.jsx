@@ -3,14 +3,20 @@ import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 
 /**
- * Bottom sheet — Headless UI Dialog + framer-motion (spring).
+ * Bottom sheet — ~75–80% chiều cao, nội dung cuộn, footer cố định.
  */
-export function CatalogFilterBottomSheet({ open, onClose, title = 'Lọc & sắp xếp', children }) {
+export function CatalogFilterBottomSheet({
+  open,
+  onClose,
+  title = 'Bộ lọc',
+  footer = null,
+  children,
+}) {
   return (
     <Dialog open={open} onClose={onClose} className="relative z-[70]">
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-black/45 backdrop-blur-[1px] transition duration-300 data-[closed]:opacity-0"
+        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] transition duration-300 data-[closed]:opacity-0"
       />
 
       <div className="fixed inset-0 flex items-end justify-center p-0">
@@ -19,15 +25,14 @@ export function CatalogFilterBottomSheet({ open, onClose, title = 'Lọc & sắp
           className="w-full max-w-[1600px] bg-transparent p-0 shadow-none focus:outline-none"
         >
           <motion.div
-            initial={{ y: '22%' }}
+            initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
-            className="max-h-[min(92vh,920px)] overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+            className="flex max-h-[80vh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <DialogTitle className="text-base font-extrabold text-ink">
-                {title}
-              </DialogTitle>
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3">
+              <DialogTitle className="text-base font-extrabold text-ink">{title}</DialogTitle>
               <button
                 type="button"
                 onClick={onClose}
@@ -37,9 +42,16 @@ export function CatalogFilterBottomSheet({ open, onClose, title = 'Lọc & sắp
                 <X className="size-5" />
               </button>
             </div>
-            <div className="max-h-[min(82vh,820px)] overflow-y-auto overscroll-contain px-4 pb-8 pt-2">
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
               {children}
             </div>
+
+            {footer ? (
+              <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                {footer}
+              </div>
+            ) : null}
           </motion.div>
         </DialogPanel>
       </div>

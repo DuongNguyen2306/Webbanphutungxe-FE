@@ -4,6 +4,7 @@ import {
   VEHICLE_TYPES,
 } from '../data/filterOptions'
 import { BRANDS } from '../data/products'
+import { CATALOG_SORT_OPTIONS } from '../data/catalogSortOptions'
 import { PriceRangeSlider } from './PriceRangeSlider'
 import { usePartCategories } from '../hooks/usePartCategories'
 
@@ -11,13 +12,6 @@ function toggleId(arr, id) {
   if (arr.includes(id)) return arr.filter((x) => x !== id)
   return [...arr, id]
 }
-
-const SORT_OPTIONS = [
-  { value: 'default', label: 'Mặc định' },
-  { value: 'price_asc', label: 'Giá thấp → cao' },
-  { value: 'price_desc', label: 'Giá cao → thấp' },
-  { value: 'name', label: 'Tên A → Z' },
-]
 
 export function FilterPanelContent({
   filters,
@@ -45,7 +39,7 @@ export function FilterPanelContent({
             onChange={(e) => onSortChange(e.target.value)}
             className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-3 pr-10 text-sm font-medium text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25"
           >
-            {SORT_OPTIONS.map((o) => (
+            {CATALOG_SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

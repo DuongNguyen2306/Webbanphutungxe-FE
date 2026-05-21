@@ -4,10 +4,13 @@ import { ChevronLeft } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Hero } from '../components/Hero'
 import { ProductSection } from '../components/ProductSection'
-import { FilterPanelContent } from '../components/FilterPanel'
 import { FilterPanelAccordionSidebar } from '../components/FilterPanelAccordion'
-import { CatalogMobileCategoryRail } from '../components/catalog/CatalogMobileCategoryRail'
 import { CatalogFilterBottomSheet } from '../components/catalog/CatalogFilterBottomSheet'
+import { CatalogMobileFilterBar } from '../components/catalog/CatalogMobileFilterBar'
+import {
+  CatalogFilterSheetFooter,
+  CatalogMobileFilterSheet,
+} from '../components/catalog/CatalogMobileFilterSheet'
 import { DesktopCategoryNav } from '../components/catalog/DesktopCategoryNav'
 import {
   PRICE_SLIDER_MAX,
@@ -83,6 +86,7 @@ export function HomePage() {
     priceMax: PRICE_SLIDER_MAX,
   }))
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [filterSheetDraft, setFilterSheetDraft] = useState(null)
   const [sortBy, setSortBy] = useState('default')
   /** Trang phân trang theo từng khối hãng (key = section key). */
   const [pagesBySection, setPagesBySection] = useState({})
@@ -359,6 +363,76 @@ export function HomePage() {
     }))
   }, [priceDraft])
 
+  const hasMobileFilterSelection = useMemo(() => {
+    if (adv.brands.length > 0 || adv.parts.length > 0 || adv.vehicles.length > 0) {
+      return true
+    }
+    if (adv.inStockOnly) return true
+    if (adv.priceMin > PRICE_SLIDER_MIN) return true
+    if (
+      absoluteMaxPrice > 0 &&
+      adv.priceMax != null &&
+      adv.priceMax < absoluteMaxPrice
+    ) {
+      return true
+    }
+    return false
+  }, [
+    adv.brands.length,
+    adv.parts.length,
+    adv.vehicles.length,
+    adv.inStockOnly,
+    adv.priceMin,
+    adv.priceMax,
+    absoluteMaxPrice,
+  ])
+
+  const openMobileFilters = useCallback(() => {
+    setFilterSheetDraft({
+      filters: { ...adv },
+      priceDraft: {
+        priceMin: priceDraft.priceMin,
+        priceMax: priceDraft.priceMax,
+      },
+    })
+    setMobileFilterOpen(true)
+  }, [adv, priceDraft])
+
+  const closeMobileFilters = useCallback(() => {
+    setMobileFilterOpen(false)
+    setFilterSheetDraft(null)
+  }, [])
+
+  const applyMobileFilters = useCallback(() => {
+    if (!filterSheetDraft) return
+    setAdv({
+      ...filterSheetDraft.filters,
+      priceMin: filterSheetDraft.priceDraft.priceMin,
+      priceMax: filterSheetDraft.priceDraft.priceMax,
+    })
+    setPriceDraft({ ...filterSheetDraft.priceDraft })
+    setMobileFilterOpen(false)
+    setFilterSheetDraft(null)
+    document
+      .getElementById('catalog-list-top')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [filterSheetDraft])
+
+  const resetMobileFiltersDraft = useCallback(() => {
+    const next = createDefaultFilterState(absoluteMaxPrice)
+    setFilterSheetDraft({
+      filters: next,
+      priceDraft: { priceMin: next.priceMin, priceMax: next.priceMax },
+    })
+  }, [absoluteMaxPrice])
+
+  const handleMobileSortChange = useCallback((value) => {
+    setSortBy(value)
+    document
+      .getElementById('catalog-list-top')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   const handleViewMoreBrand = useCallback((brandKey) => {
     const next = { ...createDefaultFilterState(absoluteMaxPrice), brands: [brandKey] }
     setAdv(next)
@@ -529,14 +603,6 @@ export function HomePage() {
     <div className="min-h-svh bg-page font-sans text-ink">
       <Header searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} />
 
-      <CatalogMobileCategoryRail
-        categories={categories}
-        loading={categoriesLoading}
-        selectedCategoryId={selectedCategoryId}
-        onCategorySelect={handleCategorySelect}
-        onOpenFilters={() => setMobileFilterOpen(true)}
-      />
-
       <Hero />
 
       {listError ? (
@@ -594,6 +660,14 @@ export function HomePage() {
                   {catalogListTitle}
                 </h2>
               </div>
+
+              <CatalogMobileFilterBar
+                sortBy={sortBy}
+                onSortChange={handleMobileSortChange}
+                onOpenFilters={openMobileFilters}
+                hasActiveFilters={hasMobileFilterSelection}
+              />
+
               {showHomeBlocks ? (
                 <div className="mb-2 space-y-1">
                   {(newArrivalShelfLoading || newArrivalShelfTotal > 0) && !newArrivalShelfError ? (
@@ -684,29 +758,30 @@ export function HomePage() {
           </div>
           <CatalogFilterBottomSheet
             open={mobileFilterOpen}
-            onClose={() => setMobileFilterOpen(false)}
-            title="Lọc & sắp xếp"
+            onClose={closeMobileFilters}
+            title="Bộ lọc"
+            footer={
+              <CatalogFilterSheetFooter
+                onReset={resetMobileFiltersDraft}
+                onApply={applyMobileFilters}
+              />
+            }
           >
-            <FilterPanelContent
-              filters={adv}
-              priceDraft={priceDraft}
+            <CatalogMobileFilterSheet
+              draft={filterSheetDraft}
               absoluteMaxPrice={absoluteMaxPrice}
-              onChange={setAdv}
-              onPriceChange={(priceMin, priceMax) =>
-                setPriceDraft({ priceMin, priceMax })
+              onDraftFiltersChange={(nextFilters) =>
+                setFilterSheetDraft((prev) =>
+                  prev ? { ...prev, filters: nextFilters } : prev,
+                )
               }
-              sortBy={sortBy}
-              onSortChange={(v) => {
-                setSortBy(v)
-              }}
-              onReset={() => {
-                clearAllCatalogFilters()
-                setMobileFilterOpen(false)
-              }}
-              onApplyPrice={() => {
-                applyPriceFilter()
-                setMobileFilterOpen(false)
-              }}
+              onDraftPriceChange={(priceMin, priceMax) =>
+                setFilterSheetDraft((prev) =>
+                  prev
+                    ? { ...prev, priceDraft: { priceMin, priceMax } }
+                    : prev,
+                )
+              }
             />
           </CatalogFilterBottomSheet>
       </>
