@@ -74,7 +74,7 @@ const STEPS = [
 
 export function PurchaseGuide() {
   const telHref = `tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`
-  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[Thai Vũ] Tư vấn đặt hàng giúp mình.')}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[TháiVũ] Tư vấn đặt hàng giúp mình.')}`
 
   return (
     <div className="purchase-guide text-[15px] leading-relaxed text-gray-800">

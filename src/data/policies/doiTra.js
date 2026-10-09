@@ -2,7 +2,7 @@ import { policyContactBlock } from './shared'
 
 export const doiTraContent = `
 <h2>1. Phạm vi áp dụng</h2>
-<p>Chính sách này áp dụng cho mọi đơn hàng phụ kiện, đồ chơi xe máy (Vespa, Piaggio, Honda và các dòng khác) mua trên website <strong>phukienthaivu.com</strong> hoặc qua kênh chính thức của <strong>Phụ Kiện Thai Vũ</strong>.</p>
+<p>Chính sách này áp dụng cho mọi đơn hàng phụ kiện, đồ chơi xe máy (Vespa, Piaggio, Honda và các dòng khác) mua trên website <strong>phukienthaivu.com</strong> hoặc qua kênh chính thức của <strong>Phụ Kiện TháiVũ</strong>.</p>
 
 <h2>2. Điều kiện đổi trả hàng</h2>
 <p>Khách hàng được đổi hoặc trả hàng khi thuộc một trong các trường hợp sau:</p>
@@ -23,7 +23,7 @@ export const doiTraContent = `
 <h2>4. Quy trình đổi trả</h2>
 <ol>
   <li><strong>Liên hệ shop:</strong> Gọi hotline <strong>093.204.2912</strong> hoặc nhắn Zalo, cung cấp mã đơn, tên sản phẩm, hình ảnh/video lỗi (nếu có).</li>
-  <li><strong>Shop xác nhận:</strong> Thai Vũ kiểm tra thông tin và hướng dẫn đổi hàng, trả hàng hoặc hoàn tiền.</li>
+  <li><strong>Shop xác nhận:</strong> TháiVũ kiểm tra thông tin và hướng dẫn đổi hàng, trả hàng hoặc hoàn tiền.</li>
   <li><strong>Gửi lại hàng:</strong>
     <ul>
       <li><strong>Qua bưu điện / đối tác vận chuyển:</strong> đóng gói cẩn thận, ghi rõ thông tin người gửi — người nhận. Phí ship chiều gửi lại do hai bên thỏa thuận theo từng trường hợp (lỗi shop đảm nhận).</li>

@@ -301,7 +301,7 @@ function ProductDetailBody({
   const hasRating = Number.isFinite(Number(product.rating)) && Number(product.rating) > 0
   /** Chỉ hiện sao/điểm khi có ít nhất một đánh giá (đồng bộ với mapper, tránh 4.5 ảo). */
   const showRatingStars = hasRating && hasReviewCount
-  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[Thai Vũ] Tư vấn SP #${product.id}: ${product.name}`)}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[TháiVũ] Tư vấn SP #${product.id}: ${product.name}`)}`
 
   function thumbScroll(dir) {
     const el = document.getElementById('pdp-thumbs')

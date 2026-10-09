@@ -2,7 +2,7 @@ import { policyContactBlock } from './shared'
 
 export const baoMatContent = `
 <h2>1. Cam kết chung</h2>
-<p><strong>Phụ Kiện Thai Vũ</strong> tôn trọng quyền riêng tư và cam kết bảo mật thông tin khách hàng. Chính sách này mô tả cách shop thu thập, sử dụng và bảo vệ dữ liệu khi khách đặt hàng trên website <strong>phukienthaivu.com</strong>.</p>
+<p><strong>Phụ Kiện TháiVũ</strong> tôn trọng quyền riêng tư và cam kết bảo mật thông tin khách hàng. Chính sách này mô tả cách shop thu thập, sử dụng và bảo vệ dữ liệu khi khách đặt hàng trên website <strong>phukienthaivu.com</strong>.</p>
 
 <h2>2. Thông tin thu thập</h2>
 <p>Để phục vụ đặt hàng rút gọn, shop chỉ yêu cầu các thông tin cần thiết:</p>
@@ -23,7 +23,7 @@ export const baoMatContent = `
 
 <h2>4. Phạm vi sử dụng — không chia sẻ bên thứ ba</h2>
 <ul>
-  <li>Thông tin chỉ được sử dụng <strong>nội bộ trong hệ thống shop Thai Vũ</strong> và nhân sự được phân quyền xử lý đơn.</li>
+  <li>Thông tin chỉ được sử dụng <strong>nội bộ trong hệ thống shop TháiVũ</strong> và nhân sự được phân quyền xử lý đơn.</li>
   <li>Shop <strong>không bán, cho thuê hoặc chia sẻ</strong> dữ liệu khách hàng cho bên thứ ba vì mục đích marketing khi chưa có sự đồng ý của khách.</li>
   <li>Trường hợp pháp luật yêu cầu cung cấp cho cơ quan nhà nước có thẩm quyền: shop sẽ tuân thủ quy định pháp luật hiện hành.</li>
 </ul>
@@ -42,6 +42,6 @@ export const baoMatContent = `
 </ul>
 
 <h2>7. Quyền của khách hàng</h2>
-<p>Khách có quyền yêu cầu xem lại, chỉnh sửa thông tin liên hệ hoặc khiếu nại về việc xử lý dữ liệu qua hotline <strong>093.204.2912</strong> / Zalo chính thức của Thai Vũ.</p>
+<p>Khách có quyền yêu cầu xem lại, chỉnh sửa thông tin liên hệ hoặc khiếu nại về việc xử lý dữ liệu qua hotline <strong>093.204.2912</strong> / Zalo chính thức của TháiVũ.</p>
 ${policyContactBlock()}
 `

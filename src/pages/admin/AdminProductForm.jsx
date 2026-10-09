@@ -1406,192 +1406,79 @@ export function AdminProductForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="mt-6 space-y-5 rounded-xl border border-gray-200 bg-white p-6 pb-8 shadow-sm sm:pb-10"
+        className="mt-6 space-y-6"
       >
-        <input
-          required
-          placeholder="Tên sản phẩm *"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={field}
-        />
-
-        <div>
-          <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Danh mục (chọn hoặc gõ mới)
-          </label>
-          <input
-            list="admin-cat-list"
-            required
-            value={categoryInput}
-            onChange={(e) => setCategoryInput(e.target.value)}
-            className={`mt-1 ${field}`}
-            placeholder="VD: Vespa, Phụ tùng Honda..."
-          />
-          <datalist id="admin-cat-list">
-            {categories.map((c) => (
-              <option key={c._id} value={c.name} />
-            ))}
-          </datalist>
-        </div>
-
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-3 text-sm text-gray-800">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
-            checked={showOnStorefront}
-            onChange={(e) => setShowOnStorefront(e.target.checked)}
-          />
-          <span>
-            <span className="font-semibold">Hiện trên cửa hàng</span>
-            <span className="mt-0.5 block text-xs text-gray-600">
-              Tắt nếu muốn ẩn khỏi trang chủ và danh sách sản phẩm công khai.
-            </span>
-          </span>
-        </label>
-
-        <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 sm:col-span-2">
+        {/* Card 1: Thông tin cơ bản */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-brand font-bold text-base">⭐ Thông tin cơ bản</span>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Tên sản phẩm *</label>
             <input
-              type="checkbox"
-              className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
-              checked={newArrivalEnabled}
-              onChange={(e) => setNewArrivalEnabled(e.target.checked)}
-            />
-            <span>
-              <span className="font-semibold">Hiển thị trong Hàng mới về</span>
-              <span className="mt-0.5 block text-xs text-gray-600">
-                Bật để SP xuất hiện ở block/menu hàng mới về. Không thay danh mục menu (Honda, Phụ kiện…).
-              </span>
-            </span>
-          </label>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-700">
-              Thứ tự hàng mới về
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={newArrivalOrder}
-              onChange={(e) => setNewArrivalOrder(e.target.value)}
+              required
+              placeholder="Tên sản phẩm (ví dụ: Ốc Titan Gr5 Đầu Salaya...)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className={field}
-              placeholder="0"
             />
           </div>
-        </div>
 
-        <div className="grid gap-3 rounded-lg border border-gray-200 bg-gray-50/70 p-3 sm:grid-cols-2">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-800 sm:col-span-2">
-            <input
-              type="checkbox"
-              className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
-              checked={bestSellerEnabled}
-              onChange={(e) => setBestSellerEnabled(e.target.checked)}
-            />
-            <span>
-              <span className="font-semibold">Hiển thị trong sản phẩm bán chạy</span>
-              <span className="mt-0.5 block text-xs text-gray-600">
-                Tắt mục này thì sản phẩm không xuất hiện ở danh sách bán chạy dù vẫn lưu số bán và thứ tự.
-              </span>
-            </span>
-          </label>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-700">
-              Thứ tự bán chạy
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={bestSellerOrder}
-              onChange={(e) => setBestSellerOrder(e.target.value)}
-              className={field}
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-700">
-              Số lượng đã bán hiển thị
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={soldCount}
-              onChange={(e) => setSoldCount(e.target.value)}
-              className={field}
-              placeholder="0"
-            />
-          </div>
-        </div>
-
-        {isEdit && editId ? (
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-              Đánh giá cửa hàng
-            </p>
-            <AdminProductStoreReviewsSection productId={editId} />
-          </div>
-        ) : null}
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="flex flex-wrap items-center text-sm font-bold text-gray-900">
-                Sản phẩm này có nhiều phiên bản (màu, size...)?
-                <QuickGuide text="Bật khi một mặt hàng có nhiều kiểu bán (vd: đỏ/xanh, size M/L). Tắt khi chỉ bán một kiểu duy nhất — khi đó bạn nhập giá và ảnh ngay bên dưới, không cần bảng nhiều dòng." />
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                Bật nếu sản phẩm có nhiều màu sắc, kích cỡ khác nhau. Tắt nếu chỉ có một loại duy nhất.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hasVariants}
-              onClick={toggleHasVariants}
-              className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-                hasVariants
-                  ? 'bg-emerald-500 focus:ring-emerald-300'
-                  : 'bg-gray-300 focus:ring-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block size-6 transform rounded-full bg-white shadow transition-transform duration-300 ${
-                  hasVariants ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        <textarea
-          placeholder="Mô tả"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className={field}
-        />
-        {youtubeLinkInput}
-        {hasVariants ? (
-          <>
-            <ImagePickerField
-              label="Ảnh sản phẩm (gallery chung)"
-              items={images}
-              onChange={setImages}
-              enableUrlUpload
-              onUploadFromUrl={handleUploadImageFromGoogleDrive}
-              enableDrivePicker
-              onImportFromDriveFiles={handleImportImagesFromDrivePicker}
-            />
-          </>
-        ) : null}
-
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-            Hãng · Loại xe · Loại phụ tùng
-          </p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-700">Hãng</label>
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Danh mục (chọn hoặc gõ mới) *
+              </label>
+              <input
+                list="admin-cat-list"
+                required
+                value={categoryInput}
+                onChange={(e) => setCategoryInput(e.target.value)}
+                className={field}
+                placeholder="VD: Vespa, Phụ tùng Honda..."
+              />
+              <datalist id="admin-cat-list">
+                {categories.map((c) => (
+                  <option key={c._id} value={c.name} />
+                ))}
+              </datalist>
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                Link video YouTube (tuỳ chọn)
+              </label>
+              <input
+                type="url"
+                inputMode="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className={field}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Mô tả sản phẩm</label>
+            <textarea
+              placeholder="Nhập mô tả chi tiết sản phẩm, công dụng, chất liệu..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className={field}
+            />
+          </div>
+        </div>
+
+        {/* Card 2: Thông số xe & Phụ tùng */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-brand font-bold text-base">🔧 Thông số xe & Phụ tùng</span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Hãng xe</label>
               <select value={brand} onChange={(e) => setBrand(e.target.value)} className={field}>
                 <option value="honda">Honda</option>
                 <option value="vespa">Vespa</option>
@@ -1603,13 +1490,14 @@ export function AdminProductForm() {
                 <input
                   value={brandOther}
                   onChange={(e) => setBrandOther(e.target.value)}
-                  className={field}
+                  className={`mt-1.5 ${field}`}
                   placeholder="VD: SYM, Suzuki…"
                 />
               ) : null}
             </div>
+            
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-700">Loại xe</label>
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Dòng xe</label>
               <select
                 value={vehicleType}
                 onChange={(e) => setVehicleType(e.target.value)}
@@ -1624,13 +1512,14 @@ export function AdminProductForm() {
                 <input
                   value={vehicleTypeOther}
                   onChange={(e) => setVehicleTypeOther(e.target.value)}
-                  className={field}
+                  className={`mt-1.5 ${field}`}
                   placeholder="VD: cub, electric…"
                 />
               ) : null}
             </div>
+
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-700">Loại phụ tùng</label>
+              <label className="text-xs font-bold uppercase tracking-wide text-gray-500">Loại phụ tùng</label>
               <select
                 value={partCategory}
                 onChange={(e) => {
@@ -1676,60 +1565,219 @@ export function AdminProductForm() {
                   </p>
                 </div>
               ) : null}
-              <p className="text-[11px] text-gray-500">
-                Danh sách lấy từ BE (/api/part-categories). Mặc định:{' '}
-                <span className="font-semibold">Phụ kiện chung</span>.
-              </p>
             </div>
           </div>
         </div>
 
-        <div
-          className={`transition-all duration-300 ${
-            hasVariants
-              ? 'pointer-events-none max-h-0 overflow-hidden opacity-0'
-              : 'max-h-none overflow-visible opacity-100'
-          }`}
-        >
-          <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 transition-opacity duration-300">
-            <p className="text-sm font-bold text-gray-900">Sản phẩm đơn</p>
-            <p className="mt-1 text-xs text-gray-500">
-              Giá gốc (tuỳ chọn), giá bán, SKU và ảnh đại diện. Để trống tồn kho ở bước này — khi cần bán
-              không giới hạn, không gửi số lượng lên BE.
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-700">
-                  Giá gốc <span className="font-normal text-gray-500">(tuỳ chọn)</span>
-                </label>
+        {/* Card 3: Hiển thị & Quảng bá */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+            <span className="text-brand font-bold text-base">📢 Cài đặt hiển thị & Tiếp thị</span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Cột 1: Trạng thái hiển thị cửa hàng */}
+            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-800">
                 <input
-                  type="number"
-                  placeholder="VD: 150000 — để trống nếu không giảm giá"
-                  value={singleOriginalPrice}
-                  onChange={(e) => setSingleOriginalPrice(e.target.value)}
-                  className={field}
+                  type="checkbox"
+                  className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                  checked={showOnStorefront}
+                  onChange={(e) => setShowOnStorefront(e.target.checked)}
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-700">Giá bán *</label>
+                <div>
+                  <span className="font-bold text-gray-900">Hiện trên cửa hàng</span>
+                  <span className="mt-1 block text-xs text-gray-500 leading-normal">
+                    Hiển thị sản phẩm ra trang chủ và kết quả tìm kiếm công khai.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Cột 2: Hàng mới về */}
+            <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-800">
                 <input
-                  type="number"
-                  placeholder="VD: 120000"
-                  value={singlePrice}
-                  onChange={(e) => setSinglePrice(e.target.value)}
-                  className={field}
+                  type="checkbox"
+                  className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                  checked={newArrivalEnabled}
+                  onChange={(e) => setNewArrivalEnabled(e.target.checked)}
                 />
+                <div>
+                  <span className="font-bold text-gray-950">Hàng mới về</span>
+                  <span className="mt-1 block text-xs text-gray-500 leading-normal">
+                    Đưa sản phẩm vào danh mục "Hàng mới về".
+                  </span>
+                </div>
+              </label>
+              {newArrivalEnabled && (
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                    Thứ tự sắp xếp hàng mới
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={newArrivalOrder}
+                    onChange={(e) => setNewArrivalOrder(e.target.value)}
+                    className={field}
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Cột 3: Bán chạy & Đã bán */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-800">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 rounded border-gray-300 text-brand focus:ring-brand"
+                  checked={bestSellerEnabled}
+                  onChange={(e) => setBestSellerEnabled(e.target.checked)}
+                />
+                <div>
+                  <span className="font-bold text-gray-900">Sản phẩm bán chạy</span>
+                  <span className="mt-1 block text-xs text-gray-500 leading-normal">
+                    Đưa sản phẩm vào khối hiển thị "Bán chạy nhất".
+                  </span>
+                </div>
+              </label>
+              {(bestSellerEnabled || Number(soldCount) > 0) && (
+                <div className="grid gap-2 grid-cols-2 pt-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-gray-700">
+                      Thứ tự ưu tiên
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={bestSellerOrder}
+                      onChange={(e) => setBestSellerOrder(e.target.value)}
+                      className={field}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-gray-700">
+                      Số lượng đã bán ảo
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={soldCount}
+                      onChange={(e) => setSoldCount(e.target.value)}
+                      className={field}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {isEdit && editId ? (
+            <div className="border-t border-gray-100 pt-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+                Đánh giá từ khách hàng
+              </p>
+              <AdminProductStoreReviewsSection productId={editId} />
+            </div>
+          ) : null}
+        </div>
+
+        {/* Card 4: Thông tin phiên bản & Giá bán */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-5">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4">
+            <div>
+              <span className="text-brand font-bold text-base flex items-center gap-1">
+                🏷️ Phân loại phiên bản & Giá bán
+                <QuickGuide text="Bật khi một mặt hàng có nhiều kiểu bán (vd: đỏ/xanh, size M/L). Tắt khi chỉ bán một kiểu duy nhất — khi đó bạn nhập giá và ảnh ngay bên dưới, không cần bảng nhiều dòng." />
+              </span>
+              <p className="mt-1 text-xs text-gray-500">
+                Sản phẩm này có nhiều lựa chọn (màu sắc, kích thước, chất liệu...) không?
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hasVariants}
+              onClick={toggleHasVariants}
+              className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                hasVariants
+                  ? 'bg-emerald-500 focus:ring-emerald-300'
+                  : 'bg-gray-300 focus:ring-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block size-6 transform rounded-full bg-white shadow transition-transform duration-300 ${
+                  hasVariants ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* --- TRƯỜNG HỢP 1: SẢN PHẨM ĐƠN (hasVariants = false) --- */}
+          {!hasVariants && (
+            <div className="space-y-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+              <div className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+                <span>📦 Thông tin sản phẩm đơn</span>
               </div>
-              <div className="sm:col-span-2">
-                <label
-                  className="mb-1 block text-xs font-semibold text-gray-700"
-                  title="SKU tự sinh từ tên sản phẩm nếu để trống."
-                >
-                  SKU *
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                    Giá bán chính thức *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required={!hasVariants}
+                      placeholder="VD: 120000"
+                      value={singlePrice}
+                      onChange={(e) => setSinglePrice(e.target.value)}
+                      className={`pr-10 ${field}`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">đ</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                    Giá gốc niêm yết <span className="font-normal text-gray-400">(để trống nếu không giảm)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      placeholder="VD: 150000"
+                      value={singleOriginalPrice}
+                      onChange={(e) => setSingleOriginalPrice(e.target.value)}
+                      className={`pr-10 ${field}`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">đ</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                    Số lượng tồn kho <span className="font-normal text-gray-400">(để trống = vô hạn)</span>
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="VD: 99 (để trống = bán vô hạn)"
+                    value={singleStock}
+                    onChange={(e) => setSingleStock(e.target.value)}
+                    className={field}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-gray-700">
+                  Mã SKU sản phẩm *
                 </label>
                 <div className="flex gap-2">
                   <input
-                    placeholder="Để trống để tự sinh"
+                    placeholder="Nhập mã SKU hoặc để trống để tự động tạo"
                     value={singleSku}
                     onChange={(e) => {
                       setSingleSku(e.target.value)
@@ -1744,344 +1792,399 @@ export function AdminProductForm() {
                       setSingleSku(generateSKU(name, []))
                       setSingleSkuManuallyEdited(false)
                     }}
-                    className="rounded-lg border border-gray-300 px-3 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm"
                   >
-                    ↻
+                    <span>↻ Tự tạo mã</span>
                   </button>
                 </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <ImagePickerField
-                label="Ảnh sản phẩm"
-                items={images}
-                onChange={setImages}
-                enableUrlUpload
-                onUploadFromUrl={handleUploadImageFromGoogleDrive}
-                enableDrivePicker
-                onImportFromDriveFiles={handleImportImagesFromDrivePicker}
-              />
-            </div>
-          </div>
-        </div>
 
-        <div
-          className={`transition-all duration-300 ${
-            hasVariants
-              ? 'max-h-none overflow-visible opacity-100'
-              : 'pointer-events-none max-h-0 overflow-hidden opacity-0'
-          }`}
-        >
-          <div className="border-t border-gray-200 pt-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="flex flex-wrap items-center text-sm font-bold text-gray-900">
-              Phân loại hàng (thêm bao nhiêu cột cũng được)
-              <QuickGuide text="Mỗi cột là một kiểu phân loại: ví dụ cột «Màu», cột «Size». Ở dưới mỗi cột bạn gõ từng lựa chọn, xong một cái thì Enter để thành ô màu — giống cách đăng hàng trên các sàn thương mại." />
-            </p>
-            <button
-              type="button"
-              onClick={addAttributeRow}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-bold text-brand hover:bg-gray-50"
-            >
-              + Thêm nhóm phân loại
-            </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {normalizedAttributes.map((attr, idx) => (
-              <div
-                key={attr?.id || `axis-${idx}`}
-                className="rounded-lg border border-gray-200 bg-gray-50/80 p-3"
-              >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <input
-                    placeholder="Tên nhóm phân loại (ví dụ: Màu sắc)"
-                    value={attr?.name || ''}
-                    onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
-                    className={field}
-                    aria-label="Tên nhóm phân loại"
-                  />
+              <div className="border-t border-gray-100 pt-3">
+                <ImagePickerField
+                  label="Ảnh sản phẩm"
+                  items={images}
+                  onChange={setImages}
+                  enableUrlUpload
+                  onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                  enableDrivePicker
+                  onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* --- TRƯỜNG HỢP 2: CÓ NHIỀU PHIÊN BẢN (hasVariants = true) --- */}
+          {hasVariants && (
+            <div className="space-y-6">
+              {/* Thư viện ảnh chung */}
+              <div className="rounded-xl border border-gray-100 bg-gray-50/30 p-4">
+                <ImagePickerField
+                  label="Ảnh sản phẩm (Thư viện ảnh chung)"
+                  items={images}
+                  onChange={setImages}
+                  enableUrlUpload
+                  onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                  enableDrivePicker
+                  onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                />
+              </div>
+
+              {/* Phần quản lý nhóm phân loại (ví dụ: Màu sắc, Size) */}
+              <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-gray-800">
+                    <span>⚡ Nhóm phân loại hàng</span>
+                    <QuickGuide text="Mỗi cột là một kiểu phân loại: ví dụ cột «Màu», cột «Size». Ở dưới mỗi cột bạn gõ từng lựa chọn, xong một cái thì Enter để thành ô màu — giống cách đăng hàng trên các sàn thương mại." />
+                  </div>
                   <button
                     type="button"
-                    title="Xóa nhóm phân loại này"
-                    disabled={normalizedAttributes.length <= 1}
-                    onClick={() => removeAttributeRow(attr.id)}
-                    className="shrink-0 rounded-lg border border-gray-300 px-2 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={addAttributeRow}
+                    className="rounded-lg border border-brand/30 bg-white px-3 py-1.5 text-xs font-bold text-brand hover:bg-red-50/50 transition shadow-sm"
                   >
-                    ×
+                    + Thêm nhóm phân loại
                   </button>
                 </div>
-                <p className="mb-1 text-[11px] text-gray-500">
-                  Các lựa chọn (ví dụ: Đỏ, Xanh, Titan) — gõ xong mỗi lựa chọn hãy nhấn Enter.
-                </p>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    placeholder="Các lựa chọn (ví dụ: Đỏ, Xanh, Titan)"
-                    value={attr?.draft || ''}
-                    onChange={(e) => updateAttribute(attr.id, { draft: e.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ',') {
-                        e.preventDefault()
-                        pushAttributeValue(attr.id, attr.draft)
-                      }
-                    }}
-                    className={field}
-                    aria-label="Thêm lựa chọn phân loại"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => pushAttributeValue(attr.id, attr.draft)}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-                  >
-                    Thêm
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(attr?.values || []).map((value) => (
-                    <button
-                      key={`${attr.id}-${value}`}
-                      type="button"
-                      onClick={() => removeAttributeValue(attr.id, value)}
-                      className="rounded-full border border-violet-200/90 bg-violet-50/95 px-2.5 py-1 text-xs font-medium text-violet-900 shadow-sm transition hover:bg-violet-100/95"
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {normalizedAttributes.map((attr, idx) => (
+                    <div
+                      key={attr?.id || `axis-${idx}`}
+                      className="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
                     >
-                      {value} ×
-                    </button>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            placeholder="Tên nhóm (ví dụ: Màu sắc)"
+                            value={attr?.name || ''}
+                            onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                            aria-label="Tên nhóm phân loại"
+                          />
+                          <button
+                            type="button"
+                            title="Xóa nhóm phân loại này"
+                            disabled={normalizedAttributes.length <= 1}
+                            onClick={() => removeAttributeRow(attr.id)}
+                            className="shrink-0 rounded-lg border border-gray-205 px-2 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                          >
+                            × Xóa
+                          </button>
+                        </div>
+
+                        <p className="text-[10px] text-gray-400 leading-normal">
+                          Các lựa chọn (Đỏ, Xanh, L...) - nhập xong nhấn Enter hoặc dấu phẩy.
+                        </p>
+
+                        <div className="flex gap-1.5">
+                          <input
+                            placeholder="Nhập và ấn Enter..."
+                            value={attr?.draft || ''}
+                            onChange={(e) => updateAttribute(attr.id, { draft: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ',') {
+                                e.preventDefault()
+                                pushAttributeValue(attr.id, attr.draft)
+                              }
+                            }}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-955 shadow-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                            aria-label="Thêm lựa chọn phân loại"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => pushAttributeValue(attr.id, attr.draft)}
+                            className="rounded-lg border border-gray-300 bg-gray-50 px-2.5 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm"
+                          >
+                            Thêm
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(attr?.values || []).map((value) => (
+                          <button
+                            key={`${attr.id}-${value}`}
+                            type="button"
+                            onClick={() => removeAttributeValue(attr.id, value)}
+                            className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-900 shadow-sm transition hover:bg-violet-100/85"
+                          >
+                            <span>{value}</span>
+                            <span className="text-violet-400 font-bold">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex flex-wrap items-center text-sm font-bold text-gray-900">
-                Chi tiết loại hàng (từng dòng bán)
-                <QuickGuide text="Mỗi dòng là một loại bán ra: một màu + một size chẳng hạn. Khi bạn thêm lựa chọn ở phần phân loại phía trên, danh sách bên dưới sẽ tự tạo/cập nhật. Nếu không cần dòng nào, chỉ việc bấm xóa dòng đó." />
-              </span>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="text-xs text-gray-500">{variants.length} dòng</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDismissedAutoVariantKeys([])
-                    syncVariantRowsFromAttributes({ silent: false, respectDismissed: false })
-                  }}
-                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900 shadow-sm hover:bg-emerald-100"
-                >
-                  Làm mới từ phân loại
-                </button>
-                <button
-                  type="button"
-                  onClick={clearAllVariantRows}
-                  disabled={!variants.length}
-                  className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Xóa hết các dòng
-                </button>
-                <button
-                  type="button"
-                  onClick={addManualVariantRow}
-                  className="rounded-lg border border-brand/30 bg-white px-2.5 py-1 text-xs font-bold text-brand shadow-sm hover:bg-red-50/60"
-                >
-                  + Thêm một loại thủ công
-                </button>
-              </div>
-            </div>
-            {draftAttributeNames.length ? (
-              <p className="mt-2 text-xs leading-relaxed text-amber-800">
-                Cột «{draftAttributeNames.join('», «')}» chưa có ô lựa chọn —
-                các dòng bên dưới vẫn tạo theo phân loại có tag, ô của cột này được để trống
-                (không bắt buộc). Thêm tag để tự sinh tổ hợp, hoặc gõ tay từng dòng nếu muốn.
-              </p>
-            ) : null}
-            {attributesForVariants.map((attr) => (
-              <datalist key={`dl-${attr.id}`} id={`attr-dl-${attr.id}`}>
-                {attr.values.map((value) => (
-                  <option key={`${attr.id}-${value}`} value={value} />
-                ))}
-              </datalist>
-            ))}
-            {usePrimaryImageGrouping ? (
-              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
-                <p className="text-sm font-bold text-blue-900">
-                  Ảnh theo {primaryAttribute?.name || 'Phân loại 1'}
-                </p>
-                <p className="mt-1 text-xs text-blue-800">
-                  Khi có từ 2 phân loại, ảnh sẽ gắn theo {primaryAttribute?.name || 'phân loại 1'}.
-                  Các dòng có cùng giá trị sẽ tự dùng chung bộ ảnh.
-                </p>
-                <div className="mt-3 space-y-3">
-                  {primaryValuesInRows.length ? (
-                    primaryValuesInRows.map((value) => (
-                      <div
-                        key={`primary-image-${value}`}
-                        className="min-w-0 overflow-hidden rounded-lg border border-blue-100 bg-white p-3"
-                      >
-                        <ImagePickerField
-                          label={`${primaryAttribute?.name || 'Phân loại 1'}: ${value}`}
-                          items={primaryImageGroups[value] || []}
-                          onChange={(next) =>
-                            setPrimaryImageGroups((prev) => ({
-                              ...prev,
-                              [value]: next,
-                            }))
-                          }
-                          enableUrlUpload
-                          onUploadFromUrl={handleUploadImageFromGoogleDrive}
-                          enableDrivePicker
-                          onImportFromDriveFiles={handleImportImagesFromDrivePicker}
-                        />
-                        {PRIMARY_ATTRIBUTE_IMAGES_REQUIRED &&
-                        (!primaryImageGroups[value] || primaryImageGroups[value].length === 0) ? (
-                          <p className="mt-1 text-xs font-medium text-amber-700">
-                            Chưa có ảnh cho nhóm này.
-                          </p>
-                        ) : null}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-blue-800">
-                      Chưa có dòng biến thể hoàn chỉnh để nhóm ảnh.
+              {/* Phần quản lý ảnh theo Phân loại 1 (Primary Image Grouping) */}
+              {usePrimaryImageGrouping && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-bold text-blue-900 flex items-center gap-1">
+                      📸 Ảnh theo {primaryAttribute?.name || 'Phân loại 1'}
                     </p>
-                  )}
-                </div>
-              </div>
-            ) : null}
-            <div className="mt-3 space-y-3 pb-8 sm:pb-12">
-              {variants.map((row, i) => (
-                <div
-                  key={row._id || `row-${i}`}
-                  className={`rounded-lg border p-3 ${
-                    variantErrorRow === i
-                      ? 'border-red-300 bg-red-50/80'
-                      : 'border-gray-200 bg-gray-50/80'
-                  }`}
-                >
-                  <div className="mb-2 grid gap-2 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="mb-0.5 flex items-center text-[11px] font-semibold text-gray-600">
-                        Tên dòng (xem nhanh)
-                        <QuickGuide text="Chỗ này tự ghép từ các ô phân loại bên dưới để bạn nhìn một phát biết đang là màu/size nào — không cần gõ thêm." />
-                      </label>
-                      <input
-                        readOnly
-                        value={displayVariantLabel(row.attributeValues, attributesForVariants)}
-                        className="w-full rounded-lg border border-dashed border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900"
-                      />
-                    </div>
-                    {attributesForVariants.map((attr) => (
-                      <div key={`${row._id || i}-${attr.key}`}>
-                        <label className="mb-0.5 block text-[11px] font-medium text-gray-600">
-                          {attr.name || '—'}
-                        </label>
-                        <input
-                          list={`attr-dl-${attr.id}`}
-                          placeholder="Chọn tag hoặc gõ tự do"
-                          value={row.attributeValues?.[attr.key] ?? ''}
-                          onChange={(e) => handleAttributeValueChange(i, attr.key, e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                        />
-                      </div>
-                    ))}
+                    <p className="mt-1 text-xs text-blue-700">
+                      Hệ thống tự động gom nhóm ảnh theo {primaryAttribute?.name || 'phân loại đầu tiên'}. 
+                      Các sản phẩm cùng màu/thuộc tính sẽ dùng chung ảnh để tối ưu không gian hiển thị.
+                    </p>
                   </div>
-                  <div className="mb-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeVariantRow(i)}
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      Xóa dòng
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
-                    <div className="min-w-0">
-                      <label className="mb-1 flex items-center text-[11px] font-semibold text-gray-600">
-                        Mã SKU
-                        <QuickGuide text="Là mã nội bộ để phân biệt từng loại hàng (in tem, tra kho). Có thể bấm ↻ để máy gợi ý mã từ tên sản phẩm + màu/size — bạn vẫn được sửa tay." />
-                      </label>
-                      <div className="flex min-w-0 gap-1">
-                        <input
-                          placeholder="SKU"
-                          value={row.sku}
-                          onChange={(e) =>
-                            updateRow(i, { sku: e.target.value, skuManuallyEdited: true })
-                          }
-                          className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                        />
-                        <button
-                          type="button"
-                          title="Tạo lại SKU tự động"
-                          onClick={() =>
-                            updateRow(i, {
-                              sku: buildSkuForRow(row),
-                              skuManuallyEdited: false,
-                            })
-                          }
-                          className="shrink-0 rounded-lg border border-gray-300 px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {primaryValuesInRows.length ? (
+                      primaryValuesInRows.map((value) => (
+                        <div
+                          key={`primary-image-${value}`}
+                          className="min-w-0 overflow-hidden rounded-lg border border-blue-100 bg-white p-3 shadow-sm"
                         >
-                          ↻
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type="number"
-                      placeholder="Giá gốc"
-                      value={row.originalPrice}
-                      onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
-                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Giá *"
-                      value={row.price}
-                      onChange={(e) => updateRow(i, { price: e.target.value })}
-                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Không giới hạn số lượng"
-                      value={row.stock}
-                      onChange={(e) => updateRow(i, { stock: e.target.value })}
-                      className="min-h-[34px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm"
-                      title="Để trống = bán không giới hạn số lượng trong kho"
-                    />
-                    <label className="flex min-h-[34px] w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={row.isAvailable}
-                        onChange={(e) => updateRow(i, { isAvailable: e.target.checked })}
-                      />
-                      Còn hàng
-                    </label>
-                  </div>
-                  <div className="mt-2">
-                    {usePrimaryImageGrouping ? (
-                      <div className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs text-gray-600">
-                        Ảnh của dòng này lấy theo{' '}
-                        <span className="font-semibold">
-                          {primaryAttribute?.name || 'Phân loại 1'}
-                        </span>
-                        :{' '}
-                        <span className="font-semibold">
-                          {getPrimaryValueFromRow(row, attributesForVariants) || '(chưa chọn)'}
-                        </span>
-                      </div>
+                          <ImagePickerField
+                            label={`${primaryAttribute?.name || 'Phân loại 1'}: ${value}`}
+                            items={primaryImageGroups[value] || []}
+                            onChange={(next) =>
+                              setPrimaryImageGroups((prev) => ({
+                                ...prev,
+                                [value]: next,
+                              }))
+                            }
+                            enableUrlUpload
+                            onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                            enableDrivePicker
+                            onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                          />
+                          {PRIMARY_ATTRIBUTE_IMAGES_REQUIRED &&
+                          (!primaryImageGroups[value] || primaryImageGroups[value].length === 0) ? (
+                            <p className="mt-1 text-xs font-semibold text-amber-700 flex items-center gap-1">
+                              ⚠️ Vui lòng tải ít nhất 1 ảnh cho nhóm này.
+                            </p>
+                          ) : null}
+                        </div>
+                      ))
                     ) : (
-                      <ImagePickerField
-                        label="Ảnh riêng biến thể"
-                        items={row.variantImages}
-                        onChange={(next) => updateRow(i, { variantImages: next })}
-                        enableUrlUpload
-                        onUploadFromUrl={handleUploadImageFromGoogleDrive}
-                        enableDrivePicker
-                        onImportFromDriveFiles={handleImportImagesFromDrivePicker}
-                      />
+                      <p className="text-xs text-blue-800 italic">
+                        Chưa có dòng biến thể hoàn chỉnh để nhóm ảnh. Vui lòng thêm thuộc tính ở bước trên.
+                      </p>
                     )}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Danh sách biến thể (từng dòng bán) */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-2">
+                  <div>
+                    <span className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                      📋 Danh sách phiên bản hàng
+                      <QuickGuide text="Mỗi dòng là một loại bán ra: một màu + một size chẳng hạn. Khi bạn thêm lựa chọn ở phần phân loại phía trên, danh sách bên dưới sẽ tự tạo/cập nhật. Nếu không cần dòng nào, chỉ việc bấm xóa dòng đó." />
+                    </span>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Tổng số: <span className="font-bold text-gray-950">{variants.length}</span> phiên bản đang được thiết lập.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDismissedAutoVariantKeys([])
+                        syncVariantRowsFromAttributes({ silent: false, respectDismissed: false })
+                      }}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-955 shadow-sm hover:bg-emerald-100 transition"
+                    >
+                      Làm mới từ phân loại
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearAllVariantRows}
+                      disabled={!variants.length}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 transition"
+                    >
+                      Xóa hết các dòng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addManualVariantRow}
+                      className="rounded-lg border border-brand/30 bg-white px-2.5 py-1.5 text-xs font-bold text-brand shadow-sm hover:bg-red-50/50 transition"
+                    >
+                      + Thêm một loại thủ công
+                    </button>
+                  </div>
+                </div>
+
+                {draftAttributeNames.length ? (
+                  <p className="text-xs text-amber-800 rounded-lg bg-amber-50 p-2.5 border border-amber-200">
+                    ⚠️ Nhắc nhở: Cột <strong>«{draftAttributeNames.join('», «')}»</strong> chưa có các ô tag lựa chọn.
+                    Bạn vẫn có thể gõ tay giá trị lựa chọn của cột này cho từng phiên bản ở danh sách bên dưới.
+                  </p>
+                ) : null}
+
+                {/* Danh sách biến thể xếp chồng nhưng tinh gọn */}
+                <div className="space-y-4">
+                  {variants.map((row, i) => (
+                    <div
+                      key={row._id || `row-${i}`}
+                      className={`relative rounded-xl border p-4 shadow-sm transition ${
+                        variantErrorRow === i
+                          ? 'border-red-300 bg-red-50/30 ring-2 ring-red-200'
+                          : 'border-gray-200 bg-gray-50/40 hover:bg-gray-50/70'
+                      }`}
+                    >
+                      {/* Tiêu đề dòng biến thể & Nút xóa dòng */}
+                      <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-700">
+                            {i + 1}
+                          </span>
+                          <span className="text-xs font-bold text-gray-800">
+                            Phiên bản: {displayVariantLabel(row.attributeValues, attributesForVariants)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVariantRow(i)}
+                          className="rounded px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 transition"
+                        >
+                          Xóa dòng này
+                        </button>
+                      </div>
+
+                      {/* Các thuộc tính động (Màu sắc, Size...) */}
+                      <div className="mb-4 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                        {attributesForVariants.map((attr) => (
+                          <div key={`${row._id || i}-${attr.key}`} className="space-y-1">
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                              {attr.name || '—'}
+                            </label>
+                            <input
+                              list={`attr-dl-${attr.id}`}
+                              placeholder="Chọn tag hoặc gõ tự do"
+                              value={row.attributeValues?.[attr.key] ?? ''}
+                              onChange={(e) => handleAttributeValueChange(i, attr.key, e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Các trường giá cả, SKU, Tồn kho */}
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+                        {/* Cột SKU */}
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            Mã SKU *
+                          </label>
+                          <div className="flex gap-1">
+                            <input
+                              placeholder="SKU"
+                              value={row.sku}
+                              onChange={(e) =>
+                                updateRow(i, { sku: e.target.value, skuManuallyEdited: true })
+                              }
+                              className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm focus:border-brand"
+                            />
+                            <button
+                              type="button"
+                              title="Tự động sinh mã SKU cho dòng này"
+                              onClick={() =>
+                                updateRow(i, {
+                                  sku: buildSkuForRow(row),
+                                  skuManuallyEdited: false,
+                                })
+                              }
+                              className="shrink-0 rounded-lg border border-gray-300 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm"
+                            >
+                              ↻
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Cột Giá gốc */}
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            Giá gốc (gạch ngang)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              placeholder="Để trống nếu không giảm"
+                              value={row.originalPrice}
+                              onChange={(e) => updateRow(i, { originalPrice: e.target.value })}
+                              className="w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-2 pr-6 py-1.5 text-xs text-gray-900 shadow-sm focus:border-brand"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">đ</span>
+                          </div>
+                        </div>
+
+                        {/* Cột Giá bán */}
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            Giá bán thực tế *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              placeholder="VD: 120000"
+                              value={row.price}
+                              onChange={(e) => updateRow(i, { price: e.target.value })}
+                              className="w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-2 pr-6 py-1.5 text-xs text-gray-955 shadow-sm focus:border-brand"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">đ</span>
+                          </div>
+                        </div>
+
+                        {/* Cột Tồn kho */}
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                            Số lượng tồn kho
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="Để trống = Bán vô hạn"
+                            value={row.stock}
+                            onChange={(e) => updateRow(i, { stock: e.target.value })}
+                            className="w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 shadow-sm focus:border-brand"
+                            title="Để trống = bán không giới hạn số lượng trong kho"
+                          />
+                        </div>
+
+                        {/* Cột trạng thái còn hàng */}
+                        <div className="space-y-1">
+                          <label className="flex h-[34px] w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 shadow-sm cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={row.isAvailable}
+                              onChange={(e) => updateRow(i, { isAvailable: e.target.checked })}
+                            />
+                            <span>Còn hàng</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Khối quản lý ảnh biến thể */}
+                      <div className="mt-3">
+                        {usePrimaryImageGrouping ? (
+                          <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/20 px-3 py-2 text-xs text-blue-800">
+                            📷 Ảnh của phiên bản này kế thừa từ nhóm{' '}
+                            <strong>{primaryAttribute?.name || 'Phân loại 1'}</strong>:{' '}
+                            <span className="font-bold">
+                              {getPrimaryValueFromRow(row, attributesForVariants) || '(chưa chọn)'}
+                            </span>
+                          </div>
+                        ) : (
+                          <ImagePickerField
+                            label="Tải ảnh riêng cho phiên bản này"
+                            items={row.variantImages}
+                            onChange={(next) => updateRow(i, { variantImages: next })}
+                            enableUrlUpload
+                            onUploadFromUrl={handleUploadImageFromGoogleDrive}
+                            enableDrivePicker
+                            onImportFromDriveFiles={handleImportImagesFromDrivePicker}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
         </div>
 
         {/* Khoảng đệm + thanh lưu dính đáy viewport: tránh nút đỏ che dòng biến thể cuối khi cuộn */}
@@ -2118,3 +2221,4 @@ export function AdminProductForm() {
     </div>
   )
 }
+

@@ -31,7 +31,7 @@ export function MobileBottomNav() {
 
   const phoneHref = `tel:${String(SHOP_INFO.hotline || '').replace(/\s/g, '')}`
   const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(
-    `[Thai Vũ] Xin chào ${SHOP_INFO.contactPerson}`,
+    `[TháiVũ] Xin chào ${SHOP_INFO.contactPerson}`,
   )}`
   const fbHref = SHOP_INFO.facebookUrl
 
@@ -105,7 +105,7 @@ export function MobileBottomNav() {
           <div className="relative z-10 w-full max-w-md rounded-t-2xl border border-gray-200 bg-white p-5 shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-base font-extrabold text-ink">Liên hệ Thai Vũ</p>
+                <p className="text-base font-extrabold text-ink">Liên hệ TháiVũ</p>
                 <p className="mt-0.5 text-xs text-gray-500">
                   Chúng tôi phản hồi nhanh nhất qua Zalo / Messenger.
                 </p>

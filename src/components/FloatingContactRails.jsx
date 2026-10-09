@@ -9,7 +9,7 @@ export function FloatingContactRails() {
   const { pathname } = useLocation()
   if (pathname.startsWith('/admin')) return null
 
-  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[Thai Vũ] Xin chào ${SHOP_INFO.contactPerson}`)}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent(`[TháiVũ] Xin chào ${SHOP_INFO.contactPerson}`)}`
   const fb = SHOP_INFO.facebookUrl
 
   return (

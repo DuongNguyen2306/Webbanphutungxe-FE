@@ -62,7 +62,7 @@ export function AdminLayout() {
     <div className="min-h-svh bg-gray-50 text-gray-900">
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 bg-slate-900 text-white lg:flex lg:flex-col">
         <div className="border-b border-white/10 px-5 py-5">
-          <p className="text-2xl font-black tracking-tight">Thai Vũ</p>
+          <p className="text-2xl font-black tracking-tight">TháiVũ</p>
           <p className="text-sm font-bold text-brand">Admin</p>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
@@ -100,7 +100,7 @@ export function AdminLayout() {
 
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
         <div>
-          <p className="text-lg font-extrabold text-gray-900">Thai Vũ</p>
+          <p className="text-lg font-extrabold text-gray-900">TháiVũ</p>
           <p className="text-xs font-bold uppercase tracking-wide text-brand">Admin</p>
         </div>
         <button
@@ -129,7 +129,7 @@ export function AdminLayout() {
         >
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
             <div>
-              <p className="text-xl font-black tracking-tight">Thai Vũ</p>
+              <p className="text-xl font-black tracking-tight">TháiVũ</p>
               <p className="text-xs font-bold uppercase tracking-wide text-brand">Admin</p>
             </div>
             <button

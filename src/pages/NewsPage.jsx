@@ -59,7 +59,7 @@ export function NewsPage() {
             Tin tức
           </h1>
           <p className="mt-2 text-sm text-white/85 md:text-base">
-            Tổng hợp các thông báo, chương trình và bài viết mới nhất từ Thai Vũ.
+            Tổng hợp các thông báo, chương trình và bài viết mới nhất từ TháiVũ.
           </p>
         </section>
 
@@ -100,7 +100,7 @@ export function NewsPage() {
                 {selected?.title || 'Chưa có bài viết'}
               </h2>
               <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {selected?.author ? `Tác giả: ${selected.author}` : 'Tác giả: Thai Vũ'}{' '}
+                {selected?.author ? `Tác giả: ${selected.author}` : 'Tác giả: TháiVũ'}{' '}
                 {selected?.createdAt ? `· ${formatDate(selected.createdAt)}` : ''}
               </p>
               <div

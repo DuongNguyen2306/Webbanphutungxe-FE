@@ -10,18 +10,22 @@ import {
   ShoppingBag,
   LogOut,
   ShoppingCart,
+  ChevronDown,
+  FileText,
 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { normalizeSearch } from '../utils/string'
 import { normalizeCategoriesPayload } from '../utils/normalizeApiCategories'
+import { POLICY_PAGES } from '../constants/policies'
 
 export function Header({ searchQuery, onSearchQueryChange }) {
   const { totalQuantity } = useCart()
   const { user, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false)
+  const [policyMenuOpen, setPolicyMenuOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileCategorySel, setMobileCategorySel] = useState('')
@@ -32,6 +36,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
   const [categories, setCategories] = useState([])
   const [cartBump, setCartBump] = useState(false)
   const desktopMenuRef = useRef(null)
+  const policyMenuRef = useRef(null)
   const profileRef = useRef(null)
   const searchTimerRef = useRef(null)
   const prevCartCountRef = useRef(totalQuantity)
@@ -44,6 +49,16 @@ export function Header({ searchQuery, onSearchQueryChange }) {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    function handlePolicyOutside(e) {
+      if (desktopMenuRef.current && !desktopMenuRef.current.contains(e.target)) {
+        setPolicyMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePolicyOutside)
+    return () => document.removeEventListener('mousedown', handlePolicyOutside)
   }, [])
 
   useEffect(() => {
@@ -252,7 +267,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
           >
             <img
               src="/logo.jpg"
-              alt="Thai Vũ"
+              alt="TháiVũ"
               className="h-9 w-auto max-w-[58px] rounded-full object-contain shadow-[0_2px_8px_rgba(0,0,0,0.35)] ring-1 ring-white/60"
             />
           </Link>
@@ -373,6 +388,9 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               <Link to="/tin-tuc" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Tin tức
               </Link>
+              <Link to="/chinh-sach/thong-tin-chu-quan" onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
+                Chính sách
+              </Link>
               <Link to={user ? '/profile#orders' : '/login'} onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-white/10">
                 Tra cứu đơn hàng
               </Link>
@@ -405,7 +423,7 @@ export function Header({ searchQuery, onSearchQueryChange }) {
           >
             <img
               src="/logo.jpg"
-              alt="Thai Vũ"
+              alt="TháiVũ"
               className="h-11 w-auto max-w-[100px] shrink-0 rounded-full object-contain shadow-[0_2px_10px_rgba(0,0,0,0.35)] ring-1 ring-white/60 transition group-hover:brightness-110 group-hover:ring-white/80 sm:h-12 sm:max-w-[118px]"
             />
             <span className="hidden max-w-[240px] text-left leading-tight text-white lg:block">
@@ -494,6 +512,13 @@ export function Header({ searchQuery, onSearchQueryChange }) {
               className="hidden rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
             >
               Tin tức
+            </Link>
+            <Link
+              to="/chinh-sach"
+              className="hidden items-center gap-1 rounded-full border border-white/30 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/10 xl:inline-flex"
+            >
+              <FileText className="size-3.5" />
+              Chính sách
             </Link>
             {!isAdmin ? (
               <Link

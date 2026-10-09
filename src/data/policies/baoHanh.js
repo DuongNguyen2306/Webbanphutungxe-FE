@@ -2,7 +2,7 @@ import { policyContactBlock } from './shared'
 
 export const baoHanhContent = `
 <h2>1. Nguyên tắc chung</h2>
-<p>Chính sách bảo hành áp dụng cho sản phẩm chính hãng / chất lượng do <strong>Phụ Kiện Thai Vũ</strong> phân phối. Thời hạn và điều kiện có thể khác nhau theo <strong>nhóm sản phẩm</strong>; chi tiết trên từng mặt hàng (nếu có) được ưu tiên khi mâu thuẫn với bản tổng quát này.</p>
+<p>Chính sách bảo hành áp dụng cho sản phẩm chính hãng / chất lượng do <strong>Phụ Kiện TháiVũ</strong> phân phối. Thời hạn và điều kiện có thể khác nhau theo <strong>nhóm sản phẩm</strong>; chi tiết trên từng mặt hàng (nếu có) được ưu tiên khi mâu thuẫn với bản tổng quát này.</p>
 
 <h2>2. Thời hạn bảo hành theo nhóm sản phẩm</h2>
 <ul>
@@ -14,7 +14,7 @@ export const baoHanhContent = `
 
 <h2>3. Điều kiện được bảo hành</h2>
 <ul>
-  <li>Sản phẩm <strong>lỗi do nhà sản xuất</strong> hoặc <strong>lỗi kỹ thuật trong quá trình lắp ráp tại tiệm Thai Vũ</strong> (nếu khách lắp tại shop).</li>
+  <li>Sản phẩm <strong>lỗi do nhà sản xuất</strong> hoặc <strong>lỗi kỹ thuật trong quá trình lắp ráp tại tiệm TháiVũ</strong> (nếu khách lắp tại shop).</li>
   <li>Còn trong <strong>thời hạn bảo hành</strong> và có <strong>hóa đơn / thông tin SĐT mua hàng trùng khớp</strong> trên hệ thống shop.</li>
   <li>Sản phẩm <strong>chưa bị can thiệp</strong> tự ý (hàn, mài, sơn lại, đục khoét sai kỹ thuật).</li>
 </ul>
@@ -23,7 +23,7 @@ export const baoHanhContent = `
 <ul>
   <li>Nứt vỡ, móp méo do <strong>tai nạn, va quẹt, ngã xe</strong>, va đập vật cứng.</li>
   <li>Tự ý <strong>đục khoét, chế cháo, lắp sai kỹ thuật</strong> hoặc dùng không đúng điện áp / không tương thích xe.</li>
-  <li><strong>Quá thời hạn</strong> bảo hành; không chứng minh được nguồn gốc mua tại Thai Vũ.</li>
+  <li><strong>Quá thời hạn</strong> bảo hành; không chứng minh được nguồn gốc mua tại TháiVũ.</li>
   <li>Hao mòn tự nhiên theo thời gian sử dụng (phai màu do môi trường, mòn ốc…).</li>
 </ul>
 

@@ -56,12 +56,21 @@ export default function App() {
             <Route path="/gioi-thieu" element={<IntroPage />} />
             <Route path="/huong-dan" element={<GuidesPage />} />
             <Route path="/tin-tuc" element={<NewsPage />} />
-            <Route path="/chinh-sach/:slug" element={<PolicyPage />} />
+            {/* Redirect legacy paths trước route động */}
             <Route path="/chinh-sach-doi-tra" element={<Navigate to="/chinh-sach/doi-tra" replace />} />
             <Route path="/chinh-sach-bao-mat" element={<Navigate to="/chinh-sach/bao-mat" replace />} />
             <Route path="/chinh-sach-bao-hanh" element={<Navigate to="/chinh-sach/bao-hanh" replace />} />
             <Route path="/chinh-sach-van-chuyen" element={<Navigate to="/chinh-sach/van-chuyen" replace />} />
             <Route path="/dieu-khoan-dich-vu" element={<Navigate to="/chinh-sach/dieu-khoan" replace />} />
+            <Route path="/chinh-sach-gia" element={<Navigate to="/chinh-sach/chinh-sach-gia" replace />} />
+            <Route path="/chinh-sach-thanh-toan" element={<Navigate to="/chinh-sach/chinh-sach-thanh-toan" replace />} />
+            <Route path="/dieu-kien-cung-cap" element={<Navigate to="/chinh-sach/dieu-kien-cung-cap" replace />} />
+            <Route path="/phuong-thuc-giai-quyet-khieu-nai" element={<Navigate to="/chinh-sach/khieu-nai" replace />} />
+            <Route path="/thong-tin-chu-quan" element={<Navigate to="/chinh-sach/thong-tin-chu-quan" replace />} />
+            {/* Trang tổng quan chính sách - Route cố định */}
+            <Route path="/chinh-sach" element={<PolicyPage />} />
+            {/* Route động phải ở SAU các redirect */}
+            <Route path="/chinh-sach/:slug" element={<PolicyPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/order/success" element={<OrderSuccessPage />} />

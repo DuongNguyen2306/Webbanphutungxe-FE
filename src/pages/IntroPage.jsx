@@ -41,10 +41,10 @@ export function IntroPage() {
           <div className="relative">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
               <Sparkles className="size-3.5 text-[#D4AF37]" />
-              Thai Vũ Official
+              TháiVũ Official
             </p>
             <h1 className="mt-3 text-2xl font-black leading-tight md:text-4xl">
-              Giới thiệu về Thai Vũ
+              Giới thiệu về Thái Vũ
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-white/85 md:text-base">
               Nơi hội tụ phụ tùng và phụ kiện xe máy chất lượng cao, tư vấn tận tâm và chính sách minh bạch.

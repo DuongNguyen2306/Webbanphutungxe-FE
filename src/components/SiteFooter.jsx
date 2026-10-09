@@ -7,9 +7,22 @@ import {
   Phone,
   Send,
   Truck,
+  Scale,
+  Shield,
+  RotateCcw,
+  TruckIcon,
+  FileText,
+  CreditCard,
+  Package,
+  MessageSquare,
+  Building2,
+  User,
+  Globe,
 } from 'lucide-react'
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 import { PURCHASE_GUIDE_HREF } from '../constants/guides'
+import { POLICY_PAGES } from '../constants/policies'
+
 const supportLinks = [
   { href: PURCHASE_GUIDE_HREF, label: 'Hướng dẫn đặt hàng', isRouter: true },
   { href: '/chinh-sach/doi-tra', label: 'Chính sách đổi trả', isRouter: true },
@@ -46,6 +59,7 @@ function ZaloGlyph({ className }) {
 export function SiteFooter() {
   const [email, setEmail] = useState('')
   const telHref = `tel:${SHOP_INFO.hotline.replace(/\s/g, '')}`
+  const emailHref = `mailto:${SHOP_INFO.email}`
   /** Cùng nội dung với bản đồ / liên kết Google Maps */
   const addressDisplay = SHOP_INFO.address
   const direct = SHOP_INFO.mapsDirectUrl?.trim()
@@ -57,15 +71,17 @@ export function SiteFooter() {
     ? direct
     : hasPin
       ? `https://www.google.com/maps?q=${lat},${lng}&hl=vi&z=18`
-      : `https://www.google.com/maps?q=${encodedAddress}&hl=vi&z=17`
+    : `https://www.google.com/maps?q=${encodedAddress}&hl=vi&z=17`
   const mapEmbedSrc = hasPin
     ? `https://www.google.com/maps?q=${lat},${lng}&output=embed&z=18&hl=vi`
     : `https://www.google.com/maps?q=${encodedAddress}&output=embed&z=17&hl=vi`
-  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[Thai Vũ] Tư vấn giúp mình với nhé.')}`
+  const zaloHref = `${SHOP_ZALO_URL}${SHOP_ZALO_URL.includes('?') ? '&' : '?'}text=${encodeURIComponent('[TháiVũ] Tư vấn giúp mình với nhé.')}`
 
   return (
     <footer className="mt-auto border-t border-zinc-800 bg-zinc-950 text-zinc-200">
-      <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-10 lg:px-8">
+      {/* Main Footer Content */}
+      <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-5 lg:gap-10 lg:px-8">
+        {/* Column 1: Brand */}
         <div>
           <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
             THÁI VŨ
@@ -109,6 +125,7 @@ export function SiteFooter() {
           </div>
         </div>
 
+        {/* Column 2: Hỗ Trợ Khách Hàng */}
         <div>
           <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
             Hỗ Trợ Khách Hàng
@@ -140,6 +157,76 @@ export function SiteFooter() {
           </div>
         </div>
 
+        {/* Column 3: Chính sách & Pháp lý */}
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
+            Chính sách & Pháp lý
+          </h3>
+          <ul className="mt-4 space-y-2.5 text-sm">
+            <li>
+              <Link to="/chinh-sach/thong-tin-chu-quan" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <Building2 className="size-4 text-brand/70" />
+                Thông tin chủ quản
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/chinh-sach-gia" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <FileText className="size-4 text-brand/70" />
+                Chính sách giá
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/chinh-sach-thanh-toan" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <CreditCard className="size-4 text-brand/70" />
+                Chính sách thanh toán
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/doi-tra" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <RotateCcw className="size-4 text-brand/70" />
+                Chính sách đổi trả
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/van-chuyen" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <TruckIcon className="size-4 text-brand/70" />
+                Vận chuyển & giao nhận
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/bao-hanh" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <Shield className="size-4 text-brand/70" />
+                Bảo hành
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/bao-mat" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <Shield className="size-4 text-brand/70" />
+                Bảo mật thông tin
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/dieu-khoan" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <Scale className="size-4 text-brand/70" />
+                Điều khoản dịch vụ
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/dieu-kien-cung-cap" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <Package className="size-4 text-brand/70" />
+                Điều kiện cung cấp
+              </Link>
+            </li>
+            <li>
+              <Link to="/chinh-sach/khieu-nai" className="inline-flex items-center gap-2 text-zinc-300 transition hover:text-brand">
+                <MessageSquare className="size-4 text-brand/70" />
+                Khiếu nại & phản ánh
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Column 4: Liên Hệ */}
         <div>
           <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
             Liên Hệ
@@ -157,6 +244,13 @@ export function SiteFooter() {
               {addressDisplay}
             </p>
             <a
+              href={emailHref}
+              className="flex items-start gap-2 text-zinc-300 transition hover:text-brand"
+            >
+              <Mail className="mt-0.5 size-4 shrink-0 text-brand" />
+              {SHOP_INFO.email}
+            </a>
+            <a
               href={mapsHref}
               target="_blank"
               rel="noopener noreferrer"
@@ -167,7 +261,7 @@ export function SiteFooter() {
           </div>
           <div className="group relative mt-4 h-32 w-full overflow-hidden rounded-xl border border-zinc-800">
             <iframe
-              title="Vị trí cửa hàng Thai Vũ trên Google Maps"
+              title="Vị trí cửa hàng TháiVũ trên Google Maps"
               src={mapEmbedSrc}
               className="pointer-events-none h-full w-full min-h-32 border-0 transition duration-300 group-hover:brightness-110"
               loading="lazy"
@@ -184,12 +278,13 @@ export function SiteFooter() {
           </div>
         </div>
 
+        {/* Column 5: Đăng Ký Nhận Tin */}
         <div>
           <h3 className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#D4AF37]">
             Đăng Ký Nhận Tin
           </h3>
           <p className="mt-4 text-sm text-zinc-300">
-            Nhận khuyến mãi mới và ưu đãi độc quyền từ Thai Vũ.
+            Nhận khuyến mãi mới và ưu đãi độc quyền từ TháiVũ.
           </p>
           <form
             className="mt-4 flex items-center gap-2"
@@ -218,8 +313,57 @@ export function SiteFooter() {
         </div>
       </div>
 
+      {/* Business Info Bar - Legal Requirement */}
+      <div className="border-t border-zinc-800 bg-zinc-900">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Company Info */}
+            <div className="flex items-start gap-3">
+              <Building2 className="mt-0.5 size-5 shrink-0 text-[#D4AF37]" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400">Đơn vị chủ quản</p>
+                <p className="mt-1 text-sm font-semibold text-white">{SHOP_INFO.legalName}</p>
+              </div>
+            </div>
+
+            {/* MST */}
+            <div className="flex items-start gap-3">
+              <FileText className="mt-0.5 size-5 shrink-0 text-[#D4AF37]" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400">Mã số thuế</p>
+                <p className="mt-1 text-sm font-semibold text-white">{SHOP_INFO.taxCode}</p>
+              </div>
+            </div>
+
+            {/* Representative */}
+            <div className="flex items-start gap-3">
+              <User className="mt-0.5 size-5 shrink-0 text-[#D4AF37]" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400">Người đại diện</p>
+                <p className="mt-1 text-sm font-semibold text-white">{SHOP_INFO.representative}</p>
+              </div>
+            </div>
+
+            {/* Address & Contact */}
+            <div className="flex items-start gap-3">
+              <Globe className="mt-0.5 size-5 shrink-0 text-[#D4AF37]" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-zinc-400">Địa chỉ & Liên hệ</p>
+                <p className="mt-1 text-sm text-white">
+                  {SHOP_INFO.address}
+                </p>
+                <p className="mt-1 text-sm text-brand">
+                  Hotline: {SHOP_INFO.hotlineDisplay} | Email: {SHOP_INFO.email}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Copyright */}
       <div className="border-t border-zinc-800 py-4 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} THÁI VŨ. All rights reserved.
+        © {new Date().getFullYear()} {SHOP_INFO.legalName}. All rights reserved.
       </div>
     </footer>
   )

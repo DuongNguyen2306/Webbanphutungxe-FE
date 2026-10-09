@@ -36,5 +36,5 @@ if (!process.env.JWT_SECRET) {
 
 await connectDb(uri)
 app.listen(PORT, () => {
-  console.log(`Thai Vũ API http://localhost:${PORT}`)
+  console.log(`TháiVũ API http://localhost:${PORT}`)
 })
