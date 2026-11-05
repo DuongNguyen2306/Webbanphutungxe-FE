@@ -1,0 +1,10 @@
+# Query: Giới thiệu về Thai Vũ\n
+# ContextLines: 1
+
+1 result - 1 file
+
+src\pages\IntroPage.jsx:
+  46              <h1 className="mt-3 text-2xl font-black leading-tight md:text-4xl">
+  47:               Giới thiệu về T Vũ
+  48: 
+  48              </h1>

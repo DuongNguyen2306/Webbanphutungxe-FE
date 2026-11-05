@@ -22,6 +22,7 @@ import {
 import { SHOP_INFO, SHOP_ZALO_URL } from '../data/products'
 import { PURCHASE_GUIDE_HREF } from '../constants/guides'
 import { POLICY_PAGES } from '../constants/policies'
+import logoXacNhan from '../assets/Logo_XacNhan_Platform.png'
 
 const supportLinks = [
   { href: PURCHASE_GUIDE_HREF, label: 'Hướng dẫn đặt hàng', isRouter: true },
@@ -361,9 +362,51 @@ export function SiteFooter() {
         </div>
       </div>
 
-      {/* Copyright */}
-      <div className="border-t border-zinc-800 py-4 text-center text-xs text-zinc-500">
-        © {new Date().getFullYear()} {SHOP_INFO.legalName}. All rights reserved.
+      {/* Hàng cuối: Logo Bộ Công Thương · Xác nhận · Copyright · Ghi chú */}
+      <div className="border-t border-zinc-800 bg-zinc-950">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8">
+          <div className="grid items-center gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 1. Logo Bộ Công Thương */}
+            <div className="flex items-center sm:justify-center lg:justify-start">
+              <a
+                href="https://online.gov.vn/nen-tang/957dc4a6-0679-4260-b3e0-acdeafb36888"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Đã xác nhận với Bộ Công Thương"
+                className="inline-flex items-center"
+              >
+                <img
+                  src={logoXacNhan}
+                  alt="Đã thông báo – Thương mại điện tử"
+                  className="h-auto w-auto max-h-[54px] object-contain"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+            </div>
+
+            {/* 2. Nội dung xác nhận */}
+            <div className="flex items-center lg:border-l lg:border-zinc-800 lg:pl-6">
+              <p className="text-xs leading-relaxed text-zinc-300">
+                Website đã được Bộ Công Thương xác nhận đủ điều kiện hoạt động thương mại điện tử.
+              </p>
+            </div>
+
+            {/* 3. Copyright */}
+            <div className="flex items-center lg:border-l lg:border-zinc-800 lg:pl-6">
+              <p className="text-xs leading-relaxed text-zinc-500">
+                © 2026 {SHOP_INFO.legalName}. All rights reserved.
+              </p>
+            </div>
+
+            {/* 4. Ghi chú */}
+            <div className="flex items-center lg:border-l lg:border-zinc-800 lg:pl-6">
+              <p className="text-xs leading-relaxed text-zinc-400">
+                Nền tảng thương mại điện tử đã được Bộ Công Thương xác nhận. Vui lòng nhấn vào biểu tượng để kiểm tra thông tin.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </footer>
   )

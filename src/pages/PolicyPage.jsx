@@ -5,6 +5,7 @@ import { Header } from '../components/Header'
 import { SiteFooter } from '../components/SiteFooter'
 import { getPolicyMetaBySlug, POLICY_PAGES } from '../constants/policies'
 import { getPolicyHtmlContent } from '../data/policies'
+import logoXacNhan from '../assets/Logo_XacNhan_Platform.png'
 
 // Nhóm các chính sách theo danh mục
 const POLICY_CATEGORIES = [
@@ -59,6 +60,21 @@ export function PolicyPage() {
           <p className="mt-2 text-sm text-white/85 md:text-base">
             Tổng hợp các chính sách bán hàng, bảo hành, bảo mật và nghĩa vụ theo quy định TMĐT.
           </p>
+          <a
+            href="https://online.gov.vn/nen-tang/957dc4a6-0679-4260-b3e0-acdeafb36888"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Đã xác nhận với Bộ Công Thương"
+            className="mt-4 inline-flex items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-3 py-2 transition hover:border-[#D4AF37]/70 hover:bg-white/15"
+          >
+            <img
+              src={logoXacNhan}
+              alt="Đã xác nhận với Bộ Công Thương"
+              className="h-auto w-auto max-h-[46px] object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+          </a>
         </section>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
