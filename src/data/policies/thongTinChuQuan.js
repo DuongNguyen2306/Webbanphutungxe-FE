@@ -8,7 +8,7 @@ export const thongTinChuQuanContent = `
 <ul>
   <li><strong>Tên đơn vị:</strong> HỘ KINH DOANH PHỤ KIỆN XE GẮN MÁY HỒNG THÁI</li>
   <li><strong>Mã số thuế (MST):</strong> 080091010158</li>
-  <li><strong>Người đại diện:</strong> Nguyễn Xuân Nghĩa</li>
+  <li><strong>Người đại diện:</strong> Phạm Hồng Thái</li>
   <li><strong>Địa chỉ trụ sở:</strong> 15F Đường 4F, Phường Tân Thuận, TP Hồ Chí Minh</li>
   <li><strong>Website:</strong> phukienthaivu.com</li>
   <li><strong>Hotline:</strong> 093 204 2912</li>

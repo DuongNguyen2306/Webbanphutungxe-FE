@@ -6,7 +6,7 @@ export const SHOP_INFO = {
   legalName: 'HỘ KINH DOANH PHỤ KIỆN XE GẮN MÁY HỒNG THÁI',
   address: '15F Đường 4F, Phường Tân Thuận, TP Hồ Chí Minh',
   taxCode: '080091010158',
-  representative: 'Nguyễn Xuân Nghĩa',
+  representative: 'Phạm Hồng Thái',
   website: 'phukienthaivu.com',
   /**
    * Ghim đúng một điểm trên Google Maps (lat, lng).
